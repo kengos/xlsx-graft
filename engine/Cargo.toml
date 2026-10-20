@@ -1,0 +1,34 @@
+[workspace]
+resolver = "3"
+members = [
+    "core",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0 OR BSD-3-Clause"
+# Nothing is published until the release work decides the first version.
+publish = false
+repository = "https://github.com/kengos/xlsx-graft"
+
+[workspace.lints.clippy]
+# Anti-bloat gate (pairs with scripts/check-line-budget.sh): a function
+# past the clippy.toml threshold fails `clippy -D warnings`, not review.
+too_many_lines = "warn"
+
+[workspace.lints.rust]
+# cargo-llvm-cov builds with --cfg coverage; declare it so
+# `unexpected_cfgs` stays clean under clippy -D warnings.
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)"] }
+
+# Tuned for disk rather than debugger use: workspace crates keep line tables,
+# so panic locations and backtraces still name our files; third-party crates
+# carry none. Incremental is off: gates build once per change rather than in an
+# edit-compile loop, so its caches in engine/target only add size.
+[profile.dev]
+debug = "line-tables-only"
+incremental = false
+
+[profile.dev.package."*"]
+debug = false
