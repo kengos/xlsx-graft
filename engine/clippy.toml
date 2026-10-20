@@ -2,3 +2,8 @@
 # Counts non-comment lines; pairs with the 300-line file budget in
 # scripts/check-line-budget.sh.
 too-many-lines-threshold = 150
+# The no-panic lints (unwrap_used / expect_used / panic in engine/Cargo.toml)
+# guard library code against hostile input; a test asserting with them is fine.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
