@@ -1,1 +1,10 @@
 .DS_Store
+
+# Rust build output
+/engine/target/
+
+# Coverage report written by `make engine:coverage`
+/engine/lcov.info
+
+# Full gate logs written by `make quiet T=<target>`
+/.make-logs/

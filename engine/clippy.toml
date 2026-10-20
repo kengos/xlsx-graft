@@ -1,0 +1,4 @@
+# Function-length gate for clippy::too_many_lines (workspace lint).
+# Counts non-comment lines; pairs with the 300-line file budget in
+# scripts/check-line-budget.sh.
+too-many-lines-threshold = 150
