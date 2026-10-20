@@ -11,6 +11,12 @@
   export PATH="$(brew --prefix make)/libexec/gnubin:$PATH"
   ```
 
+## Writing code
+
+Read [docs/guidelines.md](docs/guidelines.md) first: file length and how to
+split a module, where tests go, the coverage bar, and the rules for untrusted
+input. Most of it is enforced by the check below.
+
 ## Checking a change
 
 ```sh
