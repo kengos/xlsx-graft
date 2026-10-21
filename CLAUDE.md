@@ -33,9 +33,10 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
 - GNU Make 4 or newer. The Makefile refuses 3.81 (macOS's) and names the fix.
 - Every gate is `--locked`: after a `Cargo.toml` edit run `make engine:lock`
   and commit `engine/Cargo.lock`.
-- `make engine:verify` is the engine's bar: line budget + `//!` headers, fmt,
-  clippy `-D warnings` (with the workspace lints in `engine/Cargo.toml`), tests
-  at **100% line coverage over the whole workspace**, and doctests.
+- `make engine:verify` is the engine's bar: line budget + `//!` headers + every
+  crate's `[lints] workspace = true`, fmt, clippy `-D warnings` (with the
+  workspace lints in `engine/Cargo.toml`), tests at **100% line coverage over
+  the whole workspace**, and doctests.
 - **Rust here grows long files, so length is gated**: ≤300 lines per non-test
   file (aim for ≤160 in a new one; not gated), 150 per function. Before
   editing, `wc -l` the files you will touch and plan the split (`foo.rs` +

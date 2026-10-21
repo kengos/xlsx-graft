@@ -43,17 +43,19 @@ _engine-doctest:
 	@echo "== doctest =="
 	$(CARGO_IN_DOCKER) 'cargo test --workspace --doc --locked $(CARGO_JOBS)'
 
-engine\:lint: ## engine/ line budget + //! headers + fmt --check + clippy -D warnings
+engine\:lint: ## engine/ line budget + //! headers + crate lint opt-in + fmt --check + clippy -D warnings
 	@$(call gate,_engine-lint,engine:lint)
 
 _engine-lint: _engine-budget _engine-fmt _engine-clippy
 
-engine\:budget: ## .rs line budget + //! header check (scripts/check-line-budget.sh)
+engine\:budget: ## .rs line budget + //! headers + every crate opts into the workspace lints (no Docker)
 	@$(call gate,_engine-budget,engine:budget)
 
 _engine-budget:
 	@echo "== line budget =="
 	@scripts/check-line-budget.sh
+	@echo "== crate lints =="
+	@scripts/check-crate-lints.sh
 
 engine\:fmt: ## cargo fmt --check
 	@$(call gate,_engine-fmt,engine:fmt)
