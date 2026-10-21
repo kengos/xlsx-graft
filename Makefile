@@ -25,6 +25,16 @@
 #                               you do (then: git add engine/Cargo.lock)
 #     make engine:update        same, but BUMP within the manifest's ranges
 #
+#   Housekeeping (removes things, proves nothing)
+#     make clean:all            this tree's engine/target, lcov.info and
+#                               .make-logs/ (incl. a stale gate lock)
+#     make docker:clean:all     stopped gate containers, cache volumes of every
+#                               Rust version, the pinned toolchain image. Run it
+#                               after a RUST_VERSION bump (the old image is
+#                               listed with its `docker rmi`, not removed) or to
+#                               reclaim disk; the next gate re-pulls what it
+#                               needs
+#
 #   Where did it break?
 #     cat .make-logs/last-error.log    always the last failed gate (not under
 #                                      V=1, not the fix-applying targets)
@@ -70,7 +80,9 @@ ifneq (,$(findstring i,$(SHORT_FLAGS))$(findstring t,$(SHORT_FLAGS)))
 $(error `make -i` / `make -t` turn a failed gate into exit 0. Run the gate without them)
 endif
 
-# Pinned toolchain image; bump the version deliberately.
+# Pinned toolchain image; bump the version deliberately, then run
+# `make docker:clean:all`: it drops every version's volumes, and lists the old
+# image with the `docker rmi` that removes it.
 RUST_VERSION := 1.99.0
 RUST_IMAGE   := rust:$(RUST_VERSION)-slim-bookworm
 # Pinned like the toolchain: an unpinned install would leave each machine on
@@ -119,12 +131,14 @@ gate = $(if $(V)$(_IN_QUIET),$(GATE_LOCK) )$(MAKE) --no-print-directory $(if $(V
 # The names carry RUST_VERSION because a named volume is filled from the image
 # only while it is EMPTY: after a bump, an unversioned rustup volume would keep
 # the old toolchain as the default and gates would pass on the old compiler.
-# `make clean:cache` drops only the current version's pair; older ones are
-# listed by `docker volume ls --filter name=xlsx-graft-`.
+# `make docker:clean:volumes` drops the pairs of every version.
 #
 # Mount the REPO ROOT at /repo and let -w select engine/: paths baked in at
 # compile time (CARGO_MANIFEST_DIR) then stay identical across runs, and a
 # changed mount does not poison the cached test binaries in engine/target.
+#
+# The label names the working tree, so `make docker:clean:*` can find a
+# container this tree left behind — and tell a live gate from an orphan.
 #
 # --init puts tini at PID 1. Without it PID 1 is `sh`, which ignores the
 # SIGINT/SIGTERM docker forwards, so a Ctrl-C'd gate released its lock while
@@ -133,6 +147,7 @@ CARGO_VOLUME  ?= xlsx-graft-cargo-$(RUST_VERSION)
 RUSTUP_VOLUME ?= xlsx-graft-rustup-$(RUST_VERSION)
 
 CARGO_IN_DOCKER = $(GATE_LOCK) docker run --rm --init \
+	--label "xlsx-graft.tree=$(CURDIR)" \
 	-v "$(CURDIR):/repo" -w /repo/engine \
 	-v "$(CARGO_VOLUME):/usr/local/cargo" \
 	-v "$(RUSTUP_VOLUME):/usr/local/rustup" \
@@ -150,8 +165,9 @@ CARGO_IN_DOCKER = $(GATE_LOCK) docker run --rm --init \
 # `<scope>:<job>` wrappers and the private `_<scope>-<job>` recipes. What stays
 # in THIS file is the shared machinery above and `help`/`quiet`/`clean`.
 include mk/engine.mk
+include mk/docker.mk
 
-.PHONY: help quiet clean clean\:cache
+.PHONY: help quiet clean clean\:all clean\:target
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_\\:-]+:.*## ' $(MAKEFILE_LIST) \
@@ -194,9 +210,14 @@ quiet: ## Run ANY target this way: make quiet T=engine:test (same PASS/FAIL line
 	fi
 
 ## ---- housekeeping ------------------------------------------------------
+#
+# Files inside THIS working tree only; the Docker resources are docker:clean:*.
 
-clean: ## Remove local artifacts (engine/lcov.info)
+clean: ## Remove engine/lcov.info
 	rm -f engine/lcov.info
 
-clean\:cache: ## Drop the persistent cargo/rustup Docker volumes
-	-docker volume rm $(CARGO_VOLUME) $(RUSTUP_VOLUME)
+clean\:target: ## Remove this tree's engine/target (refuses while a gate runs)
+	@scripts/clean-tree.sh target
+
+clean\:all: ## Remove this tree's engine/target, engine/lcov.info and .make-logs/ (incl. a stale gate lock)
+	@scripts/clean-tree.sh all

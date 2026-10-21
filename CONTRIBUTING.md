@@ -35,4 +35,4 @@ raw output.
 The first run downloads the toolchain image and installs `cargo-llvm-cov`
 into Docker volumes named after the Rust version
 (`xlsx-graft-cargo-<version>`, `xlsx-graft-rustup-<version>`); later runs
-reuse them. `make clean:cache` drops the current version's volumes.
+reuse them.
