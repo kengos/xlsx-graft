@@ -11,6 +11,13 @@
 # have their own engine/target, so they may run gates in parallel.
 #
 #   scripts/gate-lock.sh <command> [args...]
+#   scripts/gate-lock.sh --state [<tree>]        prints `none`, `live <pid>`
+#                                                or `stale <pid>`
+#   scripts/gate-lock.sh --clear-stale [<tree>]  removes the lock only if it
+#                                                is stale
+#
+# These are the one place that decides whether a lock still has a gate behind
+# it; the housekeeping scripts ask them rather than re-deriving the path.
 #
 # Re-entrant: a nested gate (`make quiet T=engine:verify` invoking make again)
 # inherits the hold through XLSX_GRAFT_GATE_HELD and does not deadlock.
@@ -20,15 +27,47 @@
 # tree, which needs no configuration and still locks correctly.
 set -eu
 
+# A stable, filesystem-safe id for a working tree, and that tree's lock.
+lock_of() {
+  tree_id=$(printf '%s' "$1" | tr '/ ' '__' | sed 's/^_*//')
+  echo "${XLSX_GRAFT_GATE_DIR:-$1/.make-logs/gates}/$tree_id.running"
+}
+
+state_of() {
+  if [ ! -d "$1" ]; then
+    echo none
+    return
+  fi
+  pid=$(sed -n 's/^pid *: *//p' "$1/owner" 2>/dev/null || true)
+  # No owner yet means a gate is between its mkdir and writing the owner file.
+  if [ -z "$pid" ] || kill -0 "$pid" 2>/dev/null; then
+    echo "live ${pid:-?}"
+  else
+    echo "stale $pid"
+  fi
+}
+
+case ${1:-} in
+--state | --clear-stale)
+  lock=$(lock_of "${2:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}")
+  state=$(state_of "$lock")
+  if [ "$1" = "--clear-stale" ]; then
+    case $state in
+    stale*) rm -rf "$lock" ;;
+    esac
+  fi
+  echo "$state"
+  exit 0
+  ;;
+esac
+
 if [ "${XLSX_GRAFT_GATE_HELD:-}" = "1" ]; then
   exec "$@"
 fi
 
 tree_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-# A stable, filesystem-safe id for this working tree.
-tree_id=$(printf '%s' "$tree_root" | tr '/ ' '__' | sed 's/^_*//')
-gate_dir="${XLSX_GRAFT_GATE_DIR:-$tree_root/.make-logs/gates}"
-lock="$gate_dir/$tree_id.running"
+lock=$(lock_of "$tree_root")
+gate_dir=$(dirname "$lock")
 
 mkdir -p "$gate_dir"
 
