@@ -35,7 +35,9 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
 - Every gate is `--locked`: after a `Cargo.toml` edit run `make engine:lock`
   and commit `engine/Cargo.lock`.
 - `make verify` is the whole bar: every scope's `<scope>:verify` (today only
-  `engine:verify`).
+  `engine:verify`). CI runs exactly this target, with `V=1`
+  (`.github/workflows/ci.yml`); a check CI needs is a make target, never a
+  workflow step.
 - `make engine:verify` is the engine's bar: line budget + `//!` headers + every
   crate's `[lints] workspace = true` + the toolchain pins (the Makefile's
   versions equal `docker/toolchain.Dockerfile`'s, and the pinned image holds
