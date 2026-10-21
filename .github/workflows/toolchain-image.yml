@@ -1,0 +1,118 @@
+name: Publish toolchain image
+
+# Builds docker/toolchain.Dockerfile and pushes it to
+# ghcr.io/<owner>/xlsx-graft-toolchain. Nothing uses the image yet; the
+# Makefile will pin it by digest, which this run writes to its job summary.
+#
+# On a push to main only when the image's own inputs change, so an unrelated
+# merge does not replace the image. workflow_dispatch rebuilds it by hand, for
+# example to pick up a patched base image under the same pins.
+on:
+  push:
+    branches: [main]
+    paths:
+      - docker/toolchain.Dockerfile
+      - scripts/check-toolchain-pins.sh
+      - .github/workflows/toolchain-image.yml
+  workflow_dispatch:
+
+# Two runs pushing the same tags would leave whichever finished last; a new
+# run waits instead, and replaces any run already waiting, so the newest
+# commit is the one published last.
+concurrency:
+  group: toolchain-image
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/xlsx-graft-toolchain
+
+jobs:
+  publish:
+    # workflow_dispatch can be started from any branch; only main's files may
+    # move the published tags.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # A `cargo install` stuck under QEMU would otherwise hold the runner for
+    # the default six hours.
+    timeout-minutes: 90
+    # GITHUB_TOKEN writes this repository's own packages; no secret to set up.
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      # The token stays out of .git/config: this job can write packages.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # The versions come from the Makefile, the file the gates read. The
+      # script fails when the Dockerfile's defaults say otherwise, so a bump
+      # that edited only one of them stops here instead of publishing. A
+      # Makefile-only bump does not start this workflow; catching that in the
+      # pull request is the gates' job once they run in this image.
+      - name: Read the pins
+        id: pins
+        run: scripts/check-toolchain-pins.sh --github
+
+      # Both architectures from this one amd64 runner, arm64 under QEMU. The
+      # image only installs the toolchain, so emulation costs one
+      # `cargo install` of cargo-llvm-cov, and a single build pushes a single
+      # multi-arch manifest with no per-architecture digests to stitch.
+      - uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The pins tag says what the image holds; the sha tag says which commit
+      # built it, since a rebuild under the same pins moves the pins tag.
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=${{ steps.pins.outputs.rust }}-llvmcov${{ steps.pins.outputs.llvm_cov }}
+            type=sha
+
+      # The Dockerfile copies nothing in, so the context is its own directory
+      # rather than the whole checkout.
+      - uses: docker/build-push-action@v7
+        id: build
+        with:
+          context: docker
+          file: docker/toolchain.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            RUST_VERSION=${{ steps.pins.outputs.rust }}
+            LLVM_COV_VERSION=${{ steps.pins.outputs.llvm_cov }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          cache-from: type=gha,scope=toolchain-image
+          cache-to: type=gha,scope=toolchain-image,mode=max
+
+      # The digest of the multi-arch manifest: what the Makefile pins, since a
+      # tag can be moved and a digest cannot.
+      - name: Write the digest to the job summary
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          {
+            echo '### Toolchain image'
+            echo
+            echo '```'
+            echo "${IMAGE}@${DIGEST}"
+            echo '```'
+            echo
+            echo 'Tags:'
+            echo
+            printf '%s\n' "$TAGS" | while IFS= read -r tag; do echo "- \`$tag\`"; done
+          } >> "$GITHUB_STEP_SUMMARY"
