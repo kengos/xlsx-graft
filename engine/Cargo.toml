@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "capi",
+    "cli",
     "core",
 ]
 
@@ -17,6 +18,26 @@ repository = "https://github.com/kengos/xlsx-graft"
 # `{ workspace = true }`.
 [workspace.dependencies]
 xlsx-graft-core = { path = "core" }
+# The CLI's argument parser. derive keeps each flag's help beside its field,
+# and a `global` flag (`--format`) reaches every subcommand added later. The
+# defaults minus `color`: terminal colouring alone pulls in ten crates
+# (anstream, the Windows console shims), and the help and errors read the
+# same without it.
+clap = { version = "4", default-features = false, features = [
+    "std",
+    "derive",
+    "help",
+    "usage",
+    "error-context",
+    "suggestions",
+] }
+# The CLI's `--format json`: every command's output derives Serialize, so the
+# JSON shape is the type's shape rather than hand-built strings. serde_json
+# brings itoa and zmij (integer and float formatting) and memchr.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Each crate's error enum (docs/guidelines.md § Rust code rules).
+thiserror = "2"
 
 # Every lint below fails `make engine:verify`: the "warn" ones through clippy
 # -D warnings, unsafe_code by itself ("deny"). The rules: docs/guidelines.md.
