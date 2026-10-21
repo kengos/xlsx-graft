@@ -4,9 +4,10 @@
 #   scripts/clean-tree.sh target|all
 #
 #   target  engine/target
-#   all     engine/target, engine/lcov.info and .make-logs/ — the gate logs,
-#           the half-written <log>.<pid> of an interrupted run, and a gate lock
-#           left behind by a gate that no longer runs
+#   all     engine/target, engine/lcov.info, dist/ (engine:capi-lib's output)
+#           and .make-logs/ — the gate logs, the half-written <log>.<pid> of
+#           an interrupted run, and a gate lock left behind by a gate that no
+#           longer runs
 #
 # Runs under the gate lock, so it never deletes a build a running gate is
 # using. Both modes also refuse while this tree's container runs without a live
@@ -54,11 +55,11 @@ all)
     # Everything in .make-logs except gates/, which holds this run's own lock
     # until gate-lock.sh releases it.
     exec scripts/gate-lock.sh sh -euc '
-        rm -rf engine/target engine/lcov.info
+        rm -rf engine/target engine/lcov.info dist
         if [ -d .make-logs ]; then
             find .make-logs -mindepth 1 -maxdepth 1 ! -name gates -exec rm -rf {} +
         fi
-        echo "removed  engine/target, engine/lcov.info, .make-logs/"'
+        echo "removed  engine/target, engine/lcov.info, dist/, .make-logs/"'
     ;;
 *)
     echo "usage: $0 target|all" >&2

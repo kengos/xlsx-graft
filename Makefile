@@ -21,6 +21,10 @@
 #     make <any>:<job> V=1      the same run, verbose, for debugging a failure
 #     make quiet T=<target>     the PASS/FAIL treatment for anything else
 #
+#   Build for the SDKs (proves only what its symbol check says)
+#     make engine:capi-lib      the release C ABI library, for the Docker host's
+#                               arch, into dist/capi/local/ (gitignored)
+#
 #   Apply fixes
 #     make engine:format        rustfmt
 #     make engine:lock          re-resolve engine/Cargo.lock after a manifest
@@ -29,8 +33,8 @@
 #     make engine:update        same, but BUMP within the manifest's ranges
 #
 #   Housekeeping (removes things, proves nothing)
-#     make clean:all            this tree's engine/target, lcov.info and
-#                               .make-logs/ (incl. a stale gate lock)
+#     make clean:all            this tree's engine/target, lcov.info, dist/
+#                               and .make-logs/ (incl. a stale gate lock)
 #     make docker:clean:all     stopped gate containers, the cargo download
 #                               cache volume (and the per-Rust-version volumes
 #                               of the layout before the toolchain image), every
@@ -253,5 +257,5 @@ clean: ## Remove engine/lcov.info
 clean\:target: ## Remove this tree's engine/target (refuses while a gate runs)
 	@scripts/clean-tree.sh target
 
-clean\:all: ## Remove this tree's engine/target, engine/lcov.info and .make-logs/ (incl. a stale gate lock)
+clean\:all: ## Remove this tree's engine/target, engine/lcov.info, dist/ and .make-logs/ (incl. a stale gate lock)
 	@scripts/clean-tree.sh all

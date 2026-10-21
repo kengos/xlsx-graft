@@ -3,8 +3,8 @@
 # Every target defined here is named `engine:<job>` (public) or `_engine-<job>`
 # (private, carrying the recipe).
 
-.PHONY: _engine-budget _engine-capi-abi _engine-clippy _engine-coverage _engine-doctest _engine-fmt \
-        _engine-lint _engine-test _engine-toolchain _engine-verify engine\:budget engine\:capi-abi engine\:clippy \
+.PHONY: _engine-budget _engine-capi-abi _engine-capi-lib _engine-clippy _engine-coverage _engine-doctest _engine-fmt \
+        _engine-lint _engine-test _engine-toolchain _engine-verify engine\:budget engine\:capi-abi engine\:capi-lib engine\:clippy \
         engine\:coverage engine\:coverage-why engine\:fmt engine\:format engine\:lint \
         engine\:lock engine\:test engine\:update engine\:verify
 
@@ -123,6 +123,31 @@ _engine-capi-abi:
 	@echo "== capi abi =="
 	$(CARGO_IN_DOCKER) 'cargo build -p xlsx-graft-capi --locked $(CARGO_JOBS) \
 		&& ../scripts/check-capi-symbols.sh $(CAPI_SO) $(CAPI_HEADER)'
+
+# The SDKs load a RELEASE build of the same library, for the architecture of
+# the Docker host (arm64 Linux on an Apple Silicon Mac), from the gitignored
+# CAPI_LOCAL. The directory is emptied first so a library left by an earlier
+# run never stands in for this one, and it must end up holding exactly one
+# library: an SDK picks it up without naming its extension. The symbol check
+# then runs on the copy the SDKs will load, not on the debug build above.
+CAPI_LOCAL := dist/capi/local
+
+engine\:capi-lib: ## Build the release C ABI library for the Docker host's arch into dist/capi/local (the SDKs load it)
+	@$(call gate,_engine-capi-lib,engine:capi-lib)
+
+_engine-capi-lib:
+	@echo "== capi lib (release, Docker host arch) =="
+	$(CARGO_IN_DOCKER) 'out=/repo/$(CAPI_LOCAL); rm -rf "$$out"; mkdir -p "$$out"; \
+		cargo build -p xlsx-graft-capi --release --locked $(CARGO_JOBS); \
+		for lib in target/release/libxlsx_graft_capi.so target/release/libxlsx_graft_capi.dylib \
+		           target/release/xlsx_graft_capi.dll; do \
+			if [ -f "$$lib" ]; then cp "$$lib" "$$out/"; fi; \
+		done; \
+		count=$$(ls "$$out" | wc -l); \
+		[ "$$count" -eq 1 ] || { echo "capi-lib: expected one library in $(CAPI_LOCAL)/, found $$count" >&2; ls "$$out" >&2; exit 1; }; \
+		lib=$$(ls "$$out"); \
+		../scripts/check-capi-symbols.sh "$$out/$$lib" $(CAPI_HEADER); \
+		echo "engine library: $(CAPI_LOCAL)/$$lib"'
 
 ## ---- coverage ----------------------------------------------------------
 

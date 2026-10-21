@@ -8,3 +8,6 @@
 
 # Full gate logs written by `make quiet T=<target>`
 /.make-logs/
+
+# The C ABI library `make engine:capi-lib` builds for the SDKs
+/dist/
