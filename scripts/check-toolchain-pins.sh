@@ -6,7 +6,7 @@
 #                                              $GITHUB_OUTPUT (rust=, llvm_cov=)
 #
 # The versions are written twice: RUST_VERSION and LLVM_COV_VERSION in the
-# Makefile (what the gates run) and the ARG defaults in
+# Makefile (what the workflow builds) and the ARG defaults in
 # docker/toolchain.Dockerfile (what a plain `docker build` of it makes). The
 # publishing workflow builds with the Makefile's values, so a mismatch would
 # not make a wrong image; it would make a file that says one version while the
@@ -16,8 +16,9 @@
 # `ARG NAME=x` in the Dockerfile); a pin that moved to another spelling reads
 # as missing, which fails rather than passing on an empty string.
 #
-# The publishing workflow runs it today; it is meant to join engine:budget once
-# the gates run in the image, so a half-done bump fails in the pull request.
+# engine:budget runs it too, so a half-done bump fails in the pull request
+# rather than in the publishing workflow after the merge. Whether the pinned
+# digest holds these versions is engine:verify's toolchain step, not this.
 #
 # Pure read-only POSIX sh + standard tools; no toolchain required.
 set -eu

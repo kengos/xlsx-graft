@@ -21,11 +21,11 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   said so and its PASS line** — never a hand-built `docker run … cargo …`
   equivalent. If the command you need is missing, add a target rather than
   typing a one-off.
-- Each gate target (`engine:verify` / `lint` / `budget` / `fmt` / `clippy` /
-  `test` / `coverage` / `capi-abi`) prints ONE PASS/FAIL line, exits 0 on
-  PASS and non-zero on FAIL (the gate's own code is in the FAIL line and the
-  `# exit` header of `last-error.log`), and keeps the full log in
-  `.make-logs/`. A gate failure (without `V=1`) always lands at
+- Each gate target (`verify`, and `engine:verify` / `lint` / `budget` /
+  `fmt` / `clippy` / `test` / `coverage` / `capi-abi`) prints ONE PASS/FAIL
+  line, exits 0 on PASS and non-zero on FAIL (the gate's own code is in the
+  FAIL line and the `# exit` header of `last-error.log`), and keeps the full
+  log in `.make-logs/`. A gate failure (without `V=1`) always lands at
   `.make-logs/last-error.log`. `V=1` streams the raw output instead (no log).
   The fix-applying targets (`engine:format` / `lock` / `update`) print their
   raw output.
@@ -34,10 +34,14 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
 - GNU Make 4 or newer. The Makefile refuses 3.81 (macOS's) and names the fix.
 - Every gate is `--locked`: after a `Cargo.toml` edit run `make engine:lock`
   and commit `engine/Cargo.lock`.
+- `make verify` is the whole bar: every scope's `<scope>:verify` (today only
+  `engine:verify`).
 - `make engine:verify` is the engine's bar: line budget + `//!` headers + every
-  crate's `[lints] workspace = true`, fmt, clippy `-D warnings` (with the
-  workspace lints in `engine/Cargo.toml`), tests at **100% line coverage over
-  the whole workspace**, doctests, and the C ABI check (the built shared
+  crate's `[lints] workspace = true` + the toolchain pins (the Makefile's
+  versions equal `docker/toolchain.Dockerfile`'s, and the pinned image holds
+  the versions of its tag), fmt, clippy `-D warnings` (with the workspace
+  lints in `engine/Cargo.toml`), tests at **100% line coverage over the whole
+  workspace**, doctests, and the C ABI check (the built shared
   library's `xlsx_graft_*` exports match `engine/capi/include/xlsx_graft.h`).
 - **Rust here grows long files, so length is gated**: ≤300 lines per non-test
   file (aim for ≤160 in a new one; not gated), 150 per function. Before

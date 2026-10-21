@@ -4,7 +4,7 @@
 # (private, carrying the recipe).
 
 .PHONY: _engine-budget _engine-capi-abi _engine-clippy _engine-coverage _engine-doctest _engine-fmt \
-        _engine-lint _engine-test _engine-verify engine\:budget engine\:capi-abi engine\:clippy \
+        _engine-lint _engine-test _engine-toolchain _engine-verify engine\:budget engine\:capi-abi engine\:clippy \
         engine\:coverage engine\:coverage-why engine\:fmt engine\:format engine\:lint \
         engine\:lock engine\:test engine\:update engine\:verify
 
@@ -35,11 +35,24 @@ engine\:update: ## Bump engine/ deps within their Cargo.toml ranges (then: git a
 # their own member (kept out of coverage, where a failing doctest would leave
 # coverage-why saying "every line is covered"). capi-abi is the one check on
 # the shared library itself, which no test links; it runs before coverage
-# because it is the cheaper of the two.
-engine\:verify: ## Verify engine/ — budget + fmt + clippy + tests at 100% line coverage + doctests + C ABI symbols
+# because it is the cheaper of the two. budget needs no Docker, so it fails
+# before the first pull; toolchain comes next, since every member after it is
+# only worth as much as the image it ran in. budget runs once, not again
+# inside lint: make builds a prerequisite once per run.
+engine\:verify: ## Verify engine/ — budget + toolchain pins + fmt + clippy + tests at 100% line coverage + doctests + C ABI symbols
 	@$(call gate,_engine-verify,engine:verify)
 
-_engine-verify: _engine-lint _engine-capi-abi _engine-coverage _engine-doctest
+_engine-verify: _engine-budget _engine-toolchain _engine-lint _engine-capi-abi _engine-coverage \
+                _engine-doctest
+
+# The pinned digest holds the versions TOOLCHAIN_TAG names. A digest copied
+# from the wrong run, or a tag left behind when the digest moved, fails here
+# rather than passing every gate on a toolchain the Makefile does not name.
+_engine-toolchain:
+	@echo "== toolchain image =="
+	$(CARGO_IN_DOCKER) 'have="$$(rustc --version | cut -d" " -f2)-llvmcov$$(cargo llvm-cov --version | cut -d" " -f2)"; \
+		[ "$$have" = "$(TOOLCHAIN_TAG)" ] \
+			|| { echo "toolchain: the pinned image holds $$have, but TOOLCHAIN_TAG says $(TOOLCHAIN_TAG)" >&2; exit 1; }'
 
 _engine-doctest:
 	@echo "== doctest =="
@@ -50,7 +63,7 @@ engine\:lint: ## engine/ line budget + //! headers + crate lint opt-in + fmt --c
 
 _engine-lint: _engine-budget _engine-fmt _engine-clippy
 
-engine\:budget: ## .rs line budget + //! headers + every crate opts into the workspace lints (no Docker)
+engine\:budget: ## .rs line budget + //! headers + every crate opts into the workspace lints + toolchain pins (no Docker)
 	@$(call gate,_engine-budget,engine:budget)
 
 _engine-budget:
@@ -58,26 +71,25 @@ _engine-budget:
 	@scripts/check-line-budget.sh
 	@echo "== crate lints =="
 	@scripts/check-crate-lints.sh
+	@echo "== toolchain pins =="
+	@scripts/check-toolchain-pins.sh
 
 engine\:fmt: ## cargo fmt --check
 	@$(call gate,_engine-fmt,engine:fmt)
 
 _engine-fmt:
 	@echo "== fmt =="
-	$(CARGO_IN_DOCKER) 'rustup component add rustfmt >/dev/null; \
-		cargo fmt --all -- --check'
+	$(CARGO_IN_DOCKER) 'cargo fmt --all -- --check'
 
 engine\:format: ## cargo fmt (apply formatting)
-	$(CARGO_IN_DOCKER) 'rustup component add rustfmt >/dev/null; \
-		cargo fmt --all'
+	$(CARGO_IN_DOCKER) 'cargo fmt --all'
 
 engine\:clippy: ## cargo clippy -D warnings (JOBS=N caps parallelism)
 	@$(call gate,_engine-clippy,engine:clippy)
 
 _engine-clippy:
 	@echo "== clippy =="
-	$(CARGO_IN_DOCKER) 'rustup component add clippy >/dev/null; \
-		cargo clippy --workspace --all-targets --all-features --locked $(CARGO_JOBS) -- -D warnings'
+	$(CARGO_IN_DOCKER) 'cargo clippy --workspace --all-targets --all-features --locked $(CARGO_JOBS) -- -D warnings'
 
 # P=<crate> and F=<name filter> narrow the run for the edit-run-edit loop
 # (`make engine:test P=xlsx-graft-core`, `… F=version`, or both). A narrowed
@@ -123,9 +135,6 @@ engine\:coverage: ## cargo llvm-cov, blocking at 100% lines (names the offending
 _engine-coverage:
 	@echo "== coverage (100% lines) =="
 	@$(CARGO_IN_DOCKER) 'rm -f lcov.info; \
-		rustup component add llvm-tools-preview >/dev/null; \
-		cargo llvm-cov --version 2>/dev/null | grep -qx "cargo-llvm-cov $(LLVM_COV_VERSION)" \
-			|| cargo install cargo-llvm-cov --locked --version $(LLVM_COV_VERSION); \
 		cargo llvm-cov --workspace --locked --fail-under-lines 100 $(CARGO_JOBS) \
 			--lcov --output-path lcov.info' \
 	|| { code=$$?; \

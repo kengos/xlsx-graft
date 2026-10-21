@@ -12,10 +12,10 @@
 docker\:clean\:containers: ## Remove stopped gate containers from any worktree (running ones are only listed)
 	@scripts/docker-clean.sh containers $(RUST_IMAGE)
 
-docker\:clean\:volumes: ## Remove the cargo/rustup cache volumes of every Rust version
+docker\:clean\:volumes: ## Remove the cargo download cache volume (and the per-Rust-version cargo/rustup volumes of the old layout)
 	@scripts/docker-clean.sh volumes $(RUST_IMAGE)
 
-docker\:clean\:images: ## Remove the pinned toolchain image (other rust:* images are only listed)
+docker\:clean\:images: ## Remove every pin of the toolchain image (rust:* images are only listed)
 	@scripts/docker-clean.sh images $(RUST_IMAGE)
 
 docker\:clean\:all: ## All three above, reporting what was removed and what was kept

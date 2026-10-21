@@ -1,8 +1,9 @@
 name: Publish toolchain image
 
 # Builds docker/toolchain.Dockerfile and pushes it to
-# ghcr.io/<owner>/xlsx-graft-toolchain. Nothing uses the image yet; the
-# Makefile will pin it by digest, which this run writes to its job summary.
+# ghcr.io/<owner>/xlsx-graft-toolchain. The gates run it pinned by digest
+# (TOOLCHAIN_DIGEST in the Makefile), which this run writes to its job summary;
+# a new image reaches the gates only when that pin is changed.
 #
 # On a push to main only when the image's own inputs change, so an unrelated
 # merge does not replace the image. workflow_dispatch rebuilds it by hand, for
@@ -48,8 +49,9 @@ jobs:
       # The versions come from the Makefile, the file the gates read. The
       # script fails when the Dockerfile's defaults say otherwise, so a bump
       # that edited only one of them stops here instead of publishing. A
-      # Makefile-only bump does not start this workflow; catching that in the
-      # pull request is the gates' job once they run in this image.
+      # Makefile-only bump does not start this workflow; engine:budget runs
+      # the same script, so `make verify` fails on it instead (in the pull
+      # request, once CI runs the gates).
       - name: Read the pins
         id: pins
         run: scripts/check-toolchain-pins.sh --github
