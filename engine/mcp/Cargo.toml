@@ -1,0 +1,22 @@
+[package]
+name = "xlsx-graft-mcp"
+description = "xlsx-graft MCP server: the engine as MCP tools over stdio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "xlsx-graft-mcp"
+path = "src/main.rs"
+
+[dependencies]
+# Every JSON-RPC message, in and out.
+serde_json = { workspace = true }
+# McpError.
+thiserror = { workspace = true }
+xlsx-graft-core = { workspace = true }
+
+[lints]
+workspace = true

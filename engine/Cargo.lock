@@ -192,6 +192,15 @@ name = "xlsx-graft-core"
 version = "0.0.0"
 
 [[package]]
+name = "xlsx-graft-mcp"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+ "thiserror",
+ "xlsx-graft-core",
+]
+
+[[package]]
 name = "zmij"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
