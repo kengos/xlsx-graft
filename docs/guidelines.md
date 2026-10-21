@@ -110,11 +110,13 @@ by arithmetic. What keeps a suite navigable is this:
 
 ## Rust code rules
 
-- **Every crate's `Cargo.toml` carries `[lints] workspace = true`.** Without
-  it none of the lints named on this page apply to that crate, and no gate
-  notices. A crate that must differ (the C ABI crate) overrides at its crate
-  root with a `reason`, never by dropping the line — cargo does not accept
-  crate-level lint entries beside `workspace = true`.
+- **Every crate's `Cargo.toml` carries `[lints] workspace = true`**, written
+  as a `[lints]` table with `workspace = true` under it (gated by
+  `make engine:budget`). Without it none of the lints named on this page apply
+  to that crate, and clippy stays green. A crate that must differ (the C ABI
+  crate) overrides at its crate root with a `reason`, never by dropping the
+  line — cargo does not accept crate-level lint entries beside
+  `workspace = true`.
 - **Every `.rs` file opens with a `//!` role header**, so `head -1` identifies
   it without opening it (gated by `make engine:budget`). **Every item
   reachable from a crate's public API has a doc comment** (`missing_docs`).
