@@ -4,8 +4,9 @@
 #   scripts/clean-tree.sh target|all
 #
 #   target  engine/target
-#   all     engine/target, engine/lcov.info, dist/ (engine:capi-lib's output)
-#           and .make-logs/ — the gate logs, the half-written <log>.<pid> of
+#   all     engine/target, engine/lcov.info, dist/ (engine:capi-lib's
+#           output), sdk/ruby/coverage/ (the Ruby SDK's coverage report) and
+#           .make-logs/ — the gate logs, the half-written <log>.<pid> of
 #           an interrupted run, and a gate lock left behind by a gate that no
 #           longer runs
 #
@@ -55,11 +56,11 @@ all)
     # Everything in .make-logs except gates/, which holds this run's own lock
     # until gate-lock.sh releases it.
     exec scripts/gate-lock.sh sh -euc '
-        rm -rf engine/target engine/lcov.info dist
+        rm -rf engine/target engine/lcov.info dist sdk/ruby/coverage
         if [ -d .make-logs ]; then
             find .make-logs -mindepth 1 -maxdepth 1 ! -name gates -exec rm -rf {} +
         fi
-        echo "removed  engine/target, engine/lcov.info, dist/, .make-logs/"'
+        echo "removed  engine/target, engine/lcov.info, dist/, sdk/ruby/coverage/, .make-logs/"'
     ;;
 *)
     echo "usage: $0 target|all" >&2

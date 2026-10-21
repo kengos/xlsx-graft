@@ -1,0 +1,7 @@
+# The image is built from these files alone (see Dockerfile); everything else
+# in sdk/ruby, coverage/ included, stays out of the build context.
+*
+!Gemfile
+!Gemfile.lock
+!xlsx_graft.gemspec
+!lib/xlsx_graft/version.rb

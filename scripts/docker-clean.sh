@@ -18,9 +18,13 @@
 #               still mounted by a container is kept.
 #   images      every pin of the toolchain image's repository
 #               (<toolchain-image> is <repository>@<digest>): the current one
-#               and those a bump left behind. Tagged rust:* images are listed,
-#               not removed: other repositories may use them, and the gates
-#               used one before the toolchain image.
+#               and those a bump left behind, and the SDK gate images
+#               (xlsx-graft-sdk-<lang>:<version>-<hash>, built from
+#               sdk/<lang>/Dockerfile and never published, so the next gate
+#               builds them again).
+#               Tagged rust:* images are listed, not removed: other
+#               repositories may use them, and the gates used one before the
+#               toolchain image.
 set -u
 
 job=${1:-}
@@ -91,6 +95,13 @@ clean_images() {
             say_removed "image $refs"
         else
             say_kept "image $refs" "$err"
+        fi
+    done
+    for ref in $(docker images --format '{{.Repository}}:{{.Tag}}' --filter 'reference=xlsx-graft-sdk-*' | grep -v ':<none>$'); do
+        if err=$(docker rmi "$ref" 2>&1); then
+            say_removed "image $ref"
+        else
+            say_kept "image $ref" "$err"
         fi
     done
     for other in $(docker images --format '{{.Repository}}:{{.Tag}}' rust | grep -v ':<none>$'); do

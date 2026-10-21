@@ -11,3 +11,6 @@
 
 # The C ABI library `make engine:capi-lib` builds for the SDKs
 /dist/
+
+# Coverage report written by `make sdk:ruby:test` / `sdk:ruby:verify`
+/sdk/ruby/coverage/
