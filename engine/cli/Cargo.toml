@@ -1,0 +1,26 @@
+[package]
+name = "xlsx-graft-cli"
+description = "xlsx-graft CLI: the engine on the command line"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "xlsx-graft"
+path = "src/main.rs"
+
+[dependencies]
+# Parses the command line; `--format` is a global flag on the parser.
+clap = { workspace = true }
+# `--format json`: every output type derives Serialize and is printed by
+# serde_json.
+serde = { workspace = true }
+serde_json = { workspace = true }
+# CliError.
+thiserror = { workspace = true }
+xlsx-graft-core = { workspace = true }
+
+[lints]
+workspace = true
