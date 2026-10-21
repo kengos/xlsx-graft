@@ -4,8 +4,9 @@
 # ghcr.io/<owner>/xlsx-graft-toolchain.
 #
 # The defaults below MUST equal RUST_VERSION and LLVM_COV_VERSION in the
-# Makefile, which is what the gates run today. The workflow passes the
-# Makefile's values as build args and refuses to publish when these defaults
+# Makefile, which is what the workflow builds with (the gates run the digest
+# the Makefile pins, TOOLCHAIN_DIGEST). The workflow passes the Makefile's
+# values as build args, and it and engine:budget both fail when these defaults
 # differ (scripts/check-toolchain-pins.sh), so a plain `docker build` of this
 # file and the published image cannot quietly be two different toolchains.
 #

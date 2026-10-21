@@ -1,7 +1,7 @@
 #!/bin/sh
 # Remove the Docker resources xlsx-graft's gates leave behind.
 #
-#   scripts/docker-clean.sh containers|volumes|images|all <rust-image>
+#   scripts/docker-clean.sh containers|volumes|images|all <toolchain-image>
 #
 # It never stops at the first thing it cannot remove: every resource ends up on
 # a `removed` or a `kept` line with the reason, and `all` closes with the counts.
@@ -12,12 +12,15 @@
 #               starting in another worktree. A running one whose tree has no
 #               live gate (scripts/gate-lock.sh --state) is flagged as orphaned,
 #               with the command that removes it.
-#   volumes     the cargo/rustup cache volumes of EVERY Rust version, so a
-#               toolchain bump leaves nothing behind. One still mounted by a
-#               container is kept.
-#   images      the pinned toolchain image (<rust-image>). Other tagged rust:*
-#               images are listed, not removed: other repositories may use them
-#               — after a RUST_VERSION bump that includes the old pin.
+#   volumes     the cargo download cache, and the per-Rust-version cargo/rustup
+#               volumes gates made before the toolchain image (named
+#               xlsx-graft-cargo-<version> / xlsx-graft-rustup-<version>). One
+#               still mounted by a container is kept.
+#   images      every pin of the toolchain image's repository
+#               (<toolchain-image> is <repository>@<digest>): the current one
+#               and those a bump left behind. Tagged rust:* images are listed,
+#               not removed: other repositories may use them, and the gates
+#               used one before the toolchain image.
 set -u
 
 job=${1:-}
@@ -69,17 +72,45 @@ clean_volumes() {
 
 clean_images() {
     echo "== images =="
-    if [ -n "$(docker images -q "$image")" ]; then
-        if err=$(docker rmi "$image" 2>&1); then
-            say_removed "image $image"
+    repo=${image%@*}
+    # A digest pin is pulled untagged, and Docker 29's `docker images` lists an
+    # untagged image only under -a. Removed by its references in this
+    # repository rather than by ID: an ID with several references refuses
+    # `docker rmi <id>`, and a name someone else gave the same image stays.
+    for id in $(docker images -aq "$repo" | sort -u); do
+        all=$(docker image inspect -f '{{range .RepoDigests}}{{.}} {{end}}{{range .RepoTags}}{{.}} {{end}}' "$id" 2>/dev/null) || continue
+        refs=
+        for ref in $all; do
+            case $ref in
+            "$repo"@* | "$repo":*) refs="$refs${refs:+ }$ref" ;;
+            esac
+        done
+        [ -n "$refs" ] || continue
+        # shellcheck disable=SC2086 # one word per reference
+        if err=$(docker rmi $refs 2>&1); then
+            say_removed "image $refs"
         else
-            say_kept "image $image" "$err"
+            say_kept "image $refs" "$err"
         fi
-    fi
-    for other in $(docker images --format '{{.Repository}}:{{.Tag}}' rust | grep -v ':<none>$' | grep -vxF "$image"); do
-        say_kept "image $other" "not this repository's pin; other repositories may use it (docker rmi $other)"
+    done
+    for other in $(docker images --format '{{.Repository}}:{{.Tag}}' rust | grep -v ':<none>$'); do
+        say_kept "image $other" "not this repository's image; other repositories may use it (docker rmi $other)"
     done
 }
+
+case $job in
+images | all)
+    # Anything but a digest pin is a caller's mistake, and an empty one would
+    # turn the image listing into every image on the host: stop before it.
+    case $image in
+    ?*@sha256:?*) ;;
+    *)
+        echo "usage: $0 $job <repository>@sha256:<digest>" >&2
+        exit 2
+        ;;
+    esac
+    ;;
+esac
 
 case $job in
 containers | volumes | images | all)
@@ -103,7 +134,7 @@ all)
     echo "== summary: $removed removed, $kept kept =="
     ;;
 *)
-    echo "usage: $0 containers|volumes|images|all <rust-image>" >&2
+    echo "usage: $0 containers|volumes|images|all <toolchain-image>" >&2
     exit 2
     ;;
 esac

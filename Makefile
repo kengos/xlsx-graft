@@ -8,8 +8,11 @@
 # V=1 to any of them for the raw output instead of the PASS/FAIL line.
 #
 #   Is it correct?            one PASS/FAIL line, non-zero exit on FAIL, log kept
-#     make engine:verify        engine: budget + fmt + clippy + tests at 100%
-#                               line coverage + doctests + C ABI symbols
+#     make verify               the whole bar: every scope's verify (today
+#                               engine:verify only)
+#     make engine:verify        engine: budget + toolchain pins + fmt + clippy +
+#                               tests at 100% line coverage + doctests + C ABI
+#                               symbols, in the pinned toolchain image
 #
 #   Faster slices while iterating
 #     make engine:budget        make engine:fmt         make engine:clippy
@@ -28,12 +31,12 @@
 #   Housekeeping (removes things, proves nothing)
 #     make clean:all            this tree's engine/target, lcov.info and
 #                               .make-logs/ (incl. a stale gate lock)
-#     make docker:clean:all     stopped gate containers, cache volumes of every
-#                               Rust version, the pinned toolchain image. Run it
-#                               after a RUST_VERSION bump (the old image is
-#                               listed with its `docker rmi`, not removed) or to
-#                               reclaim disk; the next gate re-pulls what it
-#                               needs
+#     make docker:clean:all     stopped gate containers, the cargo download
+#                               cache volume (and the per-Rust-version volumes
+#                               of the layout before the toolchain image), every
+#                               pin of the toolchain image. Safe at any time:
+#                               the next gate pulls the image and downloads the
+#                               crates again, and builds nothing but the engine
 #
 #   Where did it break?
 #     cat .make-logs/last-error.log    always the last failed gate (not under
@@ -43,9 +46,9 @@
 #     * NEVER wrap a gate in a pipe, in `; echo $?`, or in `make -n`. A pipe
 #       reports the LAST command's status, so it exits 0 over a red gate.
 #
-# The host has no Rust toolchain: every gate runs inside Docker. Named volumes
-# persist CARGO_HOME/RUSTUP_HOME so toolchain components and cargo subcommands
-# (llvm-cov) install once and are cached across runs.
+# The host has no Rust toolchain: every gate runs inside Docker, in a pinned
+# image that already holds everything the gates run (RUST_IMAGE below). The
+# only state kept between runs is cargo's download cache, in a named volume.
 #
 # GNU Make 4 or newer, because make itself is the one tool that does NOT run in
 # a container and so is the one place local and CI can silently disagree. macOS
@@ -80,14 +83,31 @@ ifneq (,$(findstring i,$(SHORT_FLAGS))$(findstring t,$(SHORT_FLAGS)))
 $(error `make -i` / `make -t` turn a failed gate into exit 0. Run the gate without them)
 endif
 
-# Pinned toolchain image; bump the version deliberately, then run
-# `make docker:clean:all`: it drops every version's volumes, and lists the old
-# image with the `docker rmi` that removes it.
-RUST_VERSION := 1.99.0
-RUST_IMAGE   := rust:$(RUST_VERSION)-slim-bookworm
-# Pinned like the toolchain: an unpinned install would leave each machine on
-# whatever release was current the day its cache volume was first filled.
+# The toolchain image: docker/toolchain.Dockerfile, published by
+# .github/workflows/toolchain-image.yml and pinned here by DIGEST, which a
+# rebuild cannot move the way it moves a tag.
+#
+#   RUST_VERSION, LLVM_COV_VERSION  the pins the workflow builds with.
+#                     engine:budget fails when the Dockerfile's ARG defaults
+#                     say otherwise (scripts/check-toolchain-pins.sh)
+#   TOOLCHAIN_TAG     the tag TOOLCHAIN_DIGEST was published under,
+#                     <rust>-llvmcov<cargo-llvm-cov>. engine:verify fails when
+#                     the image does not hold those versions
+#   TOOLCHAIN_DIGEST  that build's multi-arch index (amd64 + arm64)
+#
+# Bumping takes two pull requests, because the image is published from main:
+#   1. Change RUST_VERSION / LLVM_COV_VERSION here and the ARG defaults in the
+#      Dockerfile, and merge. The workflow pushes the new image.
+#   2. Copy the digest from that run's job summary into TOOLCHAIN_DIGEST, set
+#      TOOLCHAIN_TAG to the new pins, and merge.
+# Until step 2 the gates still run the previous image. Nothing fails when step
+# 2 is forgotten: the pins above would then name an image nobody runs.
+# Afterwards `make docker:clean:images` drops the previous image locally.
+RUST_VERSION     := 1.99.0
 LLVM_COV_VERSION := 0.9.1
+TOOLCHAIN_TAG    := 1.99.0-llvmcov0.9.1
+TOOLCHAIN_DIGEST := sha256:05819e6c259e11dd9d8b0cdcd178eb959dbaccb90923d56cf98a6b66885e4fe0
+RUST_IMAGE       := ghcr.io/kengos/xlsx-graft-toolchain@$(TOOLCHAIN_DIGEST)
 
 # One gate at a time per working tree (scripts/gate-lock.sh explains why).
 GATE_LOCK := scripts/gate-lock.sh
@@ -122,16 +142,21 @@ CARGO_JOBS := $(if $(JOBS),--jobs $(JOBS))
 # gate>` does not open a second `quiet` that truncates the same log file.
 gate = $(if $(V)$(_IN_QUIET),$(GATE_LOCK) )$(MAKE) --no-print-directory $(if $(V)$(_IN_QUIET),$(1),quiet T=$(1) NAME=$(2))
 
-# Run a command in the pinned toolchain image with persistent cargo + rustup
-# homes. Named volumes are pre-populated from the image on first use, so the
-# cargo/rustc shims survive while installs accumulate. Both are overridable:
-# docker takes a bare name as a named volume and an absolute path as a host
-# bind mount, which is what lets CI restore a cache into the same targets.
+# Run a command in the pinned toolchain image, with CARGO_HOME moved onto a
+# volume that keeps cargo's download cache (registry/, git/) between runs. The
+# image's own /usr/local/cargo is left unmounted: a named volume over it is
+# filled from the image only while empty, so after a digest bump it would keep
+# serving the previous image's cargo-llvm-cov, and a bind mount in CI would
+# hide cargo itself. Its bin/ stays on PATH, which is where cargo finds the
+# rustfmt and clippy proxies and cargo-llvm-cov. Moving the whole CARGO_HOME
+# rather than mounting registry/ and git/ alone keeps cargo's package-cache
+# lock on the volume as well, so gates of two working trees never write the
+# shared cache unlocked.
 #
-# The names carry RUST_VERSION because a named volume is filled from the image
-# only while it is EMPTY: after a bump, an unversioned rustup volume would keep
-# the old toolchain as the default and gates would pass on the old compiler.
-# `make docker:clean:volumes` drops the pairs of every version.
+# Nothing in the cache depends on the Rust version, so the name carries none;
+# removing it costs the next gate a download, not a build. CARGO_VOLUME is
+# overridable: docker takes a bare name as a named volume and an absolute path
+# as a host bind mount, which is what lets CI restore a cache into it.
 #
 # Mount the REPO ROOT at /repo and let -w select engine/: paths baked in at
 # compile time (CARGO_MANIFEST_DIR) then stay identical across runs, and a
@@ -143,22 +168,20 @@ gate = $(if $(V)$(_IN_QUIET),$(GATE_LOCK) )$(MAKE) --no-print-directory $(if $(V
 # --init puts tini at PID 1. Without it PID 1 is `sh`, which ignores the
 # SIGINT/SIGTERM docker forwards, so a Ctrl-C'd gate released its lock while
 # the container kept writing engine/target under the next gate.
-CARGO_VOLUME  ?= xlsx-graft-cargo-$(RUST_VERSION)
-RUSTUP_VOLUME ?= xlsx-graft-rustup-$(RUST_VERSION)
+CARGO_VOLUME ?= xlsx-graft-cargo-cache
 
 CARGO_IN_DOCKER = $(GATE_LOCK) docker run --rm --init \
 	--label "xlsx-graft.tree=$(CURDIR)" \
 	-v "$(CURDIR):/repo" -w /repo/engine \
-	-v "$(CARGO_VOLUME):/usr/local/cargo" \
-	-v "$(RUSTUP_VOLUME):/usr/local/rustup" \
+	-e CARGO_HOME=/cargo-cache -v "$(CARGO_VOLUME):/cargo-cache" \
 	$(RUST_IMAGE) sh -euc
 
 .DEFAULT_GOAL := help
 
 # Gates run one after another even under `make -j`: -j reaches the nested make
 # that `quiet` starts, the re-entrant gate lock lets it through, and parallel
-# members would interleave one log (a wrong `last step`) and race on the shared
-# rustup volume. Cargo's own parallelism is JOBS=.
+# members would interleave one log (a wrong `last step`). Cargo's own
+# parallelism is JOBS=.
 .NOTPARALLEL:
 
 # One file per scope, each holding both halves of its jobs: the public
@@ -167,7 +190,7 @@ CARGO_IN_DOCKER = $(GATE_LOCK) docker run --rm --init \
 include mk/engine.mk
 include mk/docker.mk
 
-.PHONY: help quiet clean clean\:all clean\:target
+.PHONY: _verify help quiet verify clean clean\:all clean\:target
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_\\:-]+:.*## ' $(MAKEFILE_LIST) \
@@ -208,6 +231,17 @@ quiet: ## Run ANY target this way: make quiet T=engine:test (same PASS/FAIL line
 		printf -- '--- last 40 lines ---\n'; tail -40 "$$log"; \
 		exit $$code; \
 	fi
+
+## ---- the whole bar ----------------------------------------------------
+#
+# One target over every scope, so CI and a contributor run the same thing.
+# Each scope's `<scope>:verify` joins it as a member of `_verify`; engine/ is
+# the only scope today.
+
+verify: ## The whole bar: every scope's verify (today: engine:verify)
+	@$(call gate,_verify,verify)
+
+_verify: _engine-verify
 
 ## ---- housekeeping ------------------------------------------------------
 #
