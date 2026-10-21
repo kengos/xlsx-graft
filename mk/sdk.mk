@@ -1,11 +1,11 @@
 # sdk/ — the language SDKs: gates and lockfiles
 #
-# Every target defined here is named `sdk:<lang>:<job>` (public) or
-# `_sdk-<lang>-<job>` (private, carrying the recipe). docs/sdk.md is the shape
+# Every target defined here is named `sdk:<job>:<lang>` (public) or
+# `_sdk-<job>-<lang>` (private, carrying the recipe). docs/sdk.md is the shape
 # every language follows.
 
-.PHONY: _sdk-ruby-image _sdk-ruby-lint _sdk-ruby-test _sdk-ruby-verify \
-        sdk\:ruby\:lint sdk\:ruby\:lock sdk\:ruby\:test sdk\:ruby\:verify
+.PHONY: _sdk-image-ruby _sdk-lint-ruby _sdk-test-ruby _sdk-verify-ruby \
+        sdk\:lint\:ruby sdk\:lock\:ruby sdk\:test\:ruby sdk\:verify\:ruby
 
 ## ---- ruby --------------------------------------------------------------
 
@@ -42,13 +42,13 @@ RUBY_IN_DOCKER = $(GATE_LOCK) docker run --rm --init --pull never \
 # engine:lock. It runs on the plain ruby image: the gate image installs from
 # the lockfile, so it cannot be the one that makes it. The two platforms are
 # CI's and an Apple Silicon Mac's Docker.
-sdk\:ruby\:lock: ## Re-resolve sdk/ruby/Gemfile.lock after a Gemfile or gemspec edit (then: git add sdk/ruby/Gemfile.lock)
-	@echo "== sdk:ruby:lock (Ruby $(RUBY_PATCH)) =="
+sdk\:lock\:ruby: ## Re-resolve sdk/ruby/Gemfile.lock after a Gemfile or gemspec edit (then: git add sdk/ruby/Gemfile.lock)
+	@echo "== sdk:lock:ruby (Ruby $(RUBY_PATCH)) =="
 	$(GATE_LOCK) docker run --rm --init --label "xlsx-graft.tree=$(CURDIR)" \
 		-v "$(CURDIR):/repo" -w /repo/sdk/ruby ruby:$(RUBY_PATCH)-slim-bookworm \
 		bundle lock --add-platform x86_64-linux aarch64-linux
 
-_sdk-ruby-image:
+_sdk-image-ruby:
 	@echo "== sdk ruby image (Ruby $(RUBY_PATCH)) =="
 	@docker build -q --build-arg RUBY_VERSION=$(RUBY_PATCH) -t $(RUBY_IMAGE) sdk/ruby >/dev/null
 
@@ -58,10 +58,10 @@ _sdk-ruby-image:
 # fiddle still comes from the image's gems on GEM_PATH, as --local fetches
 # nothing), and loaded from there with no bundler and no checkout on the load
 # path.
-sdk\:ruby\:verify: ## Verify sdk/ruby — rubocop + rspec at 100% line coverage + gem build/install/load (RUBY_VER=3.4|4.0)
-	@$(call gate,_sdk-ruby-verify,sdk:ruby:verify)
+sdk\:verify\:ruby: ## Verify sdk/ruby — rubocop + rspec at 100% line coverage + gem build/install/load (RUBY_VER=3.4|4.0)
+	@$(call gate,_sdk-verify-ruby,sdk:verify:ruby)
 
-_sdk-ruby-verify: _engine-capi-lib _sdk-ruby-image
+_sdk-verify-ruby: _engine-capi-lib _sdk-image-ruby
 	@echo "== sdk ruby lint + spec =="
 	$(RUBY_IN_DOCKER) 'bundle exec rake lint spec'
 	@echo "== sdk ruby gem (build, install, load) =="
@@ -77,17 +77,17 @@ _sdk-ruby-verify: _engine-capi-lib _sdk-ruby-image
 		cd /tmp; \
 		ruby /repo/sdk/ruby/script/check_installed_gem.rb /tmp/gems /repo/engine/Cargo.toml'
 
-sdk\:ruby\:test: ## sdk/ruby rspec at 100% line coverage (RUBY_VER=3.4|4.0)
-	@$(call gate,_sdk-ruby-test,sdk:ruby:test)
+sdk\:test\:ruby: ## sdk/ruby rspec at 100% line coverage (RUBY_VER=3.4|4.0)
+	@$(call gate,_sdk-test-ruby,sdk:test:ruby)
 
-_sdk-ruby-test: _engine-capi-lib _sdk-ruby-image
+_sdk-test-ruby: _engine-capi-lib _sdk-image-ruby
 	@echo "== sdk ruby spec =="
 	$(RUBY_IN_DOCKER) 'bundle exec rake spec'
 
 # No engine library needed, so no capi-lib: lint runs without a Rust build.
-sdk\:ruby\:lint: ## sdk/ruby rubocop (RUBY_VER=3.4|4.0)
-	@$(call gate,_sdk-ruby-lint,sdk:ruby:lint)
+sdk\:lint\:ruby: ## sdk/ruby rubocop (RUBY_VER=3.4|4.0)
+	@$(call gate,_sdk-lint-ruby,sdk:lint:ruby)
 
-_sdk-ruby-lint: _sdk-ruby-image
+_sdk-lint-ruby: _sdk-image-ruby
 	@echo "== sdk ruby lint =="
 	$(RUBY_IN_DOCKER) 'bundle exec rake lint'

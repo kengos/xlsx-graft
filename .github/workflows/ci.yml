@@ -60,7 +60,7 @@ jobs:
   # one entry per commit, holding all of it. After a lockfile or toolchain
   # change it restores nothing and builds capi-lib from scratch.
   sdk-ruby-4:
-    name: make sdk:ruby:verify RUBY_VER=4.0
+    name: make sdk:verify:ruby RUBY_VER=4.0
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -69,6 +69,6 @@ jobs:
 
       - uses: ./.github/actions/engine-cache
         with:
-          target: sdk:ruby:verify
+          target: sdk:verify:ruby
           args: RUBY_VER=4.0
           save: "false"

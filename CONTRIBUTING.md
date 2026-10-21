@@ -24,7 +24,7 @@ make verify
 ```
 
 It runs every part's checks; today that is `make engine:verify` and
-`make sdk:ruby:verify`.
+`make sdk:verify:ruby`.
 
 `make engine:verify` is the engine's: the line budget, the check that every
 crate opts into the workspace lints, the check that the toolchain versions in
@@ -35,7 +35,7 @@ the check that the C ABI library exports exactly the `xlsx_graft_*` functions
 its header declares, and nothing else. It prints one PASS/FAIL line; on a failure the
 full log is at `.make-logs/last-error.log`. Add `V=1` to see the raw output.
 
-`make sdk:ruby:verify` is the Ruby SDK's, on its oldest supported Ruby:
+`make sdk:verify:ruby` is the Ruby SDK's, on its oldest supported Ruby:
 rubocop, the specs at 100% line coverage, and the gem built, installed and
 loaded against the engine library. `RUBY_VER=4.0` runs it on the newer line.
 [docs/sdk.md](docs/sdk.md) has the shape every SDK follows.
@@ -44,11 +44,11 @@ CI runs this same `make verify`, in the same toolchain image, on every pull
 request and every push to `main`
 ([.github/workflows/ci.yml](.github/workflows/ci.yml)). It keeps no second
 copy of the checks; it only adds `V=1` for the raw output. A second job runs
-`make sdk:ruby:verify RUBY_VER=4.0`; it is not required for merging.
+`make sdk:verify:ruby RUBY_VER=4.0`; it is not required for merging.
 
 `make help` lists the faster slices (`engine:fmt`, `engine:clippy`,
-`engine:test`, `sdk:ruby:lint`, `sdk:ruby:test`, …) and the commands that fix
-things (`engine:format`, `engine:lock`, `sdk:ruby:lock`).
+`engine:test`, `sdk:lint:ruby`, `sdk:test:ruby`, …) and the commands that fix
+things (`engine:format`, `engine:lock`, `sdk:lock:ruby`).
 
 The first run pulls the toolchain image (about 1 GB), which already holds
 Rust, rustfmt, clippy and `cargo-llvm-cov`, and downloads the crates into the

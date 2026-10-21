@@ -12,7 +12,7 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
 | You need | Read |
 | --- | --- |
 | how to write and split Rust here: file length, module splits, test placement, coverage, errors, untrusted input, `unsafe` | [docs/guidelines.md](docs/guidelines.md) — read it before writing engine code |
-| adding or changing a language SDK: supported versions, the `sdk:<lang>:*` gates, finding the engine library, calling the C ABI | [docs/sdk.md](docs/sdk.md) |
+| adding or changing a language SDK: supported versions, the `sdk:*:<lang>` gates, finding the engine library, calling the C ABI | [docs/sdk.md](docs/sdk.md) |
 | the commands that check anything | the comment block at the top of the [Makefile](Makefile); `make help` |
 
 ## Rules that bite
@@ -24,22 +24,22 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   typing a one-off.
 - Each gate target (`verify`, `engine:verify` / `lint` / `budget` /
   `fmt` / `clippy` / `test` / `coverage` / `capi-abi` / `capi-lib`, and
-  `sdk:ruby:verify` / `test` / `lint`) prints ONE PASS/FAIL
+  `sdk:verify:ruby` / `test:ruby` / `lint:ruby`) prints ONE PASS/FAIL
   line, exits 0 on PASS and non-zero on FAIL (the gate's own code is in the
   FAIL line and the `# exit` header of `last-error.log`), and keeps the full
   log in `.make-logs/`. A gate failure (without `V=1`) always lands at
   `.make-logs/last-error.log`. `V=1` streams the raw output instead (no log).
   The fix-applying targets (`engine:format` / `lock` / `update`,
-  `sdk:ruby:lock`) print their raw output.
+  `sdk:lock:ruby`) print their raw output.
 - **Never wrap a gate** in a pipe (`| tail`), in `; echo $?`, or in `make -n`.
   The first two report the wrong exit code; the Makefile refuses the third.
 - GNU Make 4 or newer. The Makefile refuses 3.81 (macOS's) and names the fix.
 - Every gate is `--locked`: after a `Cargo.toml` edit run `make engine:lock`
   and commit `engine/Cargo.lock`.
 - `make verify` is the whole bar: every scope's `<scope>:verify` (today
-  `engine:verify` and `sdk:ruby:verify`, the SDK on its floor). CI runs
+  `engine:verify` and `sdk:verify:ruby`, the SDK on its floor). CI runs
   exactly this target, with `V=1` (`.github/workflows/ci.yml`), plus one
-  non-required job per newer SDK line (`make sdk:ruby:verify RUBY_VER=4.0`);
+  non-required job per newer SDK line (`make sdk:verify:ruby RUBY_VER=4.0`);
   a check CI needs is a make target, never a workflow step.
 - `make engine:verify` is the engine's bar: line budget + `//!` headers + every
   crate's `[lints] workspace = true` + the toolchain pins (the Makefile's
@@ -48,7 +48,7 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   lints in `engine/Cargo.toml`), tests at **100% line coverage over the whole
   workspace**, doctests, and the C ABI check (the built shared
   library's `xlsx_graft_*` exports match `engine/capi/include/xlsx_graft.h`).
-- `make sdk:ruby:verify` is the Ruby SDK's bar (floor 3.4; `RUBY_VER=4.0`
+- `make sdk:verify:ruby` is the Ruby SDK's bar (floor 3.4; `RUBY_VER=4.0`
   for the newer line): rubocop + rspec at **100% line coverage** + the gem
   built, installed into its own `GEM_HOME` and loaded against
   `dist/capi/local/`, built first by `engine:capi-lib`.

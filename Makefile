@@ -9,11 +9,11 @@
 #
 #   Is it correct?            one PASS/FAIL line, non-zero exit on FAIL, log kept
 #     make verify               the whole bar: every scope's verify (today
-#                               engine:verify and sdk:ruby:verify)
+#                               engine:verify and sdk:verify:ruby)
 #     make engine:verify        engine: budget + toolchain pins + fmt + clippy +
 #                               tests at 100% line coverage + doctests + C ABI
 #                               symbols, in the pinned toolchain image
-#     make sdk:ruby:verify      the Ruby SDK on its floor (RUBY_VER=4.0 for the
+#     make sdk:verify:ruby      the Ruby SDK on its floor (RUBY_VER=4.0 for the
 #                               newer line): rubocop + rspec at 100% line
 #                               coverage + the gem built, installed and loaded
 #
@@ -21,7 +21,7 @@
 #     make engine:budget        make engine:fmt         make engine:clippy
 #     make engine:lint          make engine:test [P=<crate>] [F=<filter>]
 #     make engine:coverage      make engine:capi-abi
-#     make sdk:ruby:lint        make sdk:ruby:test
+#     make sdk:lint:ruby        make sdk:test:ruby
 #     make <any>:<job> V=1      the same run, verbose, for debugging a failure
 #     make quiet T=<target>     the PASS/FAIL treatment for anything else
 #
@@ -35,7 +35,7 @@
 #                               edit — every gate is --locked and refuses until
 #                               you do (then: git add engine/Cargo.lock)
 #     make engine:update        same, but BUMP within the manifest's ranges
-#     make sdk:ruby:lock        re-resolve sdk/ruby/Gemfile.lock after a Gemfile
+#     make sdk:lock:ruby        re-resolve sdk/ruby/Gemfile.lock after a Gemfile
 #                               or gemspec edit (then: git add it)
 #
 #   Housekeeping (removes things, proves nothing)
@@ -254,10 +254,10 @@ quiet: ## Run ANY target this way: make quiet T=engine:test (same PASS/FAIL line
 # on its floor, the default RUBY_VER; CI gates the newer lines in jobs of
 # their own (.github/workflows/ci.yml).
 
-verify: ## The whole bar: every scope's verify (today: engine:verify, sdk:ruby:verify)
+verify: ## The whole bar: every scope's verify (today: engine:verify, sdk:verify:ruby)
 	@$(call gate,_verify,verify)
 
-_verify: _engine-verify _sdk-ruby-verify
+_verify: _engine-verify _sdk-verify-ruby
 
 ## ---- housekeeping ------------------------------------------------------
 #

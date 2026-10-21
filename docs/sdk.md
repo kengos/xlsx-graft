@@ -36,10 +36,10 @@ Every SDK has the same four targets, defined in `mk/sdk.mk`:
 
 | Target | What it does |
 | --- | --- |
-| `sdk:<lang>:verify` | the whole bar: lint, the tests at 100% line coverage, then the package built, installed into a directory of its own and loaded from there |
-| `sdk:<lang>:test` | the tests at 100% line coverage |
-| `sdk:<lang>:lint` | the linter and formatter checks; needs no engine build |
-| `sdk:<lang>:lock` | re-resolve the lockfile after a manifest edit. Writes the file and prints its raw output, like `engine:lock` |
+| `sdk:verify:<lang>` | the whole bar: lint, the tests at 100% line coverage, then the package built, installed into a directory of its own and loaded from there |
+| `sdk:test:<lang>` | the tests at 100% line coverage |
+| `sdk:lint:<lang>` | the linter and formatter checks; needs no engine build |
+| `sdk:lock:<lang>` | re-resolve the lockfile after a manifest edit. Writes the file and prints its raw output, like `engine:lock` |
 
 The first three are gates like the engine's: one PASS/FAIL line, the full log
 in `.make-logs/`, `V=1` for the raw output.
@@ -63,11 +63,11 @@ in `.make-logs/`, `V=1` for the raw output.
   built on bookworm (glibc 2.36). glibc loads a library built against the same
   or an older glibc; a musl base (alpine) loads nothing.
 
-`make verify` runs each `sdk:<lang>:verify` on the floor (its private
-`_sdk-<lang>-verify` is a member of `_verify` in the `Makefile`), so the
+`make verify` runs each `sdk:verify:<lang>` on the floor (its private
+`_sdk-verify-<lang>` is a member of `_verify` in the `Makefile`), so the
 required CI check covers every SDK. Each newer line gets a CI job of its own,
 the same target with the version variable
-(`make sdk:ruby:verify RUBY_VER=4.0`), which is not a required check. The job restores the engine
+(`make sdk:verify:ruby RUBY_VER=4.0`), which is not a required check. The job restores the engine
 build cache and saves nothing (`.github/actions/engine-cache`, input `save`).
 
 ## Finding the engine library

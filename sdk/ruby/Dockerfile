@@ -1,4 +1,4 @@
-# The Ruby SDK's gate environment: `make sdk:ruby:*` builds and runs this
+# The Ruby SDK's gate environment: `make sdk:*:ruby` builds and runs this
 # image, so nobody needs Ruby installed. The build context is sdk/ruby.
 #
 # The image holds the interpreter and the bundle, and nothing else. The engine
