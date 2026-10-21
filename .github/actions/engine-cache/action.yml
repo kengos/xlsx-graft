@@ -1,14 +1,28 @@
 name: Run a make gate with a warm engine/target
 description: >
   Runs one `make` target, the one a contributor runs, with engine/target
-  restored from the cache before it and saved after it. The toolchain
-  container writes as root, so the action hands engine/target back to the
-  runner between the run and the save.
+  restored from the cache before it and, unless `save` is "false", saved
+  after it. The toolchain container writes as root, so the action hands
+  engine/target back to the runner between the run and the save.
 
 inputs:
   target:
     description: The make target to run, e.g. "verify".
     required: true
+  args:
+    description: >
+      Variable assignments passed to make after the target, on one line and
+      split on whitespace, e.g. "RUBY_VER=4.0".
+    required: false
+    default: ""
+  save:
+    description: >
+      Anything but "true" (e.g. "false") restores engine/target but never
+      saves it. A job that builds only part of what `make verify` builds
+      sets it, so its smaller entry never takes the key the verify job saves
+      under.
+    required: false
+    default: "true"
 
 runs:
   using: composite
@@ -48,7 +62,10 @@ runs:
     - shell: bash
       env:
         TARGET: ${{ inputs.target }}
-      run: make "$TARGET"
+        ARGS: ${{ inputs.args }}
+      run: |
+        read -r -a args <<< "$ARGS"
+        make "$TARGET" "${args[@]}"
 
     # Everything the container wrote is root-owned. Handing it back keeps the
     # save, and any later step that writes engine/target, from depending on
@@ -61,16 +78,16 @@ runs:
           sudo chown -R "$(id -u):$(id -g)" engine/target
         fi
 
-    # main saves every commit: its entries are the ones every pull request can
-    # restore. A pull request's entries are visible to that pull request only,
-    # so it saves once, when it restored nothing (a new toolchain digest or a
-    # lockfile main has not built yet), rather than spending the
-    # repository's cache limit on every push and evicting main's. A re-run
-    # that hit its exact key saves nothing, since an entry is never
+    # With `save` "true": main saves every commit: its entries are the ones
+    # every pull request can restore. A pull request's entries are visible to
+    # that pull request only, so it saves once, when it restored nothing (a new
+    # toolchain digest or a lockfile main has not built yet), rather than
+    # spending the repository's cache limit on every push and evicting main's. A
+    # re-run that hit its exact key saves nothing, since an entry is never
     # overwritten. A failed gate still saves: what compiled is worth reusing.
     - uses: actions/cache/save@v6
       if: >-
-        ${{ !cancelled() && steps.restore.outcome == 'success'
+        ${{ !cancelled() && inputs.save == 'true' && steps.restore.outcome == 'success'
         && steps.restore.outputs.cache-hit != 'true'
         && (github.ref == 'refs/heads/main' || steps.restore.outputs.cache-matched-key == '') }}
       with:

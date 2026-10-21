@@ -9,15 +9,19 @@
 #
 #   Is it correct?            one PASS/FAIL line, non-zero exit on FAIL, log kept
 #     make verify               the whole bar: every scope's verify (today
-#                               engine:verify only)
+#                               engine:verify and sdk:ruby:verify)
 #     make engine:verify        engine: budget + toolchain pins + fmt + clippy +
 #                               tests at 100% line coverage + doctests + C ABI
 #                               symbols, in the pinned toolchain image
+#     make sdk:ruby:verify      the Ruby SDK on its floor (RUBY_VER=4.0 for the
+#                               newer line): rubocop + rspec at 100% line
+#                               coverage + the gem built, installed and loaded
 #
 #   Faster slices while iterating
 #     make engine:budget        make engine:fmt         make engine:clippy
 #     make engine:lint          make engine:test [P=<crate>] [F=<filter>]
 #     make engine:coverage      make engine:capi-abi
+#     make sdk:ruby:lint        make sdk:ruby:test
 #     make <any>:<job> V=1      the same run, verbose, for debugging a failure
 #     make quiet T=<target>     the PASS/FAIL treatment for anything else
 #
@@ -31,16 +35,20 @@
 #                               edit — every gate is --locked and refuses until
 #                               you do (then: git add engine/Cargo.lock)
 #     make engine:update        same, but BUMP within the manifest's ranges
+#     make sdk:ruby:lock        re-resolve sdk/ruby/Gemfile.lock after a Gemfile
+#                               or gemspec edit (then: git add it)
 #
 #   Housekeeping (removes things, proves nothing)
-#     make clean:all            this tree's engine/target, lcov.info, dist/
-#                               and .make-logs/ (incl. a stale gate lock)
+#     make clean:all            this tree's engine/target, lcov.info, dist/,
+#                               sdk/ruby/coverage/ and .make-logs/ (incl. a
+#                               stale gate lock)
 #     make docker:clean:all     stopped gate containers, the cargo download
 #                               cache volume (and the per-Rust-version volumes
 #                               of the layout before the toolchain image), every
-#                               pin of the toolchain image. Safe at any time:
-#                               the next gate pulls the image and downloads the
-#                               crates again, and builds nothing but the engine
+#                               pin of the toolchain image, the SDK gate images.
+#                               Safe at any time: the next gate pulls the image,
+#                               downloads the crates again, and builds nothing
+#                               but the engine and the SDK gate images
 #
 #   Where did it break?
 #     cat .make-logs/last-error.log    always the last failed gate (not under
@@ -53,6 +61,8 @@
 # The host has no Rust toolchain: every gate runs inside Docker, in a pinned
 # image that already holds everything the gates run (RUST_IMAGE below). The
 # only state kept between runs is cargo's download cache, in a named volume.
+# The SDK gates run in images built from sdk/<lang>/Dockerfile, never
+# published (docs/sdk.md).
 #
 # GNU Make 4 or newer, because make itself is the one tool that does NOT run in
 # a container and so is the one place local and CI can silently disagree. macOS
@@ -240,13 +250,14 @@ quiet: ## Run ANY target this way: make quiet T=engine:test (same PASS/FAIL line
 ## ---- the whole bar ----------------------------------------------------
 #
 # One target over every scope, so CI and a contributor run the same thing.
-# Each scope's `<scope>:verify` joins it as a member of `_verify`; engine/ is
-# the only scope today.
+# Each scope's `<scope>:verify` joins it as a member of `_verify`. An SDK joins
+# on its floor, the default RUBY_VER; CI gates the newer lines in jobs of
+# their own (.github/workflows/ci.yml).
 
-verify: ## The whole bar: every scope's verify (today: engine:verify)
+verify: ## The whole bar: every scope's verify (today: engine:verify, sdk:ruby:verify)
 	@$(call gate,_verify,verify)
 
-_verify: _engine-verify
+_verify: _engine-verify _sdk-ruby-verify
 
 ## ---- housekeeping ------------------------------------------------------
 #

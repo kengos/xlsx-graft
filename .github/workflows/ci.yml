@@ -1,9 +1,11 @@
 name: CI
 
-# The one job runs `make verify`, the target a contributor runs locally, in
-# the same pinned toolchain image. CI keeps no copy of the cargo flags, the
-# coverage threshold or the image pin: a gate changes in the Makefile, and
-# local and CI move together.
+# The `make verify` job runs the target a contributor runs locally, in the
+# same pinned toolchain image: the engine and every SDK on its floor. The
+# other jobs gate an SDK on its newer release lines, with the same make target
+# and a version variable. CI keeps no copy of the cargo flags, the coverage
+# threshold or the image pin: a gate changes in the Makefile, and local and CI
+# move together.
 #
 # No paths-ignore. Once a green run is required on main, a pull request that
 # skipped the workflow would wait for a check that never reports, so a
@@ -50,3 +52,23 @@ jobs:
       - uses: ./.github/actions/engine-cache
         with:
           target: verify
+
+  # The newer Ruby line, beside the floor that `make verify` gates. Not a
+  # required check: main's ruleset requires `make verify` only. It restores
+  # the engine/target a verify job saved earlier (the two jobs run at once),
+  # whose capi-lib release build it shares, and saves nothing, so main keeps
+  # one entry per commit, holding all of it. After a lockfile or toolchain
+  # change it restores nothing and builds capi-lib from scratch.
+  sdk-ruby-4:
+    name: make sdk:ruby:verify RUBY_VER=4.0
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/engine-cache
+        with:
+          target: sdk:ruby:verify
+          args: RUBY_VER=4.0
+          save: "false"
