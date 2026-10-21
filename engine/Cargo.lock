@@ -3,5 +3,12 @@
 version = 4
 
 [[package]]
+name = "xlsx-graft-capi"
+version = "0.0.0"
+dependencies = [
+ "xlsx-graft-core",
+]
+
+[[package]]
 name = "xlsx-graft-core"
 version = "0.0.0"

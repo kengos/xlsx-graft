@@ -9,12 +9,12 @@
 #
 #   Is it correct?            one PASS/FAIL line, non-zero exit on FAIL, log kept
 #     make engine:verify        engine: budget + fmt + clippy + tests at 100%
-#                               line coverage + doctests
+#                               line coverage + doctests + C ABI symbols
 #
 #   Faster slices while iterating
 #     make engine:budget        make engine:fmt         make engine:clippy
 #     make engine:lint          make engine:test [P=<crate>] [F=<filter>]
-#     make engine:coverage
+#     make engine:coverage      make engine:capi-abi
 #     make <any>:<job> V=1      the same run, verbose, for debugging a failure
 #     make quiet T=<target>     the PASS/FAIL treatment for anything else
 #

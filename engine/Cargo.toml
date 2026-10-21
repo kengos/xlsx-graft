@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "capi",
     "core",
 ]
 
@@ -11,6 +12,11 @@ license = "MIT OR Apache-2.0 OR BSD-3-Clause"
 # Nothing is published until the release work decides the first version.
 publish = false
 repository = "https://github.com/kengos/xlsx-graft"
+
+# Every dependency is declared once here; a member names it with
+# `{ workspace = true }`.
+[workspace.dependencies]
+xlsx-graft-core = { path = "core" }
 
 # Every lint below fails `make engine:verify`: the "warn" ones through clippy
 # -D warnings, unsafe_code by itself ("deny"). The rules: docs/guidelines.md.

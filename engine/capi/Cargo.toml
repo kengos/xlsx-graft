@@ -1,0 +1,20 @@
+[package]
+name = "xlsx-graft-capi"
+description = "xlsx-graft C ABI: the shared library the FFI SDKs load"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[lib]
+# cdylib is the artifact the SDKs load (`libxlsx_graft_capi.so` / `.dylib` /
+# `xlsx_graft_capi.dll`); rlib keeps the same code inside the workspace
+# test, clippy and coverage gates.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+xlsx-graft-core = { workspace = true }
+
+[lints]
+workspace = true
