@@ -22,12 +22,13 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   equivalent. If the command you need is missing, add a target rather than
   typing a one-off.
 - Each gate target (`engine:verify` / `lint` / `budget` / `fmt` / `clippy` /
-  `test` / `coverage`) prints ONE PASS/FAIL line, exits 0 on PASS and non-zero
-  on FAIL (the gate's own code is in the FAIL line and the `# exit` header of
-  `last-error.log`), and keeps the full log in `.make-logs/`. A gate failure
-  (without `V=1`) always lands at `.make-logs/last-error.log`. `V=1` streams
-  the raw output instead (no log). The fix-applying targets (`engine:format` /
-  `lock` / `update`) print their raw output.
+  `test` / `coverage` / `capi-abi`) prints ONE PASS/FAIL line, exits 0 on
+  PASS and non-zero on FAIL (the gate's own code is in the FAIL line and the
+  `# exit` header of `last-error.log`), and keeps the full log in
+  `.make-logs/`. A gate failure (without `V=1`) always lands at
+  `.make-logs/last-error.log`. `V=1` streams the raw output instead (no log).
+  The fix-applying targets (`engine:format` / `lock` / `update`) print their
+  raw output.
 - **Never wrap a gate** in a pipe (`| tail`), in `; echo $?`, or in `make -n`.
   The first two report the wrong exit code; the Makefile refuses the third.
 - GNU Make 4 or newer. The Makefile refuses 3.81 (macOS's) and names the fix.
@@ -36,7 +37,8 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
 - `make engine:verify` is the engine's bar: line budget + `//!` headers + every
   crate's `[lints] workspace = true`, fmt, clippy `-D warnings` (with the
   workspace lints in `engine/Cargo.toml`), tests at **100% line coverage over
-  the whole workspace**, and doctests.
+  the whole workspace**, doctests, and the C ABI check (the built shared
+  library's `xlsx_graft_*` exports match `engine/capi/include/xlsx_graft.h`).
 - **Rust here grows long files, so length is gated**: ≤300 lines per non-test
   file (aim for ≤160 in a new one; not gated), 150 per function. Before
   editing, `wc -l` the files you will touch and plan the split (`foo.rs` +

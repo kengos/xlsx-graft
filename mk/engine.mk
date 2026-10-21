@@ -3,10 +3,10 @@
 # Every target defined here is named `engine:<job>` (public) or `_engine-<job>`
 # (private, carrying the recipe).
 
-.PHONY: _engine-budget _engine-clippy _engine-coverage _engine-doctest _engine-fmt _engine-lint \
-        _engine-test _engine-verify engine\:budget engine\:clippy engine\:coverage \
-        engine\:coverage-why engine\:fmt engine\:format engine\:lint engine\:lock \
-        engine\:test engine\:update engine\:verify
+.PHONY: _engine-budget _engine-capi-abi _engine-clippy _engine-coverage _engine-doctest _engine-fmt \
+        _engine-lint _engine-test _engine-verify engine\:budget engine\:capi-abi engine\:clippy \
+        engine\:coverage engine\:coverage-why engine\:fmt engine\:format engine\:lint \
+        engine\:lock engine\:test engine\:update engine\:verify
 
 ## ---- lockfile ----------------------------------------------------------
 #
@@ -33,11 +33,13 @@ engine\:update: ## Bump engine/ deps within their Cargo.toml ranges (then: git a
 # engine:test are the fast slices to iterate on. Coverage runs the unit and
 # integration tests; llvm-cov measures doctests only on nightly, so they run as
 # their own member (kept out of coverage, where a failing doctest would leave
-# coverage-why saying "every line is covered").
-engine\:verify: ## Verify engine/ — budget + fmt + clippy + tests at 100% line coverage + doctests
+# coverage-why saying "every line is covered"). capi-abi is the one check on
+# the shared library itself, which no test links; it runs before coverage
+# because it is the cheaper of the two.
+engine\:verify: ## Verify engine/ — budget + fmt + clippy + tests at 100% line coverage + doctests + C ABI symbols
 	@$(call gate,_engine-verify,engine:verify)
 
-_engine-verify: _engine-lint _engine-coverage _engine-doctest
+_engine-verify: _engine-lint _engine-capi-abi _engine-coverage _engine-doctest
 
 _engine-doctest:
 	@echo "== doctest =="
@@ -79,13 +81,36 @@ _engine-clippy:
 
 # P=<crate> and F=<name filter> narrow the run for the edit-run-edit loop
 # (`make engine:test P=xlsx-graft-core`, `… F=version`, or both). A narrowed
-# run proves nothing about what it skipped: finish with engine:verify.
-engine\:test: ## cargo test --workspace --locked (P=<crate> F=<filter> narrow it)
+# run SKIPS the C ABI symbol check below and proves nothing about what it
+# skipped: finish with engine:verify.
+engine\:test: ## cargo test --workspace --locked + the C ABI symbol check (P=<crate> F=<filter> narrow it)
 	@$(call gate,_engine-test,engine:test)
 
 _engine-test:
 	@echo "== test$(if $(P), P=$(P))$(if $(F), F=$(F)) =="
 	$(CARGO_IN_DOCKER) 'cargo test $(if $(P),$(foreach p,$(P),-p $(p)),--workspace) --locked $(CARGO_JOBS) $(F)'
+	@$(if $(or $(P),$(F)),echo "== capi abi SKIPPED (narrowed run) ==",:)
+ifeq ($(strip $(P)$(F)),)
+	@$(MAKE) --no-print-directory _engine-capi-abi
+endif
+
+## ---- capi (the C ABI shared library the FFI SDKs load) -----------------
+
+# `cargo test` links only the rlib, so a Rust test stays green when an export
+# loses `#[unsafe(no_mangle)]` or the hand-written header names a function the
+# library does not export. This builds the cdylib and compares its dynamic
+# symbol table with include/xlsx_graft.h (scripts/check-capi-symbols.sh). nm
+# comes with the toolchain image, so both steps run in the same container.
+CAPI_SO     := target/debug/libxlsx_graft_capi.so
+CAPI_HEADER := capi/include/xlsx_graft.h
+
+engine\:capi-abi: ## Build the C ABI library and check its exports match include/xlsx_graft.h
+	@$(call gate,_engine-capi-abi,engine:capi-abi)
+
+_engine-capi-abi:
+	@echo "== capi abi =="
+	$(CARGO_IN_DOCKER) 'cargo build -p xlsx-graft-capi --locked $(CARGO_JOBS) \
+		&& ../scripts/check-capi-symbols.sh $(CAPI_SO) $(CAPI_HEADER)'
 
 ## ---- coverage ----------------------------------------------------------
 

@@ -25,8 +25,10 @@ make engine:verify
 
 It runs the line budget, the check that every crate opts into the workspace
 lints, `cargo fmt --check`, `cargo clippy -D warnings`, the tests at 100% line
-coverage, and the doctests. It prints one PASS/FAIL line; on a failure the
-full log is at `.make-logs/last-error.log`. Add `V=1` to see the raw output.
+coverage, the doctests, and the check that the C ABI library exports exactly
+the `xlsx_graft_*` functions its header declares, and nothing else. It prints
+one PASS/FAIL line; on a failure the full log is at
+`.make-logs/last-error.log`. Add `V=1` to see the raw output.
 
 `make help` lists the faster slices (`engine:fmt`, `engine:clippy`,
 `engine:test`, …) and the commands that fix things (`engine:format`,
