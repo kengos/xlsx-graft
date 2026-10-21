@@ -192,6 +192,7 @@ CARGO_IN_DOCKER = $(GATE_LOCK) docker run --rm --init \
 # `<scope>:<job>` wrappers and the private `_<scope>-<job>` recipes. What stays
 # in THIS file is the shared machinery above and `help`/`quiet`/`clean`.
 include mk/engine.mk
+include mk/sdk.mk
 include mk/docker.mk
 
 .PHONY: _verify help quiet verify clean clean\:all clean\:target
@@ -257,5 +258,5 @@ clean: ## Remove engine/lcov.info
 clean\:target: ## Remove this tree's engine/target (refuses while a gate runs)
 	@scripts/clean-tree.sh target
 
-clean\:all: ## Remove this tree's engine/target, engine/lcov.info, dist/ and .make-logs/ (incl. a stale gate lock)
+clean\:all: ## Remove this tree's engine/target, engine/lcov.info, dist/, sdk/ruby/coverage/ and .make-logs/ (incl. a stale gate lock)
 	@scripts/clean-tree.sh all
