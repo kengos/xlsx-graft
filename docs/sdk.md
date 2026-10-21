@@ -63,6 +63,13 @@ in `.make-logs/`, `V=1` for the raw output.
   built on bookworm (glibc 2.36). glibc loads a library built against the same
   or an older glibc; a musl base (alpine) loads nothing.
 
+`make verify` runs each `sdk:<lang>:verify` on the floor (its private
+`_sdk-<lang>-verify` is a member of `_verify` in the `Makefile`), so the
+required CI check covers every SDK. Each newer line gets a CI job of its own,
+the same target with the version variable
+(`make sdk:ruby:verify RUBY_VER=4.0`), which is not a required check. The job restores the engine
+build cache and saves nothing (`.github/actions/engine-cache`, input `save`).
+
 ## Finding the engine library
 
 An SDK loads the first of:
