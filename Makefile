@@ -156,7 +156,7 @@ gate = $(if $(V)$(_IN_QUIET),$(GATE_LOCK) )$(MAKE) --no-print-directory $(if $(V
 # Nothing in the cache depends on the Rust version, so the name carries none;
 # removing it costs the next gate a download, not a build. CARGO_VOLUME is
 # overridable: docker takes a bare name as a named volume and an absolute path
-# as a host bind mount, which is what lets CI restore a cache into it.
+# as a host bind mount, which would let CI restore a cache into it.
 #
 # Mount the REPO ROOT at /repo and let -w select engine/: paths baked in at
 # compile time (CARGO_MANIFEST_DIR) then stay identical across runs, and a

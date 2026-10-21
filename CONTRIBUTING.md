@@ -34,6 +34,11 @@ the `xlsx_graft_*` functions its header declares, and nothing else. It prints
 one PASS/FAIL line; on a failure the full log is at
 `.make-logs/last-error.log`. Add `V=1` to see the raw output.
 
+CI runs this same `make verify`, in the same toolchain image, on every pull
+request and every push to `main`
+([.github/workflows/ci.yml](.github/workflows/ci.yml)). It keeps no second
+copy of the checks; it only adds `V=1` for the raw output.
+
 `make help` lists the faster slices (`engine:fmt`, `engine:clippy`,
 `engine:test`, …) and the commands that fix things (`engine:format`,
 `engine:lock`).
