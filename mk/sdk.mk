@@ -1,22 +1,71 @@
 # sdk/ — the language SDKs: gates and lockfiles
 #
-# Every target defined here is named `sdk:<job>:<lang>` (public) or
-# `_sdk-<job>-<lang>` (private, carrying the recipe). docs/sdk.md is the shape
-# every language follows.
+# The public targets defined here are named `sdk:<job>` (every language) and
+# `sdk:<job>:<lang>`; the private ones, carrying the recipes,
+# `_sdk-<job>[-<lang>[-line]]`, the `-line` one running a single release
+# line. docs/sdk.md is the shape every language follows.
+#
+# A gate runs every release line a language supports, one after another;
+# LATEST=1 runs the latest stable line only (docs/sdk.md § Supported language
+# versions).
 
-.PHONY: _sdk-image-ruby _sdk-lint-ruby _sdk-test-ruby _sdk-verify-ruby \
-        sdk\:lint\:ruby sdk\:lock\:ruby sdk\:test\:ruby sdk\:verify\:ruby
+.PHONY: _sdk-image-ruby _sdk-lint _sdk-lint-ruby _sdk-lint-ruby-line _sdk-test _sdk-test-ruby \
+        _sdk-test-ruby-line _sdk-verify _sdk-verify-ruby _sdk-verify-ruby-line sdk\:lint \
+        sdk\:lint\:ruby sdk\:lock\:ruby sdk\:test sdk\:test\:ruby sdk\:verify sdk\:verify\:ruby
+
+## ---- every language ----------------------------------------------------
+
+# Every SDK, by the <lang> of its targets. A language joins here, which puts it
+# in sdk:verify / test / lint and, through its CI_JOBS_<lang>, in CI.
+SDK_LANGS := ruby
+
+sdk\:verify: ## Verify every SDK on every supported line (LATEST=1: the latest line only)
+	@$(call gate,_sdk-verify,sdk:verify)
+
+_sdk-verify: $(addprefix _sdk-verify-,$(SDK_LANGS))
+
+sdk\:test: ## Every SDK's tests at 100% line coverage, on every supported line (LATEST=1: the latest)
+	@$(call gate,_sdk-test,sdk:test)
+
+_sdk-test: $(addprefix _sdk-test-,$(SDK_LANGS))
+
+sdk\:lint: ## Every SDK's lint, on every supported line (LATEST=1: the latest)
+	@$(call gate,_sdk-lint,sdk:lint)
+
+_sdk-lint: $(addprefix _sdk-lint-,$(SDK_LANGS))
+
+# One CI job per language and per line, in the shape `ci:matrix` prints
+# (Makefile).
+SDK_CI_JOBS = $(foreach l,$(SDK_LANGS),$(or $(CI_JOBS_$(l)),$(error SDK_LANGS lists $(l), but no CI_JOBS_$(l) lists its CI jobs)))
 
 ## ---- ruby --------------------------------------------------------------
 
-# RUBY_VER picks the release line, and the line its patch release, so the same
-# commit gates on the same interpreter. The base image's Debian layers still
-# move when Docker Hub rebuilds that tag. 3.4 is the floor (docs/sdk.md
-# § Supported language versions).
-RUBY_VER ?= 3.4
+# RUBY_LINES lists the supported release lines, the floor first and the
+# latest stable line last, and each line is pinned to a patch release, so the
+# same commit gates on the same interpreter. The base image's Debian layers
+# still move when Docker Hub rebuilds that tag. A gate runs every line,
+# LATEST=1 the last one, and RUBY_VER=<line> that line alone.
+RUBY_LINES := 3.4 4.0
 RUBY_PATCH_3.4 := 3.4.11
 RUBY_PATCH_4.0 := 4.0.7
-RUBY_PATCH = $(or $(RUBY_PATCH_$(RUBY_VER)),$(error RUBY_VER=$(RUBY_VER) is not a gated line; use 3.4 or 4.0))
+# Command line only (Makefile § knobs).
+RUBY_VER :=
+RUBY_GATED = $(or $(RUBY_VER),$(if $(LATEST),$(lastword $(RUBY_LINES)),$(RUBY_LINES)))
+RUBY_PATCH = $(or $(RUBY_PATCH_$(RUBY_VER)),$(error RUBY_VER is unset; run a public sdk:*:ruby target))
+
+# Each entry opens with the comma that joins it to the one before (CI_MATRIX,
+# Makefile).
+CI_JOBS_ruby = $(foreach v,$(RUBY_LINES),,{"target":"sdk:verify:ruby","args":"RUBY_VER=$(v)"})
+
+# Refused when make reads the file, before any gate builds the engine.
+ifneq ($(filter-out $(RUBY_LINES),$(RUBY_VER)),)
+$(error RUBY_VER=$(RUBY_VER) is not a gated line; use one of $(RUBY_LINES))
+endif
+
+# Each line runs in a make of its own: RUBY_VER fixes the image every recipe
+# below names, and one make runs a target once. The first red line stops the
+# rest.
+ruby_each = for v in $(RUBY_GATED); do $(MAKE) --no-print-directory $(1) RUBY_VER=$$v || exit; done
 
 # Built from sdk/ruby/Dockerfile on every gate and never published: it holds
 # the bundle alone, and docker's layer cache keeps a rebuild to a no-op until
@@ -41,7 +90,10 @@ RUBY_IN_DOCKER = $(GATE_LOCK) docker run --rm --init --pull never \
 # Writes sdk/ruby/Gemfile.lock and does NOT go through `quiet`, like
 # engine:lock. It runs on the plain ruby image: the gate image installs from
 # the lockfile, so it cannot be the one that makes it. The two platforms are
-# CI's and an Apple Silicon Mac's Docker.
+# CI's and an Apple Silicon Mac's Docker. It resolves on the floor, so bundler
+# never picks a gem that the floor cannot install; whether every later line
+# installs it is what that line's gate checks.
+sdk\:lock\:ruby: override RUBY_VER = $(firstword $(RUBY_LINES))
 sdk\:lock\:ruby: ## Re-resolve sdk/ruby/Gemfile.lock after a Gemfile or gemspec edit (then: git add sdk/ruby/Gemfile.lock)
 	@echo "== sdk:lock:ruby (Ruby $(RUBY_PATCH)) =="
 	$(GATE_LOCK) docker run --rm --init --label "xlsx-graft.tree=$(CURDIR)" \
@@ -58,13 +110,16 @@ _sdk-image-ruby:
 # fiddle still comes from the image's gems on GEM_PATH, as --local fetches
 # nothing), and loaded from there with no bundler and no checkout on the load
 # path.
-sdk\:verify\:ruby: ## Verify sdk/ruby — rubocop + rspec at 100% line coverage + gem build/install/load (RUBY_VER=3.4|4.0)
+sdk\:verify\:ruby: ## Verify sdk/ruby on every supported line — rubocop + rspec at 100% line coverage + gem build/install/load (LATEST=1, RUBY_VER=<line>)
 	@$(call gate,_sdk-verify-ruby,sdk:verify:ruby)
 
-_sdk-verify-ruby: _engine-capi-lib _sdk-image-ruby
-	@echo "== sdk ruby lint + spec =="
+_sdk-verify-ruby: _engine-capi-lib
+	@$(call ruby_each,_sdk-verify-ruby-line)
+
+_sdk-verify-ruby-line: _sdk-image-ruby
+	@echo "== sdk ruby lint + spec (Ruby $(RUBY_PATCH)) =="
 	$(RUBY_IN_DOCKER) 'bundle exec rake lint spec'
-	@echo "== sdk ruby gem (build, install, load) =="
+	@echo "== sdk ruby gem (build, install, load) (Ruby $(RUBY_PATCH)) =="
 	$(RUBY_IN_DOCKER) 'cp -r /repo/sdk/ruby /tmp/build; \
 		rm -rf /tmp/build/coverage /tmp/build/lib/xlsx_graft/native; \
 		cd /tmp/build; \
@@ -77,17 +132,23 @@ _sdk-verify-ruby: _engine-capi-lib _sdk-image-ruby
 		cd /tmp; \
 		ruby /repo/sdk/ruby/script/check_installed_gem.rb /tmp/gems /repo/engine/Cargo.toml'
 
-sdk\:test\:ruby: ## sdk/ruby rspec at 100% line coverage (RUBY_VER=3.4|4.0)
+sdk\:test\:ruby: ## sdk/ruby rspec at 100% line coverage, on every supported line (LATEST=1, RUBY_VER=<line>)
 	@$(call gate,_sdk-test-ruby,sdk:test:ruby)
 
-_sdk-test-ruby: _engine-capi-lib _sdk-image-ruby
-	@echo "== sdk ruby spec =="
+_sdk-test-ruby: _engine-capi-lib
+	@$(call ruby_each,_sdk-test-ruby-line)
+
+_sdk-test-ruby-line: _sdk-image-ruby
+	@echo "== sdk ruby spec (Ruby $(RUBY_PATCH)) =="
 	$(RUBY_IN_DOCKER) 'bundle exec rake spec'
 
 # No engine library needed, so no capi-lib: lint runs without a Rust build.
-sdk\:lint\:ruby: ## sdk/ruby rubocop (RUBY_VER=3.4|4.0)
+sdk\:lint\:ruby: ## sdk/ruby rubocop, on every supported line (LATEST=1, RUBY_VER=<line>)
 	@$(call gate,_sdk-lint-ruby,sdk:lint:ruby)
 
-_sdk-lint-ruby: _sdk-image-ruby
-	@echo "== sdk ruby lint =="
+_sdk-lint-ruby:
+	@$(call ruby_each,_sdk-lint-ruby-line)
+
+_sdk-lint-ruby-line: _sdk-image-ruby
+	@echo "== sdk ruby lint (Ruby $(RUBY_PATCH)) =="
 	$(RUBY_IN_DOCKER) 'bundle exec rake lint'

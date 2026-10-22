@@ -9,19 +9,23 @@
 #
 #   Is it correct?            one PASS/FAIL line, non-zero exit on FAIL, log kept
 #     make verify               the whole bar: every scope's verify (today
-#                               engine:verify and sdk:verify:ruby)
+#                               engine:verify and sdk:verify), every SDK on
+#                               every line it supports
+#     make verify LATEST=1      the same, each SDK on its latest line only
 #     make engine:verify        engine: budget + toolchain pins + fmt + clippy +
 #                               tests at 100% line coverage + doctests + C ABI
 #                               symbols, in the pinned toolchain image
-#     make sdk:verify:ruby      the Ruby SDK on its floor (RUBY_VER=4.0 for the
-#                               newer line): rubocop + rspec at 100% line
-#                               coverage + the gem built, installed and loaded
+#     make sdk:verify           every SDK, every line it supports (LATEST=1)
+#     make sdk:verify:ruby      the Ruby SDK on every supported line (LATEST=1,
+#                               or RUBY_VER=<line> for one): rubocop + rspec at
+#                               100% line coverage + the gem built, installed
+#                               and loaded
 #
 #   Faster slices while iterating
 #     make engine:budget        make engine:fmt         make engine:clippy
 #     make engine:lint          make engine:test [P=<crate>] [F=<filter>]
 #     make engine:coverage      make engine:capi-abi
-#     make sdk:lint:ruby        make sdk:test:ruby
+#     make sdk:lint[:ruby]      make sdk:test[:ruby]    (LATEST=1 for both)
 #     make <any>:<job> V=1      the same run, verbose, for debugging a failure
 #     make quiet T=<target>     the PASS/FAIL treatment for anything else
 #
@@ -151,11 +155,13 @@ ERROR_LOG := $(LOG_DIR)/last-error.log
 TREE_ID = $(notdir $(CURDIR))@$(shell git -C $(CURDIR) symbolic-ref --quiet --short HEAD 2>/dev/null \
 	|| git -C $(CURDIR) rev-parse --short HEAD 2>/dev/null || echo '?')
 
-# Knobs that change WHAT a gate checks (engine:test's P= and F=) are set on
-# the command line only. Each is defined with a bare `:=` in the file that
-# reads it: a makefile assignment overrides the environment and loses to the
-# command line, so `export F=x` does nothing, and RUN_NAME (MAKEOVERRIDES)
-# names every knob a run had. `make -e` is refused above.
+# Knobs that change WHAT a gate checks (LATEST=, engine:test's P= and F=, an
+# SDK's version variable such as RUBY_VER=) are set on the command line only.
+# Each is defined with a bare `:=` in the file that reads it, LATEST here as
+# every SDK reads it: a makefile assignment overrides the environment and
+# loses to the command line, so `export F=x` does nothing, and RUN_NAME
+# (MAKEOVERRIDES) names every knob a run had. `make -e` is refused above.
+LATEST :=
 
 # Parallelism cap for the heavy gates: `make engine:verify JOBS=4`.
 JOBS ?=
@@ -220,7 +226,7 @@ include mk/engine.mk
 include mk/sdk.mk
 include mk/docker.mk
 
-.PHONY: _verify help quiet verify clean clean\:all clean\:target
+.PHONY: _verify ci\:matrix help quiet verify clean clean\:all clean\:target
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_\\:-]+:.*## ' $(MAKEFILE_LIST) \
@@ -274,14 +280,25 @@ quiet: ## Run ANY target this way: make quiet T=engine:test (same PASS/FAIL line
 ## ---- the whole bar ----------------------------------------------------
 #
 # One target over every scope, so CI and a contributor run the same thing.
-# Each scope's `<scope>:verify` joins it as a member of `_verify`. An SDK joins
-# on its floor, the default RUBY_VER; CI gates the newer lines in jobs of
-# their own (.github/workflows/ci.yml).
+# Each scope's `<scope>:verify` joins it as a member of `_verify`, every SDK on
+# every line it supports. LATEST=1 narrows each SDK to its latest line, for a
+# faster run while iterating; CI never sets it.
+#
+# CI runs the same members as parallel jobs rather than one `make verify`:
+# `ci:matrix` prints them, one for the engine and one per SDK line, and
+# .github/workflows/ci.yml's required `make verify` job passes only when all of
+# them do. A scope that joins `_verify` joins CI_MATRIX too.
 
-verify: ## The whole bar: every scope's verify (today: engine:verify, sdk:verify:ruby)
+verify: ## The whole bar: every scope's verify, every SDK on every supported line (LATEST=1: the latest line only)
 	@$(call gate,_verify,verify)
 
-_verify: _engine-verify _sdk-verify-ruby
+_verify: _engine-verify _sdk-verify
+
+CI_MATRIX = {"include":[{"target":"engine:verify","args":""}$(SDK_CI_JOBS)]}
+
+# Not a gate: it checks nothing and prints one line of JSON, which CI reads.
+ci\:matrix: ## Print verify's members as CI's job matrix (JSON, one job for the engine and one per SDK line)
+	@echo '$(CI_MATRIX)'
 
 ## ---- housekeeping ------------------------------------------------------
 #

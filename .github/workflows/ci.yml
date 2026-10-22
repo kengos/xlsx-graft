@@ -1,11 +1,11 @@
 name: CI
 
-# The `make verify` job runs the target a contributor runs locally, in the
-# same pinned toolchain image: the engine and every SDK on its floor. The
-# other jobs gate an SDK on its newer release lines, with the same make target
-# and a version variable. CI keeps no copy of the cargo flags, the coverage
-# threshold or the image pin: a gate changes in the Makefile, and local and CI
-# move together.
+# CI runs what `make verify` runs locally, in the same pinned toolchain image:
+# the engine and every SDK on every line it supports. It runs `make verify`'s
+# members as parallel jobs, which `make ci:matrix` lists, so a new SDK line
+# needs no edit here. CI keeps no copy of the cargo flags, the coverage
+# threshold, the image pin or the supported lines: a gate changes in the
+# Makefile, and local and CI move together.
 #
 # No paths-ignore. Once a green run is required on main, a pull request that
 # skipped the workflow would wait for a check that never reports, so a
@@ -37,38 +37,59 @@ env:
   V: 1
 
 jobs:
+  # Checks nothing: it prints `make verify`'s members as JSON for the gate
+  # job's matrix, and needs no Docker. A broken Makefile fails it here rather
+  # than in the gate job's fromJSON.
+  matrix:
+    name: make ci:matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - id: matrix
+        run: |
+          matrix=$(make --no-print-directory ci:matrix)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  # One job per member of `make verify`, each the make target a contributor
+  # runs. Linux only: the gates need Docker running Linux containers, which
+  # the hosted macOS and Windows runners do not provide. fail-fast is off, so
+  # one red line still shows how every other line fares.
+  gate:
+    name: make ${{ matrix.target }}${{ matrix.args && format(' {0}', matrix.args) || '' }}
+    needs: matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/engine-cache
+        with:
+          target: ${{ matrix.target }}
+          args: ${{ matrix.args }}
+
+  # The check main's ruleset requires, under the name it has always had. It
+  # passes only when the matrix was listed and every job of it passed. Without
+  # `always()` a red gate would skip this job, and a skipped required check
+  # counts as passed. A run cancelled by a newer push leaves it red, which
+  # nobody acts on.
   verify:
-    # One job rather than one per member: the members share engine/target, so
-    # separate jobs would each compile the workspace from their own cache.
-    # Linux only: the gates need Docker running Linux containers, which the
-    # hosted macOS and Windows runners do not provide.
     name: make verify
+    needs: [matrix, gate]
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: ./.github/actions/engine-cache
-        with:
-          target: verify
-
-  # The newer Ruby line, beside the floor that `make verify` gates. Not a
-  # required check: main's ruleset requires `make verify` only. It restores
-  # the engine/target a verify job saved earlier (the two jobs run at once),
-  # whose capi-lib release build it shares, and saves nothing, so main keeps
-  # one entry per commit, holding all of it. After a lockfile or toolchain
-  # change it restores nothing and builds capi-lib from scratch.
-  sdk-ruby-4:
-    name: make sdk:verify:ruby RUBY_VER=4.0
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: ./.github/actions/engine-cache
-        with:
-          target: sdk:verify:ruby
-          args: RUBY_VER=4.0
-          save: "false"
+      - env:
+          MATRIX: ${{ needs.matrix.result }}
+          GATE: ${{ needs.gate.result }}
+        run: |
+          echo "make ci:matrix: $MATRIX, gates: $GATE"
+          [ "$MATRIX" = success ] && [ "$GATE" = success ]
