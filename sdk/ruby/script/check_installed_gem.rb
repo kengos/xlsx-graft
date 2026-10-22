@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Run by `make sdk:ruby:verify` after it installs the built gem into a
+# Run by `make sdk:verify:ruby` after it installs the built gem into a
 # directory of its own: loads the gem from there, with no bundler and no
 # checkout on the load path, and checks it reaches the engine.
 #

@@ -36,5 +36,5 @@ Everything runs in Docker through `make` at the repository root; you need no
 Ruby installed. See [docs/sdk.md](../../docs/sdk.md).
 
 ```sh
-make sdk:ruby:verify
+make sdk:verify:ruby
 ```

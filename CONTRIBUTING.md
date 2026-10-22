@@ -24,7 +24,9 @@ make verify
 ```
 
 It runs every part's checks; today that is `make engine:verify` and
-`make sdk:ruby:verify`.
+`make sdk:verify`, every SDK on every language version it supports. While
+iterating, `make verify LATEST=1` runs each SDK on its latest version only,
+which is faster; run the whole `make verify` before asking for a review.
 
 `make engine:verify` is the engine's: the line budget, the check that every
 crate opts into the workspace lints, the check that the toolchain versions in
@@ -35,20 +37,22 @@ the check that the C ABI library exports exactly the `xlsx_graft_*` functions
 its header declares, and nothing else. It prints one PASS/FAIL line; on a failure the
 full log is at `.make-logs/last-error.log`. Add `V=1` to see the raw output.
 
-`make sdk:ruby:verify` is the Ruby SDK's, on its oldest supported Ruby:
-rubocop, the specs at 100% line coverage, and the gem built, installed and
-loaded against the engine library. `RUBY_VER=4.0` runs it on the newer line.
+`make sdk:verify:ruby` is the Ruby SDK's, on every supported Ruby (`RUBY_LINES`
+in `mk/sdk.mk`): rubocop, the specs at 100% line coverage, and the gem built,
+installed and loaded against the engine library. `LATEST=1` runs it on the
+newest Ruby only, `RUBY_VER=<line>` on that one.
 [docs/sdk.md](docs/sdk.md) has the shape every SDK follows.
 
-CI runs this same `make verify`, in the same toolchain image, on every pull
+CI runs what `make verify` runs, in the same toolchain image, on every pull
 request and every push to `main`
-([.github/workflows/ci.yml](.github/workflows/ci.yml)). It keeps no second
-copy of the checks; it only adds `V=1` for the raw output. A second job runs
-`make sdk:ruby:verify RUBY_VER=4.0`; it is not required for merging.
+([.github/workflows/ci.yml](.github/workflows/ci.yml)). It splits it into
+parallel jobs, the engine and one per supported Ruby, which `make ci:matrix`
+lists, and its `make verify` check passes only when all of them do. It keeps
+no second copy of the checks; it only adds `V=1` for the raw output.
 
 `make help` lists the faster slices (`engine:fmt`, `engine:clippy`,
-`engine:test`, `sdk:ruby:lint`, `sdk:ruby:test`, …) and the commands that fix
-things (`engine:format`, `engine:lock`, `sdk:ruby:lock`).
+`engine:test`, `sdk:lint`, `sdk:test:ruby`, …) and the commands that fix
+things (`engine:format`, `engine:lock`, `sdk:lock:ruby`).
 
 The first run pulls the toolchain image (about 1 GB), which already holds
 Rust, rustfmt, clippy and `cargo-llvm-cov`, and downloads the crates into the

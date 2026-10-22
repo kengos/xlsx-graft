@@ -1,9 +1,9 @@
 name: Run a make gate with a warm engine/target
 description: >
   Runs one `make` target, the one a contributor runs, with engine/target
-  restored from the cache before it and, unless `save` is "false", saved
-  after it. The toolchain container writes as root, so the action hands
-  engine/target back to the runner between the run and the save.
+  restored from the cache before it and saved after it. The toolchain
+  container writes as root, so the action hands engine/target back to the
+  runner between the run and the save.
 
 inputs:
   target:
@@ -12,17 +12,9 @@ inputs:
   args:
     description: >
       Variable assignments passed to make after the target, on one line and
-      split on whitespace, e.g. "RUBY_VER=4.0".
+      split on whitespace, e.g. "RUBY_VER=3.4".
     required: false
     default: ""
-  save:
-    description: >
-      Anything but "true" (e.g. "false") restores engine/target but never
-      saves it. A job that builds only part of what `make verify` builds
-      sets it, so its smaller entry never takes the key the verify job saves
-      under.
-    required: false
-    default: "true"
 
 runs:
   using: composite
@@ -30,17 +22,22 @@ runs:
     # The build depends on the lockfile and on the toolchain, so the key holds
     # both: a new TOOLCHAIN_DIGEST starts from an empty engine/target instead
     # of one compiled by the previous rustc. The digest is read from the
-    # Makefile, the file the gates read it from.
+    # Makefile, the file the gates read it from. Each target builds a part of
+    # its own (engine:verify the debug and coverage builds, an SDK the release
+    # library), so each keeps entries of its own; the lines of one SDK share
+    # theirs, as `args` is not in the key.
     - name: Compute the cache key
       id: key
       shell: bash
+      env:
+        TARGET: ${{ inputs.target }}
       run: |
         digest=$(sed -n 's/^TOOLCHAIN_DIGEST *:= *sha256:\([0-9a-f]*\)$/\1/p' Makefile)
         if [ -z "$digest" ]; then
           echo "engine-cache: no TOOLCHAIN_DIGEST in the Makefile" >&2
           exit 1
         fi
-        echo "prefix=engine-target-${{ runner.os }}-$digest-" >> "$GITHUB_OUTPUT"
+        echo "prefix=engine-target-${{ runner.os }}-$digest-${TARGET//:/-}-" >> "$GITHUB_OUTPUT"
         echo "lock=${{ hashFiles('engine/Cargo.lock') }}-" >> "$GITHUB_OUTPUT"
 
     # Each saved commit has its own entry, and the newest build of the same
@@ -78,16 +75,18 @@ runs:
           sudo chown -R "$(id -u):$(id -g)" engine/target
         fi
 
-    # With `save` "true": main saves every commit: its entries are the ones
-    # every pull request can restore. A pull request's entries are visible to
-    # that pull request only, so it saves once, when it restored nothing (a new
-    # toolchain digest or a lockfile main has not built yet), rather than
-    # spending the repository's cache limit on every push and evicting main's. A
-    # re-run that hit its exact key saves nothing, since an entry is never
-    # overwritten. A failed gate still saves: what compiled is worth reusing.
+    # main saves every commit: its entries are the ones every pull request can
+    # restore. A pull request's entries are visible to that pull request only,
+    # so it saves once, when it restored nothing (a new toolchain digest or a
+    # lockfile main has not built yet), rather than spending the repository's
+    # cache limit on every push and evicting main's. A re-run that hit its
+    # exact key saves nothing, since an entry is never overwritten; neither
+    # does the second of two lines of one SDK, which race for the same key and
+    # leave a warning. A failed gate still saves: what compiled is worth
+    # reusing.
     - uses: actions/cache/save@v6
       if: >-
-        ${{ !cancelled() && inputs.save == 'true' && steps.restore.outcome == 'success'
+        ${{ !cancelled() && steps.restore.outcome == 'success'
         && steps.restore.outputs.cache-hit != 'true'
         && (github.ref == 'refs/heads/main' || steps.restore.outputs.cache-matched-key == '') }}
       with:

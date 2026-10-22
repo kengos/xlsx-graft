@@ -18,31 +18,42 @@ within six months.** A floor that reaches end-of-life soon after a release
 helps nobody. Re-derive the numbers below when adding an SDK and at each
 release.
 
-| Language | Floor | Also gated | Note |
+| Language | Floor | Latest stable | Note |
 | --- | --- | --- | --- |
 | Ruby | 3.4 | 4.0 | 3.3 reaches end-of-life 2027-03 |
 
-The gate runs on the floor by default: a package that only works on the newest
-interpreter has not supported the version it claims. Newer lines are gated as
-well, by the same target with a version variable (`RUBY_VER=4.0`).
+**Every supported line is gated, and the required check covers them all.** A
+package that only works on the newest interpreter has not supported the
+version it claims, and a floor that is only checked on the side stays red
+until somebody looks. So `make verify`, and CI's required `make verify` check,
+run each SDK on every line in this table, the floor and the latest included.
+The price is time: each line is a run of its own. While iterating, `LATEST=1`
+narrows a gate to the latest stable line, and `RUBY_VER=<line>` to one line.
+CI never sets `LATEST`: it runs one job per line, each with `RUBY_VER=<line>`.
 
-Each line is pinned to a patch release in `mk/sdk.mk`, the one place the
-number is written, so a commit gates on the same interpreter every day. (The
-base image's Debian layers still move when Docker Hub rebuilds the tag.)
+The lines are listed in `mk/sdk.mk` (`RUBY_LINES`, the floor first and the
+latest last), the one list the gates and CI read: CI reads it through
+`make ci:matrix` and runs one job per line. Each line is pinned there to a
+patch release, so a commit gates on the same interpreter every day. (The base
+image's Debian layers still move when Docker Hub rebuilds the tag.)
 
 ## The gate, per language
 
-Every SDK has the same four targets, defined in `mk/sdk.mk`:
+Every SDK has the same four targets, named job first and language last, and
+`sdk:verify` / `sdk:test` / `sdk:lint` run the job for every language. All
+are defined in `mk/sdk.mk`:
 
 | Target | What it does |
 | --- | --- |
-| `sdk:<lang>:verify` | the whole bar: lint, the tests at 100% line coverage, then the package built, installed into a directory of its own and loaded from there |
-| `sdk:<lang>:test` | the tests at 100% line coverage |
-| `sdk:<lang>:lint` | the linter and formatter checks; needs no engine build |
-| `sdk:<lang>:lock` | re-resolve the lockfile after a manifest edit. Writes the file and prints its raw output, like `engine:lock` |
+| `sdk:verify:<lang>` | the whole bar: lint, the tests at 100% line coverage, then the package built, installed into a directory of its own and loaded from there |
+| `sdk:test:<lang>` | the tests at 100% line coverage |
+| `sdk:lint:<lang>` | the linter and formatter checks; needs no engine build |
+| `sdk:lock:<lang>` | re-resolve the lockfile after a manifest edit, on the floor, so it never picks a dependency the floor cannot install (each later line's gate checks that line). Writes the file and prints its raw output, like `engine:lock` |
 
 The first three are gates like the engine's: one PASS/FAIL line, the full log
-in `.make-logs/`, `V=1` for the raw output.
+in `.make-logs/`, `V=1` for the raw output. They run the supported lines one
+after another and stop at the first red one; `LATEST=1` and `<LANG>_VER=<line>`
+narrow them.
 
 - **Everything runs in Docker.** Nobody needs the language installed. The
   image is built from `sdk/<lang>/Dockerfile` on every gate, with `sdk/<lang>`
@@ -63,12 +74,15 @@ in `.make-logs/`, `V=1` for the raw output.
   built on bookworm (glibc 2.36). glibc loads a library built against the same
   or an older glibc; a musl base (alpine) loads nothing.
 
-`make verify` runs each `sdk:<lang>:verify` on the floor (its private
-`_sdk-<lang>-verify` is a member of `_verify` in the `Makefile`), so the
-required CI check covers every SDK. Each newer line gets a CI job of its own,
-the same target with the version variable
-(`make sdk:ruby:verify RUBY_VER=4.0`), which is not a required check. The job restores the engine
-build cache and saves nothing (`.github/actions/engine-cache`, input `save`).
+A language joins by its name in `SDK_LANGS` (`mk/sdk.mk`), which makes its
+private `_sdk-verify-<lang>` a member of `_sdk-verify`, and so of `_verify` in
+the `Makefile`: `make verify` runs each `sdk:verify:<lang>` on every line. CI
+runs the same thing in parallel: `make ci:matrix` lists one job per line
+(`make sdk:verify:ruby RUBY_VER=3.4`, …) from each language's
+`CI_JOBS_<lang>`, and refuses a language without one. The required
+`make verify` job passes only when every one of them does. Each SDK keeps its
+own engine build cache, which its lines share
+(`.github/actions/engine-cache`).
 
 ## Finding the engine library
 

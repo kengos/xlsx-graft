@@ -94,7 +94,10 @@ _engine-clippy:
 # P=<crate> and F=<name filter> narrow the run for the edit-run-edit loop
 # (`make engine:test P=xlsx-graft-core`, `… F=version`, or both). A narrowed
 # run SKIPS the C ABI symbol check below and proves nothing about what it
-# skipped: finish with engine:verify.
+# skipped: finish with engine:verify. Command line only (Makefile § knobs).
+P :=
+F :=
+
 engine\:test: ## cargo test --workspace --locked + the C ABI symbol check (P=<crate> F=<filter> narrow it)
 	@$(call gate,_engine-test,engine:test)
 
