@@ -20,8 +20,11 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
 - No local cargo: the host has no Rust toolchain on purpose. Every check runs
   through `make` (Docker). **A correctness claim names the make target that
   said so and its PASS line** — never a hand-built `docker run … cargo …`
-  equivalent. If the command you need is missing, add a target rather than
-  typing a one-off.
+  equivalent. A PASS line names the command that ran, variables included
+  (not `V=` / `JOBS=` / `CARGO_VOLUME=`, which change how a gate runs, not
+  what it checks): one carrying `RUBY_VER=`, `P=` or `F=` is a narrowed
+  run, and the bar is the bare name. If the command you need is missing, add
+  a target rather than typing a one-off.
 - Each gate target (`verify`, `engine:verify` / `lint` / `budget` /
   `fmt` / `clippy` / `test` / `coverage` / `capi-abi` / `capi-lib`, and
   `sdk:verify:ruby` / `test:ruby` / `lint:ruby`) prints ONE PASS/FAIL

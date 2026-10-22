@@ -96,6 +96,11 @@ endif
 ifneq (,$(findstring i,$(SHORT_FLAGS))$(findstring t,$(SHORT_FLAGS)))
 $(error `make -i` / `make -t` turn a failed gate into exit 0. Run the gate without them)
 endif
+# `make -e` lets the environment override the knobs (below), which a PASS line
+# would then not name.
+ifneq (,$(findstring e,$(SHORT_FLAGS)))
+$(error `make -e` lets the environment override the knobs. Pass them on the command line: make <target> F=<filter>)
+endif
 
 # The toolchain image: docker/toolchain.Dockerfile, published by
 # .github/workflows/toolchain-image.yml and pinned here by DIGEST, which a
@@ -128,7 +133,11 @@ GATE_LOCK := scripts/gate-lock.sh
 
 # Where `make quiet` parks full gate logs (gitignored). ERROR_LOG is the FIXED
 # path a failure always lands at, headed with the target, the exit code and the
-# last `== step ==` reached. It is removed when the same target next passes.
+# last `== step ==` reached. It is removed when the same command next passes
+# (RUN_NAME below), or when a bare `make verify` passes: that runs every gate,
+# so it clears any failure, a `make quiet T=<anything>` run's included.
+# Otherwise it is the last run that failed, not the tree's state: a narrowed
+# run's PASS does not clear a failure of a wider one.
 #
 # A scope aggregate writes ONE log, named after the command you typed:
 # `make engine:verify` writes engine_verify.log and does NOT refresh
@@ -141,6 +150,12 @@ ERROR_LOG := $(LOG_DIR)/last-error.log
 # main. Every gate line names the tree so that drift is visible.
 TREE_ID = $(notdir $(CURDIR))@$(shell git -C $(CURDIR) symbolic-ref --quiet --short HEAD 2>/dev/null \
 	|| git -C $(CURDIR) rev-parse --short HEAD 2>/dev/null || echo '?')
+
+# Knobs that change WHAT a gate checks (engine:test's P= and F=) are set on
+# the command line only. Each is defined with a bare `:=` in the file that
+# reads it: a makefile assignment overrides the environment and loses to the
+# command line, so `export F=x` does nothing, and RUN_NAME (MAKEOVERRIDES)
+# names every knob a run had. `make -e` is refused above.
 
 # Parallelism cap for the heavy gates: `make engine:verify JOBS=4`.
 JOBS ?=
@@ -212,8 +227,16 @@ help: ## Show this help
 		| sed -E 's/^([a-zA-Z0-9_\\:-]+):[^#]*## /\1\t/; s/\\//g' \
 		| awk -F'\t' '{printf "  \033[36m%-24s\033[0m %s\n", $$1, $$2}'
 
-# NAME labels the run; it defaults to T so `make quiet T=<x>` is unchanged.
-RUN_NAME = $(if $(NAME),$(NAME),$(T))
+# The run's name is the command you typed: the public target (NAME, which
+# defaults to T so `make quiet T=<x>` is unchanged) plus every command-line
+# variable in the order given (MAKEOVERRIDES, which the nested makes inherit),
+# minus the variables that change HOW a gate runs, not WHAT it checks. make
+# does not decide whether a variable narrowed the gate: a PASS line that
+# carries one is a run with that variable, and the bar is the bare name. A
+# value must not hold a `'`.
+HARNESS_VARS := T NAME V _IN_QUIET JOBS CARGO_VOLUME
+RUN_ARGS = $(strip $(filter-out $(addsuffix =%,$(HARNESS_VARS)),$(MAKEOVERRIDES)))
+RUN_NAME = $(strip $(or $(NAME),$(T)) $(RUN_ARGS))
 
 quiet: ## Run ANY target this way: make quiet T=engine:test (same PASS/FAIL line; non-zero on failure)
 	@if [ -z "$(T)" ]; then \
@@ -224,25 +247,26 @@ quiet: ## Run ANY target this way: make quiet T=engine:test (same PASS/FAIL line
 	@# Each run writes its own <log>.<pid> and moves it into place at the end:
 	@# the redirect opens the file BEFORE the gate lock is asked, so a second
 	@# gate refused by the lock would otherwise truncate the running one's log.
-	@log="$(LOG_DIR)/$$(echo '$(RUN_NAME)' | tr ' :/' '___').log"; tmp="$$log.$$$$"; \
+	@name='$(RUN_NAME)'; log="$(LOG_DIR)/$$(printf '%s' "$$name" | tr ' :/\\' '____').log"; tmp="$$log.$$$$"; \
 	if $(GATE_LOCK) $(MAKE) --no-print-directory $(T) _IN_QUIET=1 > "$$tmp" 2>&1; then code=0; else code=$$?; fi; \
 	mv -f "$$tmp" "$$log"; \
 	if [ $$code -eq 0 ]; then \
-		if [ -f "$(ERROR_LOG)" ] && head -1 "$(ERROR_LOG)" | grep -qx "# FAILED: $(RUN_NAME)"; then \
+		if [ -f "$(ERROR_LOG)" ] && { [ "$$name" = verify ] \
+			|| head -1 "$(ERROR_LOG)" | grep -qxF "# FAILED: $$name"; }; then \
 			rm -f "$(ERROR_LOG)"; \
 		fi; \
 		printf '\033[32mPASS\033[0m %s  [%s] — full log (%s lines): %s\n' \
-			'$(RUN_NAME)' '$(TREE_ID)' "$$(wc -l < "$$log" | tr -d ' ')" "$$log"; \
+			"$$name" '$(TREE_ID)' "$$(wc -l < "$$log" | tr -d ' ')" "$$log"; \
 	else \
 		step=$$(grep -E '^== ' "$$log" | tail -1); \
-		{ echo "# FAILED: $(RUN_NAME)"; \
+		{ echo "# FAILED: $$name"; \
 		  echo "# tree: $(TREE_ID) ($(CURDIR))"; \
 		  echo "# exit $$code at $$(date '+%Y-%m-%d %H:%M:%S')"; \
 		  echo "# last step: $${step:-(none reported)}"; \
 		  echo "# full log: $$log"; \
 		  echo; cat "$$log"; } > "$(ERROR_LOG)"; \
 		printf '\033[31mFAIL\033[0m %s  [%s] (exit %s)\n  last step : %s\n  error log : %s  <- always this path\n  full log  : %s\n' \
-			'$(RUN_NAME)' '$(TREE_ID)' "$$code" "$${step:-(none reported)}" "$(ERROR_LOG)" "$$log"; \
+			"$$name" '$(TREE_ID)' "$$code" "$${step:-(none reported)}" "$(ERROR_LOG)" "$$log"; \
 		printf -- '--- last 40 lines ---\n'; tail -40 "$$log"; \
 		exit $$code; \
 	fi
