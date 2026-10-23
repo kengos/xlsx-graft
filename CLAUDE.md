@@ -55,7 +55,7 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   workspace**, doctests, and the C ABI check (the built shared
   library's `xlsx_graft_*` exports match `engine/capi/include/xlsx_graft.h`).
 - `make sdk:verify:ruby` is the Ruby SDK's bar on every line in `RUBY_LINES`
-  (`mk/sdk.mk`, the floor first and the latest last; `LATEST=1` or
+  (`mk/sdk/ruby.mk`, the floor first and the latest last; `LATEST=1` or
   `RUBY_VER=<line>` narrows it): rubocop + rspec at **100% line
   coverage** + the gem built, installed into its own `GEM_HOME` and loaded
   against `dist/capi/local/`, built first by `engine:capi-lib`.

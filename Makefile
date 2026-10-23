@@ -220,10 +220,13 @@ CARGO_IN_DOCKER = $(GATE_LOCK) docker run --rm --init \
 .NOTPARALLEL:
 
 # One file per scope, each holding both halves of its jobs: the public
-# `<scope>:<job>` wrappers and the private `_<scope>-<job>` recipes. What stays
-# in THIS file is the shared machinery above and `help`/`quiet`/`clean`.
+# `<scope>:<job>` wrappers and the private `_<scope>-<job>` recipes; the SDKs'
+# per-language jobs are in a file per language, after mk/sdk.mk, whose
+# machinery they use. What stays in THIS file is the shared machinery above and
+# `help`/`quiet`/`clean`.
 include mk/engine.mk
 include mk/sdk.mk
+include mk/sdk/ruby.mk
 include mk/docker.mk
 
 .PHONY: _verify ci\:matrix help quiet verify clean clean\:all clean\:target
