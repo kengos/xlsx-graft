@@ -22,6 +22,7 @@ release.
 | --- | --- | --- | --- |
 | Ruby | 3.4 | 4.0 | 3.3 reaches end-of-life 2027-03 |
 | Python | 3.11 | 3.15 | 3.10 reached end-of-life 2026-10-01 |
+| .NET | 10.0 | 10.0 | 8.0 and 9.0 reach end of support 2026-11-10; 11.0 is added once it ships |
 
 **Every supported line is gated, and the required check covers them all.** A
 package that only works on the newest interpreter has not supported the
@@ -39,8 +40,11 @@ The lines are listed in the language's `mk/sdk/<lang>.mk` (`<LANG>_LINES`:
 floor first and the latest last), the one list the gates and CI read: CI
 reads it through `make ci:matrix` and runs one job per line.
 Each line is pinned there to a patch release, so a commit gates on the same
-interpreter every day. (The base image's Debian layers still move when Docker
-Hub rebuilds the tag.)
+interpreter every day. The pin (`<LANG>_PATCH_<line>`) is the release of the
+tool that decides what the line's gate checks: the interpreter for Ruby and
+Python, the SDK for .NET (an SDK release, not a runtime one), whose release
+names the image and carries `dotnet format` and the analyzers. (The
+base image's OS layers still move when the registry rebuilds the tag.)
 
 ## The gate, per language
 
@@ -73,7 +77,8 @@ narrow them.
   lockfile covers the platforms of CI and of an Apple Silicon Mac's Docker
   (x86-64 and arm64 Linux): Ruby's `Gemfile.lock` names them
   (`sdk:lock:ruby` adds them), and Python's `uv.lock` is universal, every
-  platform in one file.
+  platform in one file, as is a NuGet `packages.lock.json` that names no
+  runtime identifier (.NET's, one per project).
 - **The engine library is never built in a language image.**
   `make engine:capi-lib` builds the release library once, for the Docker host's
   architecture, into the gitignored `dist/capi/local/`. The gate mounts the
@@ -81,7 +86,9 @@ narrow them.
   into the image, so changing the engine never rebuilds one.
 - **The image's libc must be at least as new as the library's.** The library is
   built on bookworm (glibc 2.36). glibc loads a library built against the same
-  or an older glibc; a musl base (alpine) loads nothing.
+  or an older glibc; a musl base (alpine) loads nothing. So the base image need
+  not be Debian: Microsoft ships no Debian image of .NET 10, and .NET's is
+  Ubuntu noble (glibc 2.39).
 
 A language's make file, `mk/sdk/<lang>.mk`, is included by the `Makefile`
 after `mk/sdk.mk`. It sets its values under fixed names (`<LANG>_LINES`,

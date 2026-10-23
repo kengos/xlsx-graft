@@ -1,0 +1,8 @@
+# The image is built from these files alone (see Dockerfile); everything else
+# in sdk/dotnet stays out of the build context.
+*
+!Directory.Build.props
+!XlsxGraft/XlsxGraft.csproj
+!XlsxGraft/packages.lock.json
+!XlsxGraft.Tests/XlsxGraft.Tests.csproj
+!XlsxGraft.Tests/packages.lock.json

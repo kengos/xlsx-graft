@@ -1,0 +1,34 @@
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+indent_style = space
+
+[*.{cs,csproj,props}]
+indent_size = 4
+
+[*.{json,md}]
+indent_size = 2
+
+# NuGet writes these, without a final newline.
+[packages.lock.json]
+insert_final_newline = false
+
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:warning
+dotnet_sort_system_directives_first = true
+
+# The analyzers run at `AnalysisMode=All` (Directory.Build.props). A rule is
+# turned down here only once it has fired, each with its reason.
+
+# IDE0005: an unused `using`, as ruff's F401 is in the Python SDK. It is
+# hidden by default, and the compiler reports it in a build only where XML
+# docs are generated, so every project here generates them.
+dotnet_diagnostic.IDE0005.severity = warning
+
+# CA1032: "implement the standard exception constructors". The parameterless
+# one would be a line no caller reaches, under a 100% line-coverage bar; each
+# exception keeps the constructors this package throws it with.
+dotnet_diagnostic.CA1032.severity = none

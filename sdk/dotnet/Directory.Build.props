@@ -1,0 +1,46 @@
+<Project>
+
+  <!--
+    What the library and its tests share. script/CheckInstalledPackage does
+    not get it: the gate copies that project out of the checkout before it
+    builds it, and restores it against the packed nupkg alone.
+  -->
+  <PropertyGroup>
+    <!-- docs/sdk.md § Supported language versions: .NET 10 is the only line. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!--
+      Every analyzer rule on as a warning at least, and every warning an
+      error, in `dotnet build` as well as in `dotnet format`. The rules turned
+      down are in .editorconfig, each with its reason.
+    -->
+    <AnalysisMode>All</AnalysisMode>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Also what lets the build report IDE0005 (.editorconfig). -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!--
+      The test tools are pinned by each project's packages.lock.json
+      (`make sdk:lock:dotnet` writes them). The gate image sets
+      XLSX_GRAFT_LOCKED_RESTORE, so there a csproj edit without a relock fails
+      the restore instead of resolving again.
+    -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(XLSX_GRAFT_LOCKED_RESTORE)' == 'true'">true</RestoreLockedMode>
+    <!--
+      No vulnerability audit in a restore: it reads nuget.org's advisories of
+      the day, and with warnings as errors one published overnight, or
+      nuget.org out of reach, would turn the same commit red. Watching the
+      dependencies is not this gate's job, as it is not the Ruby or Python
+      gates'.
+    -->
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+
+</Project>

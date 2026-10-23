@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>XlsxGraft</RootNamespace>
+    <AssemblyName>XlsxGraft</AssemblyName>
+
+    <!--
+      The C ABI is called through unmanaged function pointers (Engine.cs says
+      why), so this project, and only this one, allows unsafe code.
+    -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!--
+      The XML docs (GenerateDocumentationFile, Directory.Build.props) ship in
+      the package, and a public member without one fails the build.
+    -->
+
+    <PackageId>XlsxGraft</PackageId>
+    <!-- Tracks the engine workspace's version (engine/Cargo.toml) while everything is pre-1.0. -->
+    <Version>0.0.0</Version>
+    <Authors>kengos</Authors>
+    <Description>Read, verify, create and edit xlsx workbooks</Description>
+    <RepositoryUrl>https://github.com/kengos/xlsx-graft</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- The workspace's license, as an SPDX expression. -->
+    <PackageLicenseExpression>MIT OR Apache-2.0 OR BSD-3-Clause</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Library and the C call are internal; the tests reach them by name rather than widening them. -->
+    <InternalsVisibleTo Include="XlsxGraft.Tests" />
+  </ItemGroup>
+
+  <!--
+    No PackageReference, and a test checks it: System.Runtime.InteropServices
+    is in the framework.
+  -->
+
+</Project>

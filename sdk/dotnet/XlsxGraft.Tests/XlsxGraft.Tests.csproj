@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- An xUnit v3 test project is an executable of its own. -->
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <!--
+      Run by `dotnet test` through VSTest and xunit.runner.visualstudio, which
+      is where coverlet.msbuild instruments the library and applies its
+      threshold. xUnit v3 marks itself a Microsoft.Testing.Platform
+      application, which the .NET 10 SDK refuses to run under VSTest.
+    -->
+    <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+    <RootNamespace>XlsxGraft.Tests</RootNamespace>
+
+    <!--
+      The analyzer rules that argue with how a test assembly is written; the
+      library runs the whole `All` set.
+
+        CA1515  xUnit runs public test classes
+        CA1707  test names are sentences, with underscores
+        CS1591  test members carry no XML docs (generated only for IDE0005)
+    -->
+    <NoWarn>$(NoWarn);CA1515;CA1707;CS1591</NoWarn>
+
+    <!--
+      coverlet's 100% line threshold over the library alone, which fails
+      `dotnet test` rather than printing a number. The report goes to /tmp, out
+      of the mounted checkout.
+    -->
+    <CollectCoverage>true</CollectCoverage>
+    <Include>[XlsxGraft]*</Include>
+    <Threshold>100</Threshold>
+    <ThresholdType>line</ThresholdType>
+    <ThresholdStat>total</ThresholdStat>
+    <CoverletOutput>/tmp/coverage/</CoverletOutput>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageReference Include="xunit.v3" Version="4.0.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1" />
+    <PackageReference Include="coverlet.msbuild" Version="10.1.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../XlsxGraft/XlsxGraft.csproj" />
+  </ItemGroup>
+
+</Project>

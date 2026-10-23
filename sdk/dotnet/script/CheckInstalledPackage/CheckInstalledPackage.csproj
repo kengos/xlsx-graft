@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Run by `make sdk:verify:dotnet` after it packs XlsxGraft: the gate copies
+    this project out of the checkout, restores it from the packed nupkg alone
+    (nuget.config), and runs Program.cs against it.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AnalysisMode>All</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Lets the build report IDE0005 (.editorconfig, copied beside it). -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- No lockfile: the package is the one just packed, whose hash changes with every pack. -->
+    <PackageReference Include="XlsxGraft" Version="0.0.0" />
+  </ItemGroup>
+
+</Project>
