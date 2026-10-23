@@ -31,14 +31,15 @@ until somebody looks. So `make verify`, and CI's required `make verify` check,
 run each SDK on every supported line: the floor and the latest in this table,
 and every line between them (Python's 3.12 to 3.14). The price is time: each
 line is a run of its own. While iterating, `LATEST=1` narrows a gate to the
-latest stable line, and `<LANG>_VER=<line>` (`RUBY_VER`, `PYTHON_VER`) to one
-line. CI never sets `LATEST`: it runs one job per line, each with
-`<LANG>_VER=<line>`.
+latest stable line, and `<LANG>_VER=<line>` (`RUBY_VER`, `PYTHON_VER`,
+`DOTNET_VER`) to one line. CI never sets `LATEST`: it runs one job per line,
+each with `<LANG>_VER=<line>`.
 
 The lines are listed in the language's `mk/sdk/<lang>.mk` (`<LANG>_LINES`:
-`RUBY_LINES` in `mk/sdk/ruby.mk`, `PYTHON_LINES` in `mk/sdk/python.mk`, the
-floor first and the latest last), the one list the gates and CI read: CI
-reads it through `make ci:matrix` and runs one job per line.
+`RUBY_LINES` in `mk/sdk/ruby.mk`, `PYTHON_LINES` in `mk/sdk/python.mk`,
+`DOTNET_LINES` in `mk/sdk/dotnet.mk`, the floor first and the latest last),
+the one list the gates and CI read: CI reads it through `make ci:matrix` and
+runs one job per line.
 Each line is pinned there to a patch release, so a commit gates on the same
 interpreter every day. The pin (`<LANG>_PATCH_<line>`) is the release of the
 tool that decides what the line's gate checks: the interpreter for Ruby and
