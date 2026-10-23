@@ -1,0 +1,100 @@
+[build-system]
+# hatchling, not maturin: the package has no Rust of its own. The engine is a
+# library built by `make engine:capi-lib`, which a platform wheel will carry in
+# xlsx_graft/native/.
+requires = ["hatchling>=1.32"]
+build-backend = "hatchling.build"
+
+[project]
+name = "xlsx-graft"
+dynamic = ["version"]
+description = "Read, verify, create and edit xlsx workbooks"
+readme = "README.md"
+authors = [{ name = "kengos" }]
+# The workspace's license, as an SPDX expression.
+license = "MIT OR Apache-2.0 OR BSD-3-Clause"
+# docs/sdk.md § Supported language versions.
+requires-python = ">=3.11"
+# None, and a test checks it: ctypes is the standard library.
+dependencies = []
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/kengos/xlsx-graft"
+Source = "https://github.com/kengos/xlsx-graft/tree/main/sdk/python"
+
+# The gate's tools, locked in uv.lock (`make sdk:lock:python`). build and
+# hatchling are here because the gate builds the wheel with --no-isolation, so
+# nothing is downloaded while it builds.
+[dependency-groups]
+dev = [
+  "build>=1.6",
+  "hatchling>=1.32",
+  "mypy>=2.4",
+  "pytest>=9.1",
+  "pytest-cov>=7.1",
+  "ruff>=0.17",
+]
+
+[tool.hatch.version]
+path = "src/xlsx_graft/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/xlsx_graft"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+  "E", "W",  # pycodestyle
+  "F",       # pyflakes
+  "I",       # isort
+  "N",       # pep8-naming
+  "UP",      # pyupgrade
+  "B",       # bugbear
+  "A",       # builtin shadowing
+  "C4",      # comprehensions
+  "PL",      # pylint
+  "PT",      # pytest style
+  "RET",     # return discipline
+  "SIM",     # simplify
+  "TID",     # tidy imports
+  "ARG",     # unused arguments
+  "PTH",     # prefer pathlib
+  "RUF",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["PLR2004"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src", "tests", "script"]
+mypy_path = "src"
+strict = true
+warn_unreachable = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+# No cacheprovider: the gate runs as root on the mounted checkout, and
+# .pytest_cache would be left there owned by root.
+addopts = "-p no:cacheprovider --strict-markers --cov --cov-report=term-missing --cov-fail-under=100"
+
+[tool.coverage.run]
+source = ["xlsx_graft"]
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:"]
