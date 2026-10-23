@@ -22,18 +22,18 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   said so and its PASS line** — never a hand-built `docker run … cargo …`
   equivalent. A PASS line names the command that ran, variables included
   (not `V=` / `JOBS=` / `CARGO_VOLUME=`, which change how a gate runs, not
-  what it checks): one carrying `LATEST=1`, `RUBY_VER=`, `P=` or `F=` is a
-  narrowed run, and the bar is the bare name. If the command you need is
-  missing, add a target rather than typing a one-off.
+  what it checks): one carrying `LATEST=1`, `RUBY_VER=`, `PYTHON_VER=`, `P=`
+  or `F=` is a narrowed run, and the bar is the bare name. If the command you
+  need is missing, add a target rather than typing a one-off.
 - Each gate target (`verify`, `engine:verify` / `lint` / `budget` /
   `fmt` / `clippy` / `test` / `coverage` / `capi-abi` / `capi-lib`, and
-  `sdk:verify` / `test` / `lint`, each also `:ruby`) prints ONE PASS/FAIL
-  line, exits 0 on PASS and non-zero on FAIL (the gate's own code is in the
-  FAIL line and the `# exit` header of `last-error.log`), and keeps the full
-  log in `.make-logs/`. A gate failure (without `V=1`) always lands at
+  `sdk:verify` / `test` / `lint`, each also `:ruby` and `:python`) prints ONE
+  PASS/FAIL line, exits 0 on PASS and non-zero on FAIL (the gate's own code
+  is in the FAIL line and the `# exit` header of `last-error.log`), and keeps
+  the full log in `.make-logs/`. A gate failure (without `V=1`) always lands at
   `.make-logs/last-error.log`. `V=1` streams the raw output instead (no log).
   The fix-applying targets (`engine:format` / `lock` / `update`,
-  `sdk:lock:ruby`) print their raw output.
+  `sdk:lock:ruby` / `sdk:lock:python`) print their raw output.
 - **Never wrap a gate** in a pipe (`| tail`), in `; echo $?`, or in `make -n`.
   The first two report the wrong exit code; the Makefile refuses the third.
 - GNU Make 4 or newer. The Makefile refuses 3.81 (macOS's) and names the fix.
@@ -58,6 +58,12 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   (`mk/sdk/ruby.mk`, the floor first and the latest last; `LATEST=1` or
   `RUBY_VER=<line>` narrows it): rubocop + rspec at **100% line
   coverage** + the gem built, installed into its own `GEM_HOME` and loaded
+  against `dist/capi/local/`, built first by `engine:capi-lib`.
+- `make sdk:verify:python` is the Python SDK's bar on every line in
+  `PYTHON_LINES` (`mk/sdk/python.mk`, the floor first, the latest last and
+  every line between them; `LATEST=1` or `PYTHON_VER=<line>` narrows it):
+  ruff (format + check) + mypy `--strict` + pytest at **100% line
+  coverage** + the wheel built, installed into its own venv and loaded
   against `dist/capi/local/`, built first by `engine:capi-lib`.
 - **Rust here grows long files, so length is gated**: ≤300 lines per non-test
   file (aim for ≤160 in a new one; not gated), 150 per function. Before

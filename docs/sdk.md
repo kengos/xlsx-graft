@@ -27,14 +27,17 @@ release.
 package that only works on the newest interpreter has not supported the
 version it claims, and a floor that is only checked on the side stays red
 until somebody looks. So `make verify`, and CI's required `make verify` check,
-run each SDK on every line in this table, the floor and the latest included.
-The price is time: each line is a run of its own. While iterating, `LATEST=1`
-narrows a gate to the latest stable line, and `RUBY_VER=<line>` to one line.
-CI never sets `LATEST`: it runs one job per line, each with `RUBY_VER=<line>`.
+run each SDK on every supported line: the floor and the latest in this table,
+and every line between them (Python's 3.12 to 3.14). The price is time: each
+line is a run of its own. While iterating, `LATEST=1` narrows a gate to the
+latest stable line, and `<LANG>_VER=<line>` (`RUBY_VER`, `PYTHON_VER`) to one
+line. CI never sets `LATEST`: it runs one job per line, each with
+`<LANG>_VER=<line>`.
 
-The lines are listed in the language's `mk/sdk/<lang>.mk` (`RUBY_LINES` in
-`mk/sdk/ruby.mk`, the floor first and the latest last), the one list the gates
-and CI read: CI reads it through `make ci:matrix` and runs one job per line.
+The lines are listed in the language's `mk/sdk/<lang>.mk` (`<LANG>_LINES`:
+`RUBY_LINES` in `mk/sdk/ruby.mk`, `PYTHON_LINES` in `mk/sdk/python.mk`, the
+floor first and the latest last), the one list the gates and CI read: CI
+reads it through `make ci:matrix` and runs one job per line.
 Each line is pinned there to a patch release, so a commit gates on the same
 interpreter every day. (The base image's Debian layers still move when Docker
 Hub rebuilds the tag.)
@@ -64,12 +67,13 @@ narrow them.
   the locked dependencies only, and Docker's layer cache keeps a rebuild to a
   no-op until the lockfile changes. Its tag carries a hash of the files it is
   built from, so two working trees gating at once never share one image.
-- **The lockfile is committed** and the image installs from it in frozen mode,
-  as every engine gate is `--locked`. Without it the linter's version would
-  move between two runs of the same commit. The lockfile covers the platforms
-  of CI and of an Apple Silicon Mac's Docker (x86-64 and arm64 Linux): Ruby's
-  `Gemfile.lock` names them (`sdk:lock:ruby` adds them), and Python's `uv.lock`
-  is universal, every platform in one file.
+- **The lockfile is committed** and the image installs from it without
+  re-resolving it, as every engine gate is `--locked`. Without it the
+  linter's version would move between two runs of the same commit. The
+  lockfile covers the platforms of CI and of an Apple Silicon Mac's Docker
+  (x86-64 and arm64 Linux): Ruby's `Gemfile.lock` names them
+  (`sdk:lock:ruby` adds them), and Python's `uv.lock` is universal, every
+  platform in one file.
 - **The engine library is never built in a language image.**
   `make engine:capi-lib` builds the release library once, for the Docker host's
   architecture, into the gitignored `dist/capi/local/`. The gate mounts the

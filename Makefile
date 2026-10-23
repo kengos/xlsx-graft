@@ -20,12 +20,17 @@
 #                               or RUBY_VER=<line> for one): rubocop + rspec at
 #                               100% line coverage + the gem built, installed
 #                               and loaded
+#     make sdk:verify:python    the Python SDK on every supported line (LATEST=1,
+#                               or PYTHON_VER=<line> for one): ruff + mypy
+#                               --strict + pytest at 100% line coverage + the
+#                               wheel built, installed and loaded
 #
 #   Faster slices while iterating
 #     make engine:budget        make engine:fmt         make engine:clippy
 #     make engine:lint          make engine:test [P=<crate>] [F=<filter>]
 #     make engine:coverage      make engine:capi-abi
-#     make sdk:lint[:ruby]      make sdk:test[:ruby]    (LATEST=1 for both)
+#     make sdk:lint[:<lang>]    make sdk:test[:<lang>]  (LATEST=1 for both;
+#                               <lang> is ruby or python)
 #     make <any>:<job> V=1      the same run, verbose, for debugging a failure
 #     make quiet T=<target>     the PASS/FAIL treatment for anything else
 #
@@ -41,6 +46,8 @@
 #     make engine:update        same, but BUMP within the manifest's ranges
 #     make sdk:lock:ruby        re-resolve sdk/ruby/Gemfile.lock after a Gemfile
 #                               or gemspec edit (then: git add it)
+#     make sdk:lock:python      re-resolve sdk/python/uv.lock after a
+#                               pyproject.toml edit (then: git add it)
 #
 #   Housekeeping (removes things, proves nothing)
 #     make clean:all            this tree's engine/target, lcov.info, dist/,
