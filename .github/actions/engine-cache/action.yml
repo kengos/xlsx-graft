@@ -81,8 +81,8 @@ runs:
     # lockfile main has not built yet), rather than spending the repository's
     # cache limit on every push and evicting main's. A re-run that hit its
     # exact key saves nothing, since an entry is never overwritten; neither
-    # does the second of two lines of one SDK, which race for the same key and
-    # leave a warning. A failed gate still saves: what compiled is worth
+    # do the lines of one SDK after the first to save, which race for the same
+    # key and leave a warning. A failed gate still saves: what compiled is worth
     # reusing.
     - uses: actions/cache/save@v6
       if: >-
