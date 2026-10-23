@@ -38,7 +38,7 @@ its header declares, and nothing else. It prints one PASS/FAIL line; on a failur
 full log is at `.make-logs/last-error.log`. Add `V=1` to see the raw output.
 
 `make sdk:verify:ruby` is the Ruby SDK's, on every supported Ruby (`RUBY_LINES`
-in `mk/sdk.mk`): rubocop, the specs at 100% line coverage, and the gem built,
+in `mk/sdk/ruby.mk`): rubocop, the specs at 100% line coverage, and the gem built,
 installed and loaded against the engine library. `LATEST=1` runs it on the
 newest Ruby only, `RUBY_VER=<line>` on that one.
 [docs/sdk.md](docs/sdk.md) has the shape every SDK follows.

@@ -8,8 +8,8 @@
 # bookworm, so this is bookworm too: glibc loads a library built against the
 # same or an older glibc, and a musl base would load nothing.
 #
-# RUBY_VERSION has no default on purpose. mk/sdk.mk maps RUBY_VER (3.4, 4.0)
-# to the patch release, and it is the one place that number is written.
+# RUBY_VERSION has no default on purpose. mk/sdk/ruby.mk maps RUBY_VER (3.4,
+# 4.0) to the patch release, and it is the one place that number is written.
 ARG RUBY_VERSION
 FROM ruby:${RUBY_VERSION}-slim-bookworm
 
