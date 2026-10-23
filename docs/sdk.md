@@ -21,6 +21,7 @@ release.
 | Language | Floor | Latest stable | Note |
 | --- | --- | --- | --- |
 | Ruby | 3.4 | 4.0 | 3.3 reaches end-of-life 2027-03 |
+| Python | 3.11 | 3.15 | 3.10 reached end-of-life 2026-10-01 |
 
 **Every supported line is gated, and the required check covers them all.** A
 package that only works on the newest interpreter has not supported the
@@ -65,8 +66,10 @@ narrow them.
   built from, so two working trees gating at once never share one image.
 - **The lockfile is committed** and the image installs from it in frozen mode,
   as every engine gate is `--locked`. Without it the linter's version would
-  move between two runs of the same commit. The lockfile names the platforms of
-  CI and of an Apple Silicon Mac's Docker (`x86_64-linux`, `aarch64-linux`).
+  move between two runs of the same commit. The lockfile covers the platforms
+  of CI and of an Apple Silicon Mac's Docker (x86-64 and arm64 Linux): Ruby's
+  `Gemfile.lock` names them (`sdk:lock:ruby` adds them), and Python's `uv.lock`
+  is universal, every platform in one file.
 - **The engine library is never built in a language image.**
   `make engine:capi-lib` builds the release library once, for the Docker host's
   architecture, into the gitignored `dist/capi/local/`. The gate mounts the

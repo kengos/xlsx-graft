@@ -227,6 +227,7 @@ CARGO_IN_DOCKER = $(GATE_LOCK) docker run --rm --init \
 include mk/engine.mk
 include mk/sdk.mk
 include mk/sdk/ruby.mk
+include mk/sdk/python.mk
 include mk/docker.mk
 
 .PHONY: _verify ci\:matrix help quiet verify clean clean\:all clean\:target

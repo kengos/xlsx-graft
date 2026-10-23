@@ -1,0 +1,5 @@
+# The image is built from these files alone (see Dockerfile); everything else
+# in sdk/python stays out of the build context.
+*
+!pyproject.toml
+!uv.lock
