@@ -24,13 +24,17 @@
 #                               or PYTHON_VER=<line> for one): ruff + mypy
 #                               --strict + pytest at 100% line coverage + the
 #                               wheel built, installed and loaded
+#     make sdk:verify:dotnet    the .NET SDK on every supported line (LATEST=1,
+#                               or DOTNET_VER=<line> for one): dotnet format +
+#                               analyzers + xUnit at 100% line coverage + the
+#                               nupkg packed, installed and loaded
 #
 #   Faster slices while iterating
 #     make engine:budget        make engine:fmt         make engine:clippy
 #     make engine:lint          make engine:test [P=<crate>] [F=<filter>]
 #     make engine:coverage      make engine:capi-abi
 #     make sdk:lint[:<lang>]    make sdk:test[:<lang>]  (LATEST=1 for both;
-#                               <lang> is ruby or python)
+#                               <lang> is ruby, python or dotnet)
 #     make <any>:<job> V=1      the same run, verbose, for debugging a failure
 #     make quiet T=<target>     the PASS/FAIL treatment for anything else
 #
@@ -48,6 +52,8 @@
 #                               or gemspec edit (then: git add it)
 #     make sdk:lock:python      re-resolve sdk/python/uv.lock after a
 #                               pyproject.toml edit (then: git add it)
+#     make sdk:lock:dotnet      re-resolve sdk/dotnet's packages.lock.json files
+#                               after a csproj edit (then: git add them)
 #
 #   Housekeeping (removes things, proves nothing)
 #     make clean:all            this tree's engine/target, lcov.info, dist/,
