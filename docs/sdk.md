@@ -23,29 +23,36 @@ release.
 | Ruby | 3.4 | 4.0 | 3.3 reaches end-of-life 2027-03 |
 | Python | 3.11 | 3.15 | 3.10 reached end-of-life 2026-10-01 |
 | .NET | 10.0 | 10.0 | 8.0 and 9.0 reach end of support 2026-11-10; 11.0 is added once it ships |
+| Java | 8 | 25 | LTS lines only; 27 (non-LTS) ends 2027-03. Temurin supports 11 and 17 to at least 2027-10: unless that moves, they leave from 2027-04 while 8 stays, so Java's lines need not be consecutive |
 
 **Every supported line is gated, and the required check covers them all.** A
 package that only works on the newest interpreter has not supported the
 version it claims, and a floor that is only checked on the side stays red
 until somebody looks. So `make verify`, and CI's required `make verify` check,
 run each SDK on every supported line: the floor and the latest in this table,
-and every line between them (Python's 3.12 to 3.14). The price is time: each
-line is a run of its own. While iterating, `LATEST=1` narrows a gate to the
-latest stable line, and `<LANG>_VER=<line>` (`RUBY_VER`, `PYTHON_VER`,
-`DOTNET_VER`) to one line. CI never sets `LATEST`: it runs one job per line,
-each with `<LANG>_VER=<line>`.
+and every line between them (Python's 3.12 to 3.14, Java's 11, 17 and 21).
+A non-LTS Java line is supported for six months, so it is always within six
+months of its end, and the policy leaves Java with its LTS lines alone. The
+price is time: each line is a run of its own. While iterating, `LATEST=1`
+narrows a gate to the latest stable line, and `<LANG>_VER=<line>`
+(`RUBY_VER`, `PYTHON_VER`, `DOTNET_VER`, `JVM_VER`) to one line. CI never sets
+`LATEST`: it runs one job per line, each with `<LANG>_VER=<line>`.
 
 The lines are listed in the language's `mk/sdk/<lang>.mk` (`<LANG>_LINES`:
 `RUBY_LINES` in `mk/sdk/ruby.mk`, `PYTHON_LINES` in `mk/sdk/python.mk`,
-`DOTNET_LINES` in `mk/sdk/dotnet.mk`, the floor first and the latest last),
-the one list the gates and CI read: CI reads it through `make ci:matrix` and
-runs one job per line.
+`DOTNET_LINES` in `mk/sdk/dotnet.mk`, `JVM_LINES` in `mk/sdk/jvm.mk`, the
+floor first and the latest last), the one list the gates and CI read: CI
+reads it through `make ci:matrix` and runs one job per line.
 Each line is pinned there to a patch release, so a commit gates on the same
 interpreter every day. The pin (`<LANG>_PATCH_<line>`) is the release of the
 tool that decides what the line's gate checks: the interpreter for Ruby and
 Python, the SDK for .NET (an SDK release, not a runtime one), whose release
-names the image and carries `dotnet format` and the analyzers. (The
-base image's OS layers still move when the registry rebuilds the tag.)
+names the image and carries `dotnet format` and the analyzers, and for Java
+the Temurin release of the JDK the line's tests run on (as Docker Hub tags it,
+`_` where the version has `+`). Java's tools (Gradle, javac, javadoc, the
+formatter) run on one JDK for every line, pinned in `sdk/jvm/Dockerfile` with
+Gradle, and compile for the floor (`--release 8`). (The base image's OS
+layers still move when the registry rebuilds the tag.)
 
 ## The gate, per language
 
@@ -79,7 +86,12 @@ narrow them.
   (x86-64 and arm64 Linux): Ruby's `Gemfile.lock` names them
   (`sdk:lock:ruby` adds them), and Python's `uv.lock` is universal, every
   platform in one file, as is a NuGet `packages.lock.json` that names no
-  runtime identifier (.NET's, one per project).
+  runtime identifier (.NET's, one per project), and Gradle's lockfiles,
+  since JVM dependencies do not vary by platform (Java's `gradle.lockfile`,
+  and `buildscript-gradle.lockfile` for the plugins). The formatter Spotless
+  fetches is no configuration Gradle can lock, so its version is written in
+  `build.gradle.kts`, and the gate runs `--offline` on what the image
+  resolved.
 - **The engine library is never built in a language image.**
   `make engine:capi-lib` builds the release library once, for the Docker host's
   architecture, into the gitignored `dist/capi/local/`. The gate mounts the
@@ -89,7 +101,8 @@ narrow them.
   built on bookworm (glibc 2.36). glibc loads a library built against the same
   or an older glibc; a musl base (alpine) loads nothing. So the base image need
   not be Debian: Microsoft ships no Debian image of .NET 10, and .NET's is
-  Ubuntu noble (glibc 2.39).
+  Ubuntu noble (glibc 2.39), as Java's is (Temurin's noble images; its alpine
+  ones are musl).
 
 A language's make file, `mk/sdk/<lang>.mk`, is included by the `Makefile`
 after `mk/sdk.mk`. It sets its values under fixed names (`<LANG>_LINES`,
