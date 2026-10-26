@@ -23,20 +23,20 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   equivalent. A PASS line names the command that ran, variables included
   (not `V=` / `JOBS=` / `CARGO_VOLUME=`, which change how a gate runs, not
   what it checks): one carrying `LATEST=1`, `RUBY_VER=`, `PYTHON_VER=`,
-  `DOTNET_VER=`, `JVM_VER=`, `JS_VER=`, `PHP_VER=`, `P=` or `F=` is a
-  narrowed run, and the bar is the bare name. If the command you need is
+  `DOTNET_VER=`, `JVM_VER=`, `JS_VER=`, `PHP_VER=`, `GO_VER=`, `P=` or `F=`
+  is a narrowed run, and the bar is the bare name. If the command you need is
   missing, add a target rather than typing a one-off.
 - Each gate target (`verify`, `engine:verify` / `lint` / `budget` /
   `fmt` / `clippy` / `test` / `coverage` / `capi-abi` / `capi-lib` / `napi` /
   `cli-bin`, and `sdk:verify` / `test` / `lint`, each also `:ruby`, `:python`,
-  `:dotnet`, `:jvm`, `:js` and `:php`) prints ONE PASS/FAIL line, exits 0 on
-  PASS and non-zero on FAIL (the gate's own code is in the FAIL line and the
-  `# exit` header of `last-error.log`), and keeps the full log in
+  `:dotnet`, `:jvm`, `:js`, `:php` and `:go`) prints ONE PASS/FAIL line, exits
+  0 on PASS and non-zero on FAIL (the gate's own code is in the FAIL line and
+  the `# exit` header of `last-error.log`), and keeps the full log in
   `.make-logs/`. A gate failure (without `V=1`) always lands at
   `.make-logs/last-error.log`. `V=1` streams the raw output instead (no log).
   The fix-applying targets (`engine:format` / `lock` / `update`,
   `sdk:lock:ruby` / `sdk:lock:python` / `sdk:lock:dotnet` / `sdk:lock:jvm` /
-  `sdk:lock:js` / `sdk:lock:php`) print their raw output.
+  `sdk:lock:js` / `sdk:lock:php` / `sdk:lock:go`) print their raw output.
 - **Never wrap a gate** in a pipe (`| tail`), in `; echo $?`, or in `make -n`.
   The first two report the wrong exit code; the Makefile refuses the third.
 - GNU Make 4 or newer. The Makefile refuses 3.81 (macOS's) and names the fix.
@@ -98,6 +98,14 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   project of its own and loaded against `dist/cli/local/xlsx-graft`, the CLI
   built first by `engine:cli-bin` and run as a subprocess (not the C ABI
   library).
+- `make sdk:verify:go` is the Go SDK's bar on every line in `GO_LINES`
+  (`mk/sdk/go.mk`, the floor first and the latest last, each pinned to a Go
+  release; `LATEST=1` or `GO_VER=<line>` narrows it): gofmt + `go vet` (also
+  for Windows) + golangci-lint + `go test -race` at **100% statement
+  coverage** + the module copied out as the proxy would zip it, required
+  through a `replace` by a module of its own, built and run against
+  `dist/cli/local/xlsx-graft`, the CLI built first by `engine:cli-bin` and
+  run as a subprocess (not the C ABI library).
 - **Rust here grows long files, so length is gated**: ≤300 lines per non-test
   file (aim for ≤160 in a new one; not gated), 150 per function. Before
   editing, `wc -l` the files you will touch and plan the split (`foo.rs` +

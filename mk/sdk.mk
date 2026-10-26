@@ -46,7 +46,7 @@
 
 # Every SDK, by the <lang> of its targets. A language joins here, which puts it
 # in sdk:verify / test / lint and, through its CI_JOBS_<lang>, in CI.
-SDK_LANGS := ruby python dotnet jvm js php
+SDK_LANGS := ruby python dotnet jvm js php go
 
 sdk\:verify: ## Verify every SDK on every supported line (LATEST=1: the latest line only)
 	@$(call gate,_sdk-verify,sdk:verify)
