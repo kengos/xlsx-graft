@@ -35,7 +35,7 @@
 # A language that reaches the engine through something other than the C ABI's
 # shared library also sets, before the call, the `NAME=path` its gate passes to
 # `docker run -e` (Ruby sets none, and gets the default below): JavaScript's
-# Node.js addon, or PHP's CLI:
+# Node.js addon, or the CLI PHP and Go run:
 #
 #   <LANG>_ENGINE := XLSX_GRAFT_ADDON=/repo/$(NAPI_LOCAL)/xlsx_graft.node
 #   <LANG>_ENGINE := XLSX_GRAFT_CLI=/repo/$(CLI_LOCAL)/xlsx-graft

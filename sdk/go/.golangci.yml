@@ -1,0 +1,13 @@
+# golangci-lint's linters for sdk/go (`make sdk:lint:go`), on top of gofmt and
+# go vet: the standard set, plus revive, which asks every exported name for its
+# doc comment, and misspell.
+#
+# gosec is not on: its G204 flags every subprocess started with an argument
+# that is a variable, which is this package's whole job, done without a shell.
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - misspell
+    - revive
