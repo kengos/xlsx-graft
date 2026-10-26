@@ -1,0 +1,35 @@
+[package]
+name = "xlsx-graft-napi"
+description = "xlsx-graft Node.js addon: the N-API host the JS SDK loads"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[lib]
+# cdylib is the artifact Node.js loads (renamed to `xlsx_graft.node` by
+# `make engine:napi`); rlib lets the doctest gate run over it, which cargo
+# skips for a crate that builds only a cdylib.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# The C ABI host, linked statically as an rlib. The addon calls its entry
+# points rather than the engine beside it, so the status codes the JS SDK
+# reads are the ones every other SDK reads.
+xlsx-graft-capi = { workspace = true }
+# The N-API glue, behind the non-default `shim` feature. `cargo test` and
+# `cargo llvm-cov --workspace` build the default features, so the glue never
+# enters the coverage surface; `engine:clippy` lints it with
+# `--all-features`, and `make engine:napi` builds the addon with it on.
+napi = { workspace = true, optional = true }
+napi-derive = { workspace = true, optional = true }
+
+[build-dependencies]
+napi-build = { workspace = true, optional = true }
+
+[features]
+shim = ["dep:napi", "dep:napi-derive", "dep:napi-build"]
+
+[lints]
+workspace = true

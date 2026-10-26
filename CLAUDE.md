@@ -27,7 +27,7 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   the bare name. If the command you need is missing, add a target rather than
   typing a one-off.
 - Each gate target (`verify`, `engine:verify` / `lint` / `budget` /
-  `fmt` / `clippy` / `test` / `coverage` / `capi-abi` / `capi-lib`, and
+  `fmt` / `clippy` / `test` / `coverage` / `capi-abi` / `capi-lib` / `napi`, and
   `sdk:verify` / `test` / `lint`, each also `:ruby`, `:python`, `:dotnet` and
   `:jvm`) prints ONE PASS/FAIL line, exits 0 on PASS and non-zero on FAIL (the
   gate's own code is in the FAIL line and the `# exit` header of
