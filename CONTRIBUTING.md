@@ -61,34 +61,41 @@ tests at 100% line coverage and the jar published, installed and loaded
 against the engine library. `LATEST=1` runs it on the newest Java only,
 `JVM_VER=<line>` on that one.
 
+`make sdk:verify:js` is the JS SDK's, on every supported Node.js (`JS_LINES`
+in `mk/sdk/js.mk`): Biome (lint and format), tsc, the tests at 100% line
+coverage, and the npm package packed, installed and loaded with `import` and
+`require()` against the Node.js addon, which links the engine in. `LATEST=1`
+runs it on the newest Node.js only, `JS_VER=<line>` on that one.
+
 [docs/sdk.md](docs/sdk.md) has the shape every SDK follows.
 
 CI runs what `make verify` runs, in the same toolchain image, on every pull
 request and every push to `main`
 ([.github/workflows/ci.yml](.github/workflows/ci.yml)). It splits it into
-parallel jobs, the engine and one per supported Ruby, Python, .NET and Java
-line, which `make ci:matrix` lists, and its `make verify` check passes only
-when all of them do. It keeps no second copy of the checks; it only adds `V=1`
-for the raw output.
+parallel jobs, the engine and one per supported Ruby, Python, .NET, Java and
+Node.js line, which `make ci:matrix` lists, and its `make verify` check passes
+only when all of them do. It keeps no second copy of the checks; it only adds
+`V=1` for the raw output.
 
 `make help` lists the faster slices (`engine:fmt`, `engine:clippy`,
 `engine:test`, `sdk:lint`, `sdk:test:ruby`, `sdk:test:python`,
-`sdk:test:dotnet`, `sdk:test:jvm`, …) and the commands that fix things
-(`engine:format`, `engine:lock`, `sdk:lock:ruby`, `sdk:lock:python`,
-`sdk:lock:dotnet`, `sdk:lock:jvm`).
+`sdk:test:dotnet`, `sdk:test:jvm`, `sdk:test:js`, …) and the commands that
+fix things (`engine:format`, `engine:lock`, `sdk:lock:ruby`,
+`sdk:lock:python`, `sdk:lock:dotnet`, `sdk:lock:jvm`, `sdk:lock:js`).
 
 The first run pulls the toolchain image (about 1 GB), which already holds
 Rust, rustfmt, clippy and `cargo-llvm-cov`, and downloads the crates into the
 Docker volume `xlsx-graft-cargo-cache`; later runs reuse both. The SDK gates
 also pull their language's base image (`ruby:<version>-slim-bookworm`,
 `python:<version>-slim-bookworm`,
-`mcr.microsoft.com/dotnet/sdk:<version>-noble`, and for Java the pinned
-`eclipse-temurin` JDK that runs its tools) and build a gate image on it from
-`sdk/<lang>/Dockerfile` (Ruby's apt packages and locked gems, Python's uv and
-locked tools, .NET's locked NuGet packages, Java's line JDK, Gradle and locked
-dependencies), which is never published. Python's image build also pulls the
-pinned `ghcr.io/astral-sh/uv` image to copy `uv` from, and Java's the pinned
-`gradle` image to copy Gradle from and the line's
+`mcr.microsoft.com/dotnet/sdk:<version>-noble`,
+`node:<version>-bookworm-slim`, and for Java the pinned `eclipse-temurin` JDK
+that runs its tools) and build a gate image on it from `sdk/<lang>/Dockerfile`
+(Ruby's apt packages and locked gems, Python's uv and locked tools, .NET's
+locked NuGet packages, Java's line JDK, Gradle and locked dependencies, and
+JavaScript's pnpm and locked tools), which is never published. Python's
+image build also pulls the pinned `ghcr.io/astral-sh/uv` image to copy `uv`
+from, and Java's the pinned `gradle` image to copy Gradle from and the line's
 `eclipse-temurin:<version>-jdk-noble` to copy its JDK from. Nothing else is
 installed or built besides the engine itself, so `make docker:clean:all` is
 safe at any time: the next run pulls, downloads and builds again. It removes
