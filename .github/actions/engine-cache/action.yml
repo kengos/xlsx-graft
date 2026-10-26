@@ -24,8 +24,9 @@ runs:
     # of one compiled by the previous rustc. The digest is read from the
     # Makefile, the file the gates read it from. Each target builds a part of
     # its own (engine:verify the debug and coverage builds, an SDK the release
-    # library, or for JS the release Node.js addon), so each keeps entries of
-    # its own; the lines of one SDK share theirs, as `args` is not in the key.
+    # library, for JS the release Node.js addon, or for PHP and Go the release
+    # CLI), so each keeps entries of its own; the lines of one SDK share
+    # theirs, as `args` is not in the key.
     - name: Compute the cache key
       id: key
       shell: bash

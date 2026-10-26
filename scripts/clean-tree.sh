@@ -4,11 +4,11 @@
 #   scripts/clean-tree.sh target|all
 #
 #   target  engine/target
-#   all     engine/target, engine/lcov.info, dist/ (engine:capi-lib's and
-#           engine:napi's output), sdk/ruby/coverage/ (the Ruby SDK's
-#           coverage report) and .make-logs/ — the gate logs, the
-#           half-written <log>.<pid> of an interrupted run, and a gate lock
-#           left behind by a gate that no longer runs
+#   all     engine/target, engine/lcov.info, dist/ (engine:capi-lib's,
+#           engine:napi's and engine:cli-bin's output), sdk/ruby/coverage/
+#           (the Ruby SDK's coverage report) and .make-logs/ — the gate
+#           logs, the half-written <log>.<pid> of an interrupted run, and a
+#           gate lock left behind by a gate that no longer runs
 #
 # Runs under the gate lock, so it never deletes a build a running gate is
 # using. Both modes also refuse while this tree's container runs without a live
