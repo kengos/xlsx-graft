@@ -28,13 +28,18 @@
 #                               or DOTNET_VER=<line> for one): dotnet format +
 #                               analyzers + xUnit at 100% line coverage + the
 #                               nupkg packed, installed and loaded
+#     make sdk:verify:jvm       the Java SDK on every supported line (LATEST=1,
+#                               or JVM_VER=<line> for one): Spotless + javac
+#                               lint + javadoc + JUnit at 100% line coverage +
+#                               the jar published, installed and loaded, both
+#                               on the line's JVM
 #
 #   Faster slices while iterating
 #     make engine:budget        make engine:fmt         make engine:clippy
 #     make engine:lint          make engine:test [P=<crate>] [F=<filter>]
 #     make engine:coverage      make engine:capi-abi
 #     make sdk:lint[:<lang>]    make sdk:test[:<lang>]  (LATEST=1 for both;
-#                               <lang> is ruby, python or dotnet)
+#                               <lang> is ruby, python, dotnet or jvm)
 #     make <any>:<job> V=1      the same run, verbose, for debugging a failure
 #     make quiet T=<target>     the PASS/FAIL treatment for anything else
 #
@@ -54,6 +59,9 @@
 #                               pyproject.toml edit (then: git add it)
 #     make sdk:lock:dotnet      re-resolve sdk/dotnet's packages.lock.json files
 #                               after a csproj edit (then: git add them)
+#     make sdk:lock:jvm         re-resolve sdk/jvm's gradle.lockfile and
+#                               buildscript-gradle.lockfile after a Gradle build
+#                               file edit (then: git add them)
 #
 #   Housekeeping (removes things, proves nothing)
 #     make clean:all            this tree's engine/target, lcov.info, dist/,
