@@ -24,6 +24,7 @@ release.
 | Python | 3.11 | 3.15 | 3.10 reached end-of-life 2026-10-01 |
 | .NET | 10.0 | 10.0 | 8.0 and 9.0 reach end of support 2026-11-10; 11.0 is added once it ships |
 | Java | 8 | 25 | LTS lines only; 27 (non-LTS) ends 2027-03. Temurin supports 11 and 17 to at least 2027-10: unless that moves, they leave from 2027-04 while 8 stays, so Java's lines need not be consecutive |
+| JavaScript (Node.js) | 24 | 26 | 22 reaches end-of-life 2027-04-30, within six months from 2026-10-30, as this SDK lands; 27 is added once it is Current (2027-04-22) |
 
 **Every supported line is gated, and the required check covers them all.** A
 package that only works on the newest interpreter has not supported the
@@ -32,26 +33,31 @@ until somebody looks. So `make verify`, and CI's required `make verify` check,
 run each SDK on every supported line: the floor and the latest in this table,
 and every line between them (Python's 3.12 to 3.14, Java's 11, 17 and 21).
 A non-LTS Java line is supported for six months, so it is always within six
-months of its end, and the policy leaves Java with its LTS lines alone. The
+months of its end, and the policy leaves Java with its LTS lines alone.
+Node.js ships one line a year from 27 on, every one of them becoming LTS, so
+its odd lines end with 25 and each new line is added once it is Current. The
 price is time: each line is a run of its own. While iterating, `LATEST=1`
 narrows a gate to the latest stable line, and `<LANG>_VER=<line>`
-(`RUBY_VER`, `PYTHON_VER`, `DOTNET_VER`, `JVM_VER`) to one line. CI never sets
-`LATEST`: it runs one job per line, each with `<LANG>_VER=<line>`.
+(`RUBY_VER`, `PYTHON_VER`, `DOTNET_VER`, `JVM_VER`, `JS_VER`) to one line.
+CI never sets `LATEST`: it runs one job per line, each with
+`<LANG>_VER=<line>`.
 
 The lines are listed in the language's `mk/sdk/<lang>.mk` (`<LANG>_LINES`:
 `RUBY_LINES` in `mk/sdk/ruby.mk`, `PYTHON_LINES` in `mk/sdk/python.mk`,
-`DOTNET_LINES` in `mk/sdk/dotnet.mk`, `JVM_LINES` in `mk/sdk/jvm.mk`, the
-floor first and the latest last), the one list the gates and CI read: CI
-reads it through `make ci:matrix` and runs one job per line.
+`DOTNET_LINES` in `mk/sdk/dotnet.mk`, `JVM_LINES` in `mk/sdk/jvm.mk`,
+`JS_LINES` in `mk/sdk/js.mk`, the floor first and the latest last), the one
+list the gates and CI read: CI reads it through `make ci:matrix` and runs one
+job per line.
 Each line is pinned there to a patch release, so a commit gates on the same
 interpreter every day. The pin (`<LANG>_PATCH_<line>`) is the release of the
 tool that decides what the line's gate checks: the interpreter for Ruby and
 Python, the SDK for .NET (an SDK release, not a runtime one), whose release
 names the image and carries `dotnet format` and the analyzers, and for Java
 the Temurin release of the JDK the line's tests run on (as Docker Hub tags it,
-`_` where the version has `+`). Java's tools (Gradle, javac, javadoc, the
-formatter) run on one JDK for every line, pinned in `sdk/jvm/Dockerfile` with
-Gradle, and compile for the floor (`--release 8`). (The base image's OS
+`_` where the version has `+`), and for JavaScript the Node.js release.
+Java's tools (Gradle, javac, javadoc, the formatter) run on one JDK for every
+line, pinned in `sdk/jvm/Dockerfile` with Gradle, and compile for the floor
+(`--release 8`). (The base image's OS
 layers still move when the registry rebuilds the tag.)
 
 ## The gate, per language
@@ -88,21 +94,26 @@ narrow them.
   platform in one file, as is a NuGet `packages.lock.json` that names no
   runtime identifier (.NET's, one per project), and Gradle's lockfiles,
   since JVM dependencies do not vary by platform (Java's `gradle.lockfile`,
-  and `buildscript-gradle.lockfile` for the plugins). The formatter Spotless
-  fetches is no configuration Gradle can lock, so its version is written in
-  `build.gradle.kts`, and the gate runs `--offline` on what the image
-  resolved.
+  and `buildscript-gradle.lockfile` for the plugins), and JavaScript's
+  `pnpm-lock.yaml`, which carries every platform's optional binaries. The
+  formatter Spotless fetches is no configuration Gradle can lock, so its
+  version is written in `build.gradle.kts`, and the gate runs `--offline` on
+  what the image resolved.
 - **The engine library is never built in a language image.**
   `make engine:capi-lib` builds the release library once, for the Docker host's
   architecture, into the gitignored `dist/capi/local/`. The gate mounts the
   repository at `/repo` and points `XLSX_GRAFT_LIBRARY` at it; it is not copied
-  into the image, so changing the engine never rebuilds one.
+  into the image, so changing the engine never rebuilds one. JavaScript's
+  engine is the Node.js addon instead (below): `make engine:napi` builds it
+  the same way into `dist/napi/local/xlsx_graft.node`, and the gate points
+  `XLSX_GRAFT_ADDON` at it.
 - **The image's libc must be at least as new as the library's.** The library is
   built on bookworm (glibc 2.36). glibc loads a library built against the same
   or an older glibc; a musl base (alpine) loads nothing. So the base image need
   not be Debian: Microsoft ships no Debian image of .NET 10, and .NET's is
   Ubuntu noble (glibc 2.39), as Java's is (Temurin's noble images; its alpine
-  ones are musl).
+  ones are musl). The Node.js addon is built on bookworm as well, and
+  JavaScript's image is node's bookworm one.
 
 A language's make file, `mk/sdk/<lang>.mk`, is included by the `Makefile`
 after `mk/sdk.mk`. It sets its values under fixed names (`<LANG>_LINES`,
@@ -148,7 +159,18 @@ mistake rather than a failed call, so it is not a result.
 The library's file name is `libxlsx_graft_capi.so` / `.dylib`, and
 `xlsx_graft_capi.dll` on Windows (no `lib` prefix).
 
+JavaScript is the exception. Node.js has no FFI on the lines it supports, so
+the JS SDK loads a Node.js addon, `xlsx_graft.node` (`engine/napi`), which
+links the C ABI in statically: one file carrying the whole engine, never the
+library above. It looks the addon up in the same order, from
+`XLSX_GRAFT_ADDON`, so one environment can point the other SDKs at the
+library and JavaScript at the addon.
+
 ## Calling the C ABI
+
+In JavaScript the addon's Rust calls the C ABI (`engine/napi/src/call.rs`) and
+hands over the status and, on `XLSX_GRAFT_OK`, an owned copy of the value; the
+JS SDK maps the status to a result as below.
 
 - **Declare every function with its types.** An FFI's default return type is
   usually a C `int`, which cuts a returned pointer in half.

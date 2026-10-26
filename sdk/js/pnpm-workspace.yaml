@@ -1,0 +1,21 @@
+# pnpm's settings for sdk/js. Two of them guard the supply chain; lowering
+# either is a security decision, never a way to get an install to pass:
+#
+#   * `onlyBuiltDependencies` lists the dependencies whose install scripts may
+#     run: none, as no locked dependency has one. pnpm runs none by default,
+#     so adding a name here is the review of that script.
+#   * `minimumReleaseAge` (minutes: 7 days) refuses a version younger than
+#     that. It holds under `--frozen-lockfile` as well, so a lockfile naming a
+#     younger version fails the image build until the version ages in.
+onlyBuiltDependencies: []
+
+minimumReleaseAge: 10080
+
+# The gate runs the package's scripts with node_modules linked in from the
+# image (mk/sdk/js.mk). pnpm otherwise checks before every `pnpm run` that
+# node_modules matches the lockfile, takes the link for a stale install, and
+# tries to reinstall it.
+verifyDepsBeforeRun: false
+
+# The version is pinned (Dockerfile); a notice to update is noise in a gate.
+updateNotifier: false

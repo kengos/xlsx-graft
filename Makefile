@@ -255,6 +255,7 @@ include mk/sdk/ruby.mk
 include mk/sdk/python.mk
 include mk/sdk/dotnet.mk
 include mk/sdk/jvm.mk
+include mk/sdk/js.mk
 include mk/docker.mk
 
 .PHONY: _verify ci\:matrix help quiet verify clean clean\:all clean\:target
