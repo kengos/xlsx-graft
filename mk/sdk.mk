@@ -31,6 +31,12 @@
 # and then its own recipes: the image build (`_sdk-image-<lang>`, tagging it
 # $(<LANG>_IMAGE)), the four public targets of docs/sdk.md § The gate, per
 # language, and their private `_sdk-<job>-<lang>[-line]` recipes.
+#
+# A language that loads the engine through something other than the C ABI's
+# shared library also sets, before the call, the `NAME=path` its gate passes to
+# `docker run -e` (Ruby sets none, and gets the default below):
+#
+#   <LANG>_ENGINE := XLSX_GRAFT_ADDON=/repo/$(NAPI_LOCAL)/xlsx_graft.node
 
 .PHONY: _sdk-lint _sdk-test _sdk-verify sdk\:lint sdk\:test sdk\:verify
 
@@ -76,6 +82,9 @@ SDK_CI_JOBS = $(foreach l,$(SDK_LANGS),$(or $(CI_JOBS_$(l)),$(error SDK_LANGS li
 #                      the image every recipe names, and one make runs a target
 #                      once. The first red line stops the rest
 #   <LANG>_IMAGE       the gate image's tag (below)
+#   <LANG>_ENGINE_ENV  the `NAME=path` the gate passes to `docker run -e`: the
+#                      file's <LANG>_ENGINE, or by default XLSX_GRAFT_LIBRARY
+#                      at the C ABI's .so
 #   <LANG>_IN_DOCKER   the `docker run` a recipe hands its shell script to, in
 #                      sdk/<lang> with the engine library mounted (below)
 #
@@ -84,7 +93,12 @@ SDK_CI_JOBS = $(foreach l,$(SDK_LANGS),$(or $(CI_JOBS_$(l)),$(error SDK_LANGS li
 # values after the call, or not at all: no lines would gate nothing and still
 # pass, no image inputs would leave `cat` reading the terminal, and no bare
 # `<LANG>_VER :=` would let the environment narrow a gate its PASS line calls
-# whole.
+# whole. A <LANG>_ENGINE the file set is refused unless it is a `NAME=path`: an
+# empty one would silently fall back to the C ABI's library. One from the
+# command line or an override is refused, as it would point a gate at another
+# engine; one from the environment is not read at all, since a shell may export
+# the name for its own use (chruby's RUBY_ENGINE). One set after the call is
+# not refused but never read (<LANG>_ENGINE_ENV).
 #
 # The gate image is built from sdk/<lang>/Dockerfile on every gate and never
 # published: it holds the locked dependencies alone, and docker's layer cache
@@ -94,15 +108,17 @@ SDK_CI_JOBS = $(foreach l,$(SDK_LANGS),$(or $(CI_JOBS_$(l)),$(error SDK_LANGS li
 # the other tree's dependencies.
 #
 # The engine library comes from the mount, not the image (docs/sdk.md § The
-# gate, per language). Inside Docker it is always the Linux .so. The same
-# container label and --init as CARGO_IN_DOCKER; --pull never because the image
-# exists only locally, and a missing one is a local error rather than a failed
-# pull.
+# gate, per language). Inside Docker it is always a Linux build: the C ABI's
+# .so unless <LANG>_ENGINE names another. The same container label and --init
+# as CARGO_IN_DOCKER; --pull never because the image exists only locally, and a
+# missing one is a local error rather than a failed pull.
 define sdk_lang
 $$(if $$($(2)_LINES),,$$(error mk/sdk/$(1).mk sets no $(2)_LINES before calling sdk_lang))
 $$(foreach v,$$($(2)_LINES),$$(if $$($(2)_PATCH_$$(v)),,$$(error mk/sdk/$(1).mk sets no $(2)_PATCH_$$(v) before calling sdk_lang)))
 $$(if $$($(2)_IMAGE_INPUTS),,$$(error mk/sdk/$(1).mk sets no $(2)_IMAGE_INPUTS before calling sdk_lang))
 $$(if $$(filter file command,$$(origin $(2)_VER)),,$$(error mk/sdk/$(1).mk sets no bare $(2)_VER := before calling sdk_lang))
+$$(if $$(filter-out undefined environment file,$$(origin $(2)_ENGINE)),$$(error $(2)_ENGINE is set by mk/sdk/$(1).mk alone, not by the command line or an override))
+$$(if $$(filter file,$$(origin $(2)_ENGINE)),$$(if $$(findstring =,$$($(2)_ENGINE)),,$$(error mk/sdk/$(1).mk sets $(2)_ENGINE to '$$($(2)_ENGINE)', not a NAME=path)))
 
 $(2)_GATED = $$(or $$($(2)_VER),$$(if $$(LATEST),$$(lastword $$($(2)_LINES)),$$($(2)_LINES)))
 $(2)_PATCH = $$(or $$($(2)_PATCH_$$($(2)_VER)),$$(error $(2)_VER is unset; run a public sdk:*:$(1) target))
@@ -118,9 +134,10 @@ $(1)_each = for v in $$($(2)_GATED); do $$(MAKE) --no-print-directory $$(1) $(2)
 $(2)_IMAGE_HASH := $$(shell cat $$($(2)_IMAGE_INPUTS) | git hash-object --stdin | cut -c1-12)
 $(2)_IMAGE = xlsx-graft-sdk-$(1):$$($(2)_PATCH)-$$($(2)_IMAGE_HASH)
 
+$(2)_ENGINE_ENV := $$(or $$(if $$(filter file,$$(origin $(2)_ENGINE)),$$($(2)_ENGINE)),XLSX_GRAFT_LIBRARY=/repo/$$(CAPI_LOCAL)/libxlsx_graft_capi.so)
 $(2)_IN_DOCKER = $$(GATE_LOCK) docker run --rm --init --pull never \
 	--label "xlsx-graft.tree=$$(CURDIR)" \
 	-v "$$(CURDIR):/repo" -w /repo/sdk/$(1) \
-	-e XLSX_GRAFT_LIBRARY=/repo/$$(CAPI_LOCAL)/libxlsx_graft_capi.so \
+	-e $$($(2)_ENGINE_ENV) \
 	$$($(2)_IMAGE) sh -euc
 endef

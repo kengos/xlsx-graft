@@ -110,8 +110,13 @@ after `mk/sdk.mk`. It sets its values under fixed names (`<LANG>_LINES`,
 `mk/sdk.mk`'s header shows Ruby's) and hands them to `sdk_lang`, which defines
 from them what every language shares: the lines a gate runs, one make per
 line, the CI jobs, the refusal of a line not in the list, the image's tag and
-the `docker run` the recipes run in. The file itself writes only what is the
-language's own: the image build, the four targets above and their recipes.
+the `docker run` the recipes run in. That `docker run` points
+`XLSX_GRAFT_LIBRARY` at the C ABI's library; a language that loads the engine
+otherwise sets `<LANG>_ENGINE`, the `NAME=path` passed to `docker run -e`
+instead (one without `=`, or one from the command line or an `override`,
+stops make; one from the environment is not read). The file itself writes only
+what is the language's own: the image build, the four targets above and their
+recipes.
 
 A language joins the gates by its name in `SDK_LANGS` (`mk/sdk.mk`), which
 makes its private `_sdk-verify-<lang>` a member of `_sdk-verify`, and so of
