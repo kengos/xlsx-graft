@@ -42,14 +42,19 @@
 #                               PHPStan + PHPUnit at 100% line coverage + the
 #                               package archived, installed and loaded, against
 #                               the CLI
+#     make sdk:verify:go        the Go SDK on every supported line (LATEST=1, or
+#                               GO_VER=<line> for one): gofmt + go vet +
+#                               golangci-lint + go test -race at 100% statement
+#                               coverage + the module copied, built and run,
+#                               against the CLI
 #
 #   Faster slices while iterating
 #     make engine:budget        make engine:fmt         make engine:clippy
 #     make engine:lint          make engine:test [P=<crate>] [F=<filter>]
 #     make engine:coverage      make engine:capi-abi
 #     make sdk:lint[:<lang>]    make sdk:test[:<lang>]  (LATEST=1 for both;
-#                               <lang> is ruby, python, dotnet, jvm, js
-#                               or php)
+#                               <lang> is ruby, python, dotnet, jvm, js,
+#                               php or go)
 #     make <any>:<job> V=1      the same run, verbose, for debugging a failure
 #     make quiet T=<target>     the PASS/FAIL treatment for anything else
 #
@@ -83,6 +88,9 @@
 #                               package.json edit (then: git add it)
 #     make sdk:lock:php         re-resolve sdk/php/composer.lock after a
 #                               composer.json edit (then: git add it)
+#     make sdk:lock:go          re-resolve sdk/go's go.mod files and
+#                               tools/go.sum after a go.mod edit (then: git
+#                               add sdk/go)
 #
 #   Housekeeping (removes things, proves nothing)
 #     make clean:all            this tree's engine/target, lcov.info, dist/,
