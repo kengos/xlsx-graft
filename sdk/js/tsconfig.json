@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    // Node.js 24, the floor (docs/sdk.md § Supported language versions).
+    "target": "es2024",
+    "lib": ["es2024"],
+    "module": "node20",
+    "types": ["node"],
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+    "verbatimModuleSyntax": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
+}

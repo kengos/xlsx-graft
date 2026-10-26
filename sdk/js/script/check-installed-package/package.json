@@ -1,0 +1,5 @@
+{
+  "name": "check-installed-package",
+  "private": true,
+  "type": "module"
+}
