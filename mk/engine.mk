@@ -4,9 +4,9 @@
 # (private, carrying the recipe).
 
 .PHONY: _engine-budget _engine-capi-abi _engine-capi-lib _engine-clippy _engine-coverage _engine-doctest _engine-fmt \
-        _engine-lint _engine-test _engine-toolchain _engine-verify engine\:budget engine\:capi-abi engine\:capi-lib engine\:clippy \
+        _engine-lint _engine-napi _engine-test _engine-toolchain _engine-verify engine\:budget engine\:capi-abi engine\:capi-lib engine\:clippy \
         engine\:coverage engine\:coverage-why engine\:fmt engine\:format engine\:lint \
-        engine\:lock engine\:test engine\:update engine\:verify
+        engine\:lock engine\:napi engine\:test engine\:update engine\:verify
 
 ## ---- lockfile ----------------------------------------------------------
 #
@@ -151,6 +151,29 @@ _engine-capi-lib:
 		lib=$$(ls "$$out"); \
 		../scripts/check-capi-symbols.sh "$$out/$$lib" $(CAPI_HEADER); \
 		echo "engine library: $(CAPI_LOCAL)/$$lib"'
+
+## ---- napi (the Node.js addon the JS SDK loads) -------------------------
+
+# Node.js cannot load the C ABI library (no FFI on the lines the JS SDK
+# supports), so the JS SDK loads an addon that links it statically. This
+# builds the addon in release, with its N-API shim (the `shim` feature, which
+# no test or coverage run builds), for the Docker host's arch, and renames the
+# cdylib to the `.node` Node.js `require()`s. As in engine:capi-lib, the
+# directory is emptied first so an addon left by an earlier run never stands
+# in for this one. The build runs in the Linux toolchain container, so the
+# cdylib is always a `.so`. Not part of engine:verify: whether the addon loads
+# and answers is what the JS SDK's gate checks, through Node.js itself.
+NAPI_LOCAL := dist/napi/local
+
+engine\:napi: ## Build the release Node.js addon for the Docker host's arch into dist/napi/local (the JS SDK loads it)
+	@$(call gate,_engine-napi,engine:napi)
+
+_engine-napi:
+	@echo "== napi addon (release, Docker host arch) =="
+	$(CARGO_IN_DOCKER) 'out=/repo/$(NAPI_LOCAL); rm -rf "$$out"; mkdir -p "$$out"; \
+		cargo build -p xlsx-graft-napi --release --features shim --locked $(CARGO_JOBS); \
+		cp target/release/libxlsx_graft_napi.so "$$out/xlsx_graft.node"; \
+		echo "node addon: $(NAPI_LOCAL)/xlsx_graft.node"'
 
 ## ---- coverage ----------------------------------------------------------
 

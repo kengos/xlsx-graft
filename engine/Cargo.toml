@@ -5,6 +5,7 @@ members = [
     "cli",
     "core",
     "mcp",
+    "napi",
 ]
 
 [workspace.package]
@@ -19,6 +20,8 @@ repository = "https://github.com/kengos/xlsx-graft"
 # `{ workspace = true }`.
 [workspace.dependencies]
 xlsx-graft-core = { path = "core" }
+# The C ABI host, linked as an rlib by the Node.js addon (engine/napi).
+xlsx-graft-capi = { path = "capi" }
 # The CLI's argument parser. derive keeps each flag's help beside its field,
 # and a `global` flag (`--format`) reaches every subcommand added later. The
 # defaults minus `color`: terminal colouring alone pulls in ten crates
@@ -40,6 +43,14 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Each crate's error enum (docs/guidelines.md § Rust code rules).
 thiserror = "2"
+# The Node.js addon's N-API glue (engine/napi, behind its `shim` feature):
+# Node.js has no FFI on the lines the JS SDK supports, so it cannot load the
+# C ABI library the way the other SDKs do and needs a native addon. `napi`
+# keeps its default features: without them the addon links and loads but
+# `require()` fails with "Module did not self-register".
+napi = "3"
+napi-derive = "3"
+napi-build = "2"
 
 # Every lint below fails `make engine:verify`: the "warn" ones through clippy
 # -D warnings, unsafe_code by itself ("deny"). The rules: docs/guidelines.md.
@@ -69,8 +80,9 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)"] }
 # The engine is served to SDKs, a CLI and MCP: every item a crate exports
 # says what it is.
 missing_docs = "warn"
-# A crate that needs raw pointers (the C ABI host) allows it at its own root,
-# under the rules in docs/guidelines.md § unsafe.
+# A crate that needs raw pointers (the C ABI host, and the Node.js addon
+# that calls it) allows it at its own root, under the rules in
+# docs/guidelines.md § unsafe.
 unsafe_code = "deny"
 
 # Tuned for disk rather than debugger use: workspace crates keep line tables,

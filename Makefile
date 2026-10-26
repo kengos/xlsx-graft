@@ -43,9 +43,13 @@
 #     make <any>:<job> V=1      the same run, verbose, for debugging a failure
 #     make quiet T=<target>     the PASS/FAIL treatment for anything else
 #
-#   Build for the SDKs (proves only what its symbol check says)
+#   Build for the SDKs (capi-lib proves only what its symbol check says,
+#   napi only that the addon builds)
 #     make engine:capi-lib      the release C ABI library, for the Docker host's
 #                               arch, into dist/capi/local/ (gitignored)
+#     make engine:napi          the release Node.js addon (the C ABI linked in),
+#                               for the Docker host's arch, into
+#                               dist/napi/local/xlsx_graft.node (gitignored)
 #
 #   Apply fixes
 #     make engine:format        rustfmt

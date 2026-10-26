@@ -100,7 +100,15 @@ by arithmetic. What keeps a suite navigable is this:
 - No exclusion markers, including `#[cfg(not(coverage))]` (`cfg(coverage)` is
   declared only to keep `unexpected_cfgs` quiet). An uncovered line is a
   finding with two honest answers: delete it (it is dead), or restructure so
-  a test can reach the rule it encodes.
+  a test can reach the rule it encodes. The one exception is the next item.
+- **The Node.js addon's N-API shim is outside the coverage gate**
+  (`engine/napi/src/shim.rs`). It sits behind the `shim` feature, which the
+  coverage run does not build, so llvm-cov never sees it; the JS SDK's tests
+  run it through the real addon (`make engine:napi` builds it, and
+  `engine:clippy` lints it with `--all-features`). That only holds while the
+  shim maps an owned result to a JavaScript object and nothing more: a rule
+  that lives in the shim is a rule no Rust test covers, so it goes in
+  `engine/napi/src/call.rs`, which the coverage run does see.
 - Coverage counts each crate twice (its own unit tests + the copy linked into
   dependents' tests); a line covered in only one copy can still fail. Cover
   new code in the crate's own unit tests first. `make engine:coverage-why`
@@ -114,9 +122,9 @@ by arithmetic. What keeps a suite navigable is this:
   as a `[lints]` table with `workspace = true` under it (gated by
   `make engine:budget`). Without it none of the lints named on this page apply
   to that crate, and clippy stays green. A crate that must differ (the C ABI
-  crate) overrides at its crate root with a `reason`, never by dropping the
-  line — cargo does not accept crate-level lint entries beside
-  `workspace = true`.
+  crate, the Node.js addon crate) overrides at its crate root with a
+  `reason`, never by dropping the line — cargo does not accept crate-level
+  lint entries beside `workspace = true`.
 - **Every `.rs` file opens with a `//!` role header**, so `head -1` identifies
   it without opening it (gated by `make engine:budget`). **Every item
   reachable from a crate's public API has a doc comment** (`missing_docs`).
@@ -156,8 +164,10 @@ never crash the process or let its size decide how much memory we use.
 
 ## `unsafe`
 
-The workspace denies `unsafe_code`. The one expected exception is the C ABI
-crate, where raw pointers are unavoidable; a crate that allows `unsafe` must:
+The workspace denies `unsafe_code`. The expected exceptions are the C ABI
+crate, where raw pointers are unavoidable, and the Node.js addon crate
+(`engine/napi`), which calls the C ABI's entry points; a crate that allows
+`unsafe` must:
 
 - deny `unsafe_op_in_unsafe_fn` and `clippy::undocumented_unsafe_blocks` at
   its root, so every block states why it is sound;
@@ -165,5 +175,7 @@ crate, where raw pointers are unavoidable; a crate that allows `unsafe` must:
   logic in safe Rust;
 - stop panics at the boundary (`catch_unwind` at every entry point; never
   `panic = "abort"`);
-- state the caller's unchecked obligations (buffer lengths, freed handles) in
-  the C header the caller reads.
+- state the caller's unchecked obligations (buffer lengths, freed handles)
+  where the caller reads them: the C header for the C ABI crate. The addon
+  crate leaves JavaScript no pointer to get wrong, so it has none; its own
+  obligations to the C ABI are the `# Safety` sections in its `call` module.

@@ -15,7 +15,7 @@
 //!   body inside the crate's panic guard (`guard.rs`), so a panic becomes
 //!   [`XLSX_GRAFT_ERR_PANIC`].
 
-// The one crate in the workspace that writes `unsafe` (docs/guidelines.md
+// A crate of the workspace that writes `unsafe` (docs/guidelines.md
 // § unsafe), so the discipline is declared rather than assumed: an `unsafe fn`
 // gets no implicit unsafe body, and every unsafe block states why it is sound.
 #![allow(

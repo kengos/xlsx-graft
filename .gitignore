@@ -9,7 +9,8 @@
 # Full gate logs written by `make quiet T=<target>`
 /.make-logs/
 
-# The C ABI library `make engine:capi-lib` builds for the SDKs
+# The C ABI library `make engine:capi-lib` and the Node.js addon
+# `make engine:napi` build for the SDKs
 /dist/
 
 # Coverage report written by `make sdk:test:ruby` / `sdk:verify:ruby`
