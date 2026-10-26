@@ -3,8 +3,9 @@
 # Every target defined here is named `engine:<job>` (public) or `_engine-<job>`
 # (private, carrying the recipe).
 
-.PHONY: _engine-budget _engine-capi-abi _engine-capi-lib _engine-clippy _engine-coverage _engine-doctest _engine-fmt \
-        _engine-lint _engine-napi _engine-test _engine-toolchain _engine-verify engine\:budget engine\:capi-abi engine\:capi-lib engine\:clippy \
+.PHONY: _engine-budget _engine-capi-abi _engine-capi-lib _engine-cli-bin _engine-clippy _engine-coverage \
+        _engine-doctest _engine-fmt _engine-lint _engine-napi _engine-test _engine-toolchain _engine-verify \
+        engine\:budget engine\:capi-abi engine\:capi-lib engine\:cli-bin engine\:clippy \
         engine\:coverage engine\:coverage-why engine\:fmt engine\:format engine\:lint \
         engine\:lock engine\:napi engine\:test engine\:update engine\:verify
 
@@ -174,6 +175,37 @@ _engine-napi:
 		cargo build -p xlsx-graft-napi --release --features shim --locked $(CARGO_JOBS); \
 		cp target/release/libxlsx_graft_napi.so "$$out/xlsx_graft.node"; \
 		echo "node addon: $(NAPI_LOCAL)/xlsx_graft.node"'
+
+## ---- cli (the CLI the PHP and Go SDKs run) ------------------------------
+
+# The PHP and Go SDKs do not load the engine: they run the CLI as a
+# subprocess. This builds it in release for the Docker host's arch into the
+# gitignored CLI_LOCAL. As in engine:capi-lib, the directory is emptied first
+# so a binary left by an earlier run never stands in for this one. The build
+# runs in the Linux toolchain container, so the binary has no extension. The
+# copy is then run once in the same container, and the version it prints under
+# `--format json` must be the workspace version in engine/Cargo.toml: a binary
+# that does not start, or whose `version` key is missing or not that version,
+# fails here. Other keys the JSON may gain later do not matter. Not part of
+# engine:verify: whether the SDKs can run it and read its answer is what the
+# PHP and Go SDKs' gates check.
+CLI_LOCAL := dist/cli/local
+
+engine\:cli-bin: ## Build the release CLI for the Docker host's arch into dist/cli/local (the PHP and Go SDKs run it)
+	@$(call gate,_engine-cli-bin,engine:cli-bin)
+
+_engine-cli-bin:
+	@echo "== cli binary (release, Docker host arch) =="
+	$(CARGO_IN_DOCKER) 'out=/repo/$(CLI_LOCAL); rm -rf "$$out"; mkdir -p "$$out"; \
+		cargo build -p xlsx-graft-cli --bin xlsx-graft --release --locked $(CARGO_JOBS); \
+		cp target/release/xlsx-graft "$$out/"; \
+		want=$$(sed -n "/^\[workspace.package\]/,/^\[/s/^version = \"\(.*\)\"$$/\1/p" Cargo.toml); \
+		[ -n "$$want" ] || { echo "cli-bin: no [workspace.package] version in engine/Cargo.toml" >&2; exit 1; }; \
+		json=$$("$$out/xlsx-graft" --version --format json); \
+		have=$$(printf "%s\n" "$$json" | sed -n "s/.*\"version\":\"\([^\"]*\)\".*/\1/p"); \
+		[ "$$have" = "$$want" ] \
+			|| { echo "cli-bin: --version --format json printed $$json, but engine/Cargo.toml says $$want" >&2; exit 1; }; \
+		echo "cli binary: $(CLI_LOCAL)/xlsx-graft"'
 
 ## ---- coverage ----------------------------------------------------------
 
