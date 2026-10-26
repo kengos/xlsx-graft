@@ -37,13 +37,19 @@
 #                               JS_VER=<line> for one): Biome + tsc + Vitest at
 #                               100% line coverage + the npm package packed,
 #                               installed and loaded, against the Node.js addon
+#     make sdk:verify:php       the PHP SDK on every supported line (LATEST=1,
+#                               or PHP_VER=<line> for one): php-cs-fixer +
+#                               PHPStan + PHPUnit at 100% line coverage + the
+#                               package archived, installed and loaded, against
+#                               the CLI
 #
 #   Faster slices while iterating
 #     make engine:budget        make engine:fmt         make engine:clippy
 #     make engine:lint          make engine:test [P=<crate>] [F=<filter>]
 #     make engine:coverage      make engine:capi-abi
 #     make sdk:lint[:<lang>]    make sdk:test[:<lang>]  (LATEST=1 for both;
-#                               <lang> is ruby, python, dotnet, jvm or js)
+#                               <lang> is ruby, python, dotnet, jvm, js
+#                               or php)
 #     make <any>:<job> V=1      the same run, verbose, for debugging a failure
 #     make quiet T=<target>     the PASS/FAIL treatment for anything else
 #
@@ -75,6 +81,8 @@
 #                               file edit (then: git add them)
 #     make sdk:lock:js          re-resolve sdk/js/pnpm-lock.yaml after a
 #                               package.json edit (then: git add it)
+#     make sdk:lock:php         re-resolve sdk/php/composer.lock after a
+#                               composer.json edit (then: git add it)
 #
 #   Housekeeping (removes things, proves nothing)
 #     make clean:all            this tree's engine/target, lcov.info, dist/,
