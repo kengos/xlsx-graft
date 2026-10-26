@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The suite runs the real CLI (XLSX_GRAFT_CLI, which the gate sets) and, for
+  the runs the real one never gives, small fake CLIs the tests write into a
+  temporary directory.
+
+  Coverage goes to build/clover.xml, from which script/coverage-gate.php reads
+  the 100% bar: PHPUnit has no fail-under of its own.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         failOnWarning="true"
+         failOnNotice="true"
+         failOnDeprecation="true"
+         failOnPhpunitDeprecation="true"
+         failOnRisky="true"
+         beStrictAboutOutputDuringTests="true"
+         cacheDirectory=".phpunit.cache">
+    <testsuites>
+        <testsuite name="xlsx-graft">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+
+    <coverage>
+        <report>
+            <clover outputFile="build/clover.xml"/>
+            <text outputFile="php://stdout" showOnlySummary="true"/>
+        </report>
+    </coverage>
+</phpunit>

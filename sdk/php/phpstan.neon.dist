@@ -1,0 +1,12 @@
+parameters:
+    level: max
+    # Every supported line, the floor to the latest (mk/sdk/php.mk), whichever
+    # PHP runs the analysis: each line's gate then reports the same errors.
+    phpVersion:
+        min: 80300
+        max: 80599
+    paths:
+        - src
+        - tests
+        - script
+    treatPhpDocTypesAsCertain: false

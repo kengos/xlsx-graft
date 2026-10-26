@@ -1,0 +1,17 @@
+{
+    "name": "kengos/check-installed-package",
+    "description": "Installs the archived package the way a user would, from its zip alone",
+    "license": "MIT",
+    "require": {
+        "kengos/xlsx-graft": "*"
+    },
+    "repositories": [
+        {
+            "type": "artifact",
+            "url": "/tmp/pack"
+        },
+        {
+            "packagist.org": false
+        }
+    ]
+}

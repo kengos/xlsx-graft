@@ -32,11 +32,13 @@
 # $(<LANG>_IMAGE)), the four public targets of docs/sdk.md § The gate, per
 # language, and their private `_sdk-<job>-<lang>[-line]` recipes.
 #
-# A language that loads the engine through something other than the C ABI's
+# A language that reaches the engine through something other than the C ABI's
 # shared library also sets, before the call, the `NAME=path` its gate passes to
-# `docker run -e` (Ruby sets none, and gets the default below):
+# `docker run -e` (Ruby sets none, and gets the default below): JavaScript's
+# Node.js addon, or PHP's CLI:
 #
 #   <LANG>_ENGINE := XLSX_GRAFT_ADDON=/repo/$(NAPI_LOCAL)/xlsx_graft.node
+#   <LANG>_ENGINE := XLSX_GRAFT_CLI=/repo/$(CLI_LOCAL)/xlsx-graft
 
 .PHONY: _sdk-lint _sdk-test _sdk-verify sdk\:lint sdk\:test sdk\:verify
 

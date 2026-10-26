@@ -1,0 +1,43 @@
+{
+    "name": "kengos/xlsx-graft",
+    "description": "Read, verify, create and edit xlsx workbooks",
+    "type": "library",
+    "license": ["MIT", "Apache-2.0", "BSD-3-Clause"],
+    "authors": [
+        {
+            "name": "kengos"
+        }
+    ],
+    "homepage": "https://github.com/kengos/xlsx-graft",
+    "support": {
+        "issues": "https://github.com/kengos/xlsx-graft/issues",
+        "source": "https://github.com/kengos/xlsx-graft/tree/main/sdk/php"
+    },
+    "require": {
+        "php": ">=8.3"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "phpstan/phpstan": "^2.3",
+        "phpunit/phpunit": "^12.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "XlsxGraft\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "XlsxGraft\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "8.3.0"
+        },
+        "sort-packages": true
+    },
+    "archive": {
+        "exclude": ["/*", "/.*", "!/composer.json", "!/src", "!/README.md", "!/LICENSE-APACHE", "!/LICENSE-BSD", "!/LICENSE-MIT"]
+    }
+}
