@@ -33,13 +33,17 @@
 #                               lint + javadoc + JUnit at 100% line coverage +
 #                               the jar published, installed and loaded, both
 #                               on the line's JVM
+#     make sdk:verify:js        the JS SDK on every supported line (LATEST=1, or
+#                               JS_VER=<line> for one): Biome + tsc + Vitest at
+#                               100% line coverage + the npm package packed,
+#                               installed and loaded, against the Node.js addon
 #
 #   Faster slices while iterating
 #     make engine:budget        make engine:fmt         make engine:clippy
 #     make engine:lint          make engine:test [P=<crate>] [F=<filter>]
 #     make engine:coverage      make engine:capi-abi
 #     make sdk:lint[:<lang>]    make sdk:test[:<lang>]  (LATEST=1 for both;
-#                               <lang> is ruby, python, dotnet or jvm)
+#                               <lang> is ruby, python, dotnet, jvm or js)
 #     make <any>:<job> V=1      the same run, verbose, for debugging a failure
 #     make quiet T=<target>     the PASS/FAIL treatment for anything else
 #
@@ -66,6 +70,8 @@
 #     make sdk:lock:jvm         re-resolve sdk/jvm's gradle.lockfile and
 #                               buildscript-gradle.lockfile after a Gradle build
 #                               file edit (then: git add them)
+#     make sdk:lock:js          re-resolve sdk/js/pnpm-lock.yaml after a
+#                               package.json edit (then: git add it)
 #
 #   Housekeeping (removes things, proves nothing)
 #     make clean:all            this tree's engine/target, lcov.info, dist/,
