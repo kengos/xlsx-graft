@@ -5,7 +5,10 @@
 Every SDK is a thin binding over the engine: it calls the shared C library
 (`engine/capi`, header `engine/capi/include/xlsx_graft.h`) and never
 reimplements what the engine does. A capability that is missing is missing in
-the engine and gets added there.
+the engine and gets added there. A language with no FFI it can count on runs
+the engine another way: JavaScript loads a Node.js addon, and PHP runs the
+engine's CLI (`engine/cli`, binary `xlsx-graft`) as a subprocess
+([Running the CLI](#running-the-cli)).
 
 `sdk/ruby` is the first SDK and the reference: where this page leaves a shape
 open, a later SDK reads what Ruby did rather than deciding again.
@@ -25,27 +28,31 @@ release.
 | .NET | 10.0 | 10.0 | 8.0 and 9.0 reach end of support 2026-11-10; 11.0 is added once it ships |
 | Java | 8 | 25 | LTS lines only; 27 (non-LTS) ends 2027-03. Temurin supports 11 and 17 to at least 2027-10: unless that moves, they leave from 2027-04 while 8 stays, so Java's lines need not be consecutive |
 | JavaScript (Node.js) | 24 | 26 | 22 reaches end-of-life 2027-04-30, within six months from 2026-10-30, as this SDK lands; 27 is added once it is Current (2027-04-22) |
+| PHP | 8.3 | 8.5 | 8.2 reaches end-of-life 2026-12-31, within six months; 8.6 is added once it ships (2026-11-19). 8.3 leaves from 2027-07, six months before its end-of-life (2027-12-31) |
 
 **Every supported line is gated, and the required check covers them all.** A
 package that only works on the newest interpreter has not supported the
 version it claims, and a floor that is only checked on the side stays red
 until somebody looks. So `make verify`, and CI's required `make verify` check,
 run each SDK on every supported line: the floor and the latest in this table,
-and every line between them (Python's 3.12 to 3.14, Java's 11, 17 and 21).
+and every line between them (Python's 3.12 to 3.14, Java's 11, 17 and 21,
+PHP's 8.4).
 A non-LTS Java line is supported for six months, so it is always within six
 months of its end, and the policy leaves Java with its LTS lines alone.
 Node.js ships one line a year from 27 on, every one of them becoming LTS, so
 its odd lines end with 25 and each new line is added once it is Current. The
 price is time: each line is a run of its own. While iterating, `LATEST=1`
 narrows a gate to the latest stable line, and `<LANG>_VER=<line>`
-(`RUBY_VER`, `PYTHON_VER`, `DOTNET_VER`, `JVM_VER`, `JS_VER`) to one line.
+(`RUBY_VER`, `PYTHON_VER`, `DOTNET_VER`, `JVM_VER`, `JS_VER`, `PHP_VER`) to
+one line.
 CI never sets `LATEST`: it runs one job per line, each with
 `<LANG>_VER=<line>`.
 
 The lines are listed in the language's `mk/sdk/<lang>.mk` (`<LANG>_LINES`:
 `RUBY_LINES` in `mk/sdk/ruby.mk`, `PYTHON_LINES` in `mk/sdk/python.mk`,
 `DOTNET_LINES` in `mk/sdk/dotnet.mk`, `JVM_LINES` in `mk/sdk/jvm.mk`,
-`JS_LINES` in `mk/sdk/js.mk`, the floor first and the latest last), the one
+`JS_LINES` in `mk/sdk/js.mk`, `PHP_LINES` in `mk/sdk/php.mk`, the floor first
+and the latest last), the one
 list the gates and CI read: CI reads it through `make ci:matrix` and runs one
 job per line.
 Each line is pinned there to a patch release, so a commit gates on the same
@@ -54,7 +61,8 @@ tool that decides what the line's gate checks: the interpreter for Ruby and
 Python, the SDK for .NET (an SDK release, not a runtime one), whose release
 names the image and carries `dotnet format` and the analyzers, and for Java
 the Temurin release of the JDK the line's tests run on (as Docker Hub tags it,
-`_` where the version has `+`), and for JavaScript the Node.js release.
+`_` where the version has `+`), for JavaScript the Node.js release, and for
+PHP the PHP release.
 Java's tools (Gradle, javac, javadoc, the formatter) run on one JDK for every
 line, pinned in `sdk/jvm/Dockerfile` with Gradle, and compile for the floor
 (`--release 8`). (The base image's OS
@@ -98,7 +106,9 @@ narrow them.
   `pnpm-lock.yaml`, which carries every platform's optional binaries. The
   formatter Spotless fetches is no configuration Gradle can lock, so its
   version is written in `build.gradle.kts`, and the gate runs `--offline` on
-  what the image resolved.
+  what the image resolved. PHP's `composer.lock` holds no platform-specific
+  package, and is resolved for the floor whichever PHP runs the resolve
+  (`config.platform.php` in `composer.json`).
 - **The engine library is never built in a language image.**
   `make engine:capi-lib` builds the release library once, for the Docker host's
   architecture, into the gitignored `dist/capi/local/`. The gate mounts the
@@ -106,14 +116,17 @@ narrow them.
   into the image, so changing the engine never rebuilds one. JavaScript's
   engine is the Node.js addon instead (below): `make engine:napi` builds it
   the same way into `dist/napi/local/xlsx_graft.node`, and the gate points
-  `XLSX_GRAFT_ADDON` at it.
+  `XLSX_GRAFT_ADDON` at it. PHP's engine is the CLI (below):
+  `make engine:cli-bin` builds it the same way into `dist/cli/local/xlsx-graft`,
+  and the gate points `XLSX_GRAFT_CLI` at it.
 - **The image's libc must be at least as new as the library's.** The library is
   built on bookworm (glibc 2.36). glibc loads a library built against the same
   or an older glibc; a musl base (alpine) loads nothing. So the base image need
   not be Debian: Microsoft ships no Debian image of .NET 10, and .NET's is
   Ubuntu noble (glibc 2.39), as Java's is (Temurin's noble images; its alpine
-  ones are musl). The Node.js addon is built on bookworm as well, and
-  JavaScript's image is node's bookworm one.
+  ones are musl). The Node.js addon and the CLI are built on bookworm as well
+  (a binary linked against glibc runs on the same or a newer one, as a
+  library loads), and JavaScript's image is node's bookworm one, and PHP's is php's.
 
 A language's make file, `mk/sdk/<lang>.mk`, is included by the `Makefile`
 after `mk/sdk.mk`. It sets its values under fixed names (`<LANG>_LINES`,
@@ -122,12 +135,12 @@ after `mk/sdk.mk`. It sets its values under fixed names (`<LANG>_LINES`,
 from them what every language shares: the lines a gate runs, one make per
 line, the CI jobs, the refusal of a line not in the list, the image's tag and
 the `docker run` the recipes run in. That `docker run` points
-`XLSX_GRAFT_LIBRARY` at the C ABI's library; a language that loads the engine
-otherwise sets `<LANG>_ENGINE`, the `NAME=path` passed to `docker run -e`
-instead (one without `=`, or one from the command line or an `override`,
-stops make; one from the environment is not read). The file itself writes only
-what is the language's own: the image build, the four targets above and their
-recipes.
+`XLSX_GRAFT_LIBRARY` at the C ABI's library; a language that reaches the
+engine otherwise (the Node.js addon, the CLI) sets `<LANG>_ENGINE`, the
+`NAME=path` passed to `docker run -e` instead (one without `=`, or one from
+the command line or an `override`, stops make; one from the environment is
+not read). The file itself writes only what is the language's own: the image
+build, the four targets above and their recipes.
 
 A language joins the gates by its name in `SDK_LANGS` (`mk/sdk.mk`), which
 makes its private `_sdk-verify-<lang>` a member of `_sdk-verify`, and so of
@@ -152,9 +165,9 @@ The environment comes first because where the engine lives is the deployment's
 decision, and it has to be able to override application code. **Nothing
 downloads anything**, at install time or at run time.
 
-When none is found, or the file does not load, the SDK raises (or returns its
-language's error) with the three ways above spelled out. That is a setup
-mistake rather than a failed call, so it is not a result.
+When none is found, or the file does not load, the SDK raises (as
+[Running the CLI](#running-the-cli) defines it) with the three ways above
+spelled out. That is a setup mistake rather than a failed call.
 
 The library's file name is `libxlsx_graft_capi.so` / `.dylib`, and
 `xlsx_graft_capi.dll` on Windows (no `lib` prefix).
@@ -165,6 +178,22 @@ links the C ABI in statically: one file carrying the whole engine, never the
 library above. It looks the addon up in the same order, from
 `XLSX_GRAFT_ADDON`, so one environment can point the other SDKs at the
 library and JavaScript at the addon.
+
+An SDK that runs the CLI looks it up in the same order too, from its own
+variable, so the library, the addon and the CLI can each be pointed at
+apart:
+
+1. the path in `XLSX_GRAFT_CLI` (an empty value counts as unset)
+2. the path the caller passed
+3. `xlsx-graft` on `PATH` (`xlsx-graft.exe` too, on every system, for
+   Windows), searched by the SDK itself, so a CLI that is not there is
+   reported as missing rather than as a failed run. It stands where the
+   packaged copy stands above, until a package ships the CLI.
+
+When a path is set but cannot be run, the SDK raises, as it does for a
+library that does not load, rather than falling through to the next way. It
+raises too when none is found. A name with no directory in it, set in 1
+or 2, is looked up on `PATH` by the system rather than by the SDK.
 
 ## Calling the C ABI
 
@@ -182,3 +211,51 @@ JS SDK maps the status to a result as below.
   becomes a failed result carrying one diagnostic, and the out-parameters are
   not read. The diagnostic codes name the status codes for now (`null_arg`,
   `panic`, `unknown_status`); the engine's own diagnostics replace them.
+
+## Running the CLI
+
+An SDK that runs the engine's CLI (PHP) treats a run the way the others treat
+a call into the C ABI: it returns a result, and *raises* only for a setup
+mistake. Here and in [Finding the engine library](#finding-the-engine-library),
+*raises* means the language's own way of reporting one: an exception where the
+language has them (Ruby, Python, PHP, …), an `error` returned beside the
+result where it does not (Go). It is never a result.
+
+- **No shell.** The CLI is started from an array of arguments (`proc_open`
+  with an array in PHP), and never through a shell. On POSIX each argument
+  reaches the CLI as it is, and is never a command. Windows has no argument
+  array: the runtime quotes them into one command line by the C runtime's
+  rules, and the CLI's runtime splits it again, so the CLI is an `.exe`; a
+  `.bat` or `.cmd` would hand that line to `cmd.exe`, which reads it by rules
+  of its own.
+- **stdin reads its end at once** (closed, or the null device), so a CLI
+  that ever asked for input does not wait. stdout and stderr are read apart: stdout is what the
+  call returns, stderr only ever explains a failure. Neither is left to fill
+  a pipe while the other is read (PHP sends stderr to a temporary file).
+- **A run asks for JSON** (`--format json`) and reads exactly one JSON object
+  from stdout. `--version --format json` prints `{"version":"0.0.0"}`.
+- **What is a result.** A run that started and ended:
+
+  | The run | The result |
+  | --- | --- |
+  | exit 0, stdout a JSON object with what the call reads (`version` a string) | successful, with the value |
+  | exit other than 0, or killed by a signal | failed, diagnostic `exit_status`: the status or the signal, and the start of stderr |
+  | exit 0, stdout not JSON, not an object, or without what the call reads | failed, diagnostic `invalid_output`: the start of stdout, if any |
+
+  A diagnostic's message quotes at most 200 characters of the output, cut
+  between characters (and marked `...`) and on one line. The codes are provisional, as the
+  status codes are: the engine's own diagnostics replace them once the CLI
+  reports some.
+- **What raises.** A run that never started:
+
+  | The cause | The message |
+  | --- | --- |
+  | no CLI found, or the one found cannot be started | why, then the three ways of [Finding the engine library](#finding-the-engine-library) |
+  | the language cannot start a process at all (PHP: `proc_open` disabled, or no temporary file for stderr) | what is missing, and not the three ways: another CLI would not start either |
+
+- **A signal is not a status.** A CLI killed by one is reported by the
+  signal's number, never as if it had exited with it (PHP's `proc_close`
+  returns the number as a status, so the SDK reads `proc_get_status`).
+- **No timeout, no cancelling and no cap on the output yet.** `--version`
+  returns at once and prints one line; they come with the first call that
+  can take long or print much.
