@@ -7,6 +7,7 @@ members = [
     "diagnostics",
     "mcp",
     "napi",
+    "xml",
 ]
 
 [workspace.package]
@@ -23,6 +24,8 @@ repository = "https://github.com/kengos/xlsx-graft"
 xlsx-graft-core = { path = "core" }
 # The closed diagnostic codes and their JSON shape (engine/diagnostics).
 xlsx-graft-diagnostics = { path = "diagnostics" }
+# The guarded reader for a package's untrusted XML (engine/xml).
+xlsx-graft-xml = { path = "xml" }
 # The C ABI host, linked as an rlib by the Node.js addon (engine/napi).
 xlsx-graft-capi = { path = "capi" }
 # The CLI's argument parser. derive keeps each flag's help beside its field,
@@ -44,6 +47,12 @@ clap = { version = "4", default-features = false, features = [
 # server reads and writes its JSON-RPC messages with it too.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# The XML parser under engine/xml. No features: `encoding` would pull in
+# encoding_rs for every legacy encoding, and package XML may only be UTF-8 or
+# UTF-16 (ECMA-376-2 §6.2.5), which the xml crate decodes with std. It never
+# expands entities or reads a DTD; it reports a DOCTYPE as an event, which the
+# xml crate refuses. Its only dependency is memchr.
+quick-xml = { version = "0.42", default-features = false }
 # Each crate's error enum (docs/guidelines.md § Rust code rules).
 thiserror = "2"
 # The Node.js addon's N-API glue (engine/napi, behind its `shim` feature):

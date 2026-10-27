@@ -17,5 +17,162 @@
     },
     "fix": null,
     "origin": "<origin>"
+  },
+  {
+    "code": "xml_malformed",
+    "severity": "error",
+    "message": "the XML is not well-formed at byte 42: start tag not closed: `</a>` not found before end of input",
+    "args": {
+      "offset": 42,
+      "detail": "start tag not closed: `</a>` not found before end of input"
+    },
+    "location": {
+      "part": "/_rels/.rels"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "XML 1.0 (Fifth Edition) §2.1"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel or the tool that wrote it"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "xml_doctype",
+    "severity": "error",
+    "message": "the XML declares a DOCTYPE at byte 39; package XML may not use one",
+    "args": {
+      "offset": 39
+    },
+    "location": {
+      "part": "/[Content_Types].xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §6.2.5"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "remove the DOCTYPE declaration, or save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "xml_encoding_unsupported",
+    "severity": "error",
+    "message": "the XML cannot be read as UTF-8 or UTF-16 (other_encoding, encoding UTF-7)",
+    "args": {
+      "encoding": "UTF-7",
+      "reason": "other_encoding"
+    },
+    "location": {
+      "part": "/_rels/.rels"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §6.2.5"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel, which writes UTF-8"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "xml_too_deep",
+    "severity": "error",
+    "message": "the XML nests elements 300 deep from byte 1200; the limit is 256",
+    "args": {
+      "offset": 1200,
+      "depth": 300,
+      "limit": 256
+    },
+    "location": {
+      "part": "/_rels/.rels"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxXmlDepth",
+      "value": 256,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxXmlDepth: 300"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "xml_too_many_attributes",
+    "severity": "error",
+    "message": "the XML element at byte 54 has 1025 attributes; the limit is 1024",
+    "args": {
+      "offset": 54,
+      "count": 1025,
+      "limit": 1024
+    },
+    "location": {
+      "part": "/_rels/.rels"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxXmlAttributes",
+      "value": 1024,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxXmlAttributes: 1025"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "xml_too_many_namespaces",
+    "severity": "error",
+    "message": "the XML element at byte 0 has 257 namespace declarations in scope; the limit is 256",
+    "args": {
+      "offset": 0,
+      "count": 257,
+      "limit": 256
+    },
+    "location": {
+      "part": "/xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxXmlNamespaces",
+      "value": 256,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxXmlNamespaces: 257"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "xml_too_large",
+    "severity": "error",
+    "message": "the XML is 16777217 bytes; the limit is 16777216",
+    "args": {
+      "size": 16777217,
+      "limit": 16777216
+    },
+    "location": {
+      "part": "/_rels/.rels"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxXmlBytes",
+      "value": 16777216,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxXmlBytes: 16777217"
+    },
+    "origin": "<origin>"
   }
 ]

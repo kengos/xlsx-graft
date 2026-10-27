@@ -1,7 +1,7 @@
 //! Contract tests for the code table: the golden JSON of every code, and the
 //! wire strings it may and may not use.
 
-use crate::{Code, Diagnostic, Diagnostics, Limit, Location, Severity};
+use crate::{Code, Diagnostic, Diagnostics, Echo, EncodingReason, Limit, Location, Severity};
 
 /// Every wire string a code once had and no longer has. A removed code's
 /// string is never reused, so a row may not bring one of these back.
@@ -19,6 +19,55 @@ fn sample(code: Code) -> (Diagnostic, Location) {
                 limit: Limit::default_of(1_000),
             },
             Location::default(),
+        ),
+        Code::XmlMalformed => (
+            Diagnostic::XmlMalformed {
+                offset: 42,
+                detail: Echo::new("start tag not closed: `</a>` not found before end of input"),
+            },
+            Location::default().with_part("/_rels/.rels"),
+        ),
+        Code::XmlDoctype => (
+            Diagnostic::XmlDoctype { offset: 39 },
+            Location::default().with_part("/[Content_Types].xml"),
+        ),
+        Code::XmlEncodingUnsupported => (
+            Diagnostic::XmlEncodingUnsupported {
+                encoding: Echo::new("UTF-7"),
+                reason: EncodingReason::OtherEncoding,
+            },
+            Location::default().with_part("/_rels/.rels"),
+        ),
+        Code::XmlTooDeep => (
+            Diagnostic::XmlTooDeep {
+                offset: 1_200,
+                depth: 300,
+                limit: Limit::default_of(256),
+            },
+            Location::default().with_part("/_rels/.rels"),
+        ),
+        Code::XmlTooManyAttributes => (
+            Diagnostic::XmlTooManyAttributes {
+                offset: 54,
+                count: 1_025,
+                limit: Limit::default_of(1_024),
+            },
+            Location::default().with_part("/_rels/.rels"),
+        ),
+        Code::XmlTooManyNamespaces => (
+            Diagnostic::XmlTooManyNamespaces {
+                offset: 0,
+                count: 257,
+                limit: Limit::default_of(256),
+            },
+            Location::default().with_part("/xl/workbook.xml"),
+        ),
+        Code::XmlTooLarge => (
+            Diagnostic::XmlTooLarge {
+                size: 16_777_217,
+                limit: Limit::default_of(16_777_216),
+            },
+            Location::default().with_part("/_rels/.rels"),
         ),
     }
 }
