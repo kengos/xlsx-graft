@@ -1,0 +1,18 @@
+[package]
+name = "xlsx-graft-spool"
+description = "xlsx-graft spool: append-only scratch storage, in memory or in a temporary file, that a host can replace with its own"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+
+# The temporary files, not built for WebAssembly (the crate root).
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true
