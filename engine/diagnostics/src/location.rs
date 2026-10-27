@@ -40,6 +40,14 @@ impl Location {
         self
     }
 
+    /// This location, in the zip entry `name`, given as the bytes the
+    /// central directory holds, which need not be UTF-8.
+    #[must_use]
+    pub fn with_entry_bytes(mut self, name: &[u8]) -> Self {
+        self.entry = Some(Echo::from_utf8_lossy(name));
+        self
+    }
+
     /// This location, in the part `name`.
     #[must_use]
     pub fn with_part(mut self, name: &str) -> Self {

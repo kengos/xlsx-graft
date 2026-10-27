@@ -43,6 +43,13 @@ impl Echo {
         Self(echo)
     }
 
+    /// [`Echo::new`] for text that need not be UTF-8, such as a zip entry
+    /// name: each run of bytes that is not UTF-8 reads as U+FFFD.
+    #[must_use]
+    pub fn from_utf8_lossy(bytes: &[u8]) -> Self {
+        Self::new(&String::from_utf8_lossy(bytes))
+    }
+
     /// The sanitized text.
     #[must_use]
     pub fn as_str(&self) -> &str {

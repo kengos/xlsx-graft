@@ -7,6 +7,7 @@ members = [
     "diagnostics",
     "mcp",
     "napi",
+    "package",
     "xml",
 ]
 
@@ -26,6 +27,8 @@ xlsx-graft-core = { path = "core" }
 xlsx-graft-diagnostics = { path = "diagnostics" }
 # The guarded reader for a package's untrusted XML (engine/xml).
 xlsx-graft-xml = { path = "xml" }
+# The zip container of an untrusted package, read under limits (engine/package).
+xlsx-graft-package = { path = "package" }
 # The C ABI host, linked as an rlib by the Node.js addon (engine/napi).
 xlsx-graft-capi = { path = "capi" }
 # The CLI's argument parser. derive keeps each flag's help beside its field,
@@ -53,6 +56,16 @@ serde_json = "1"
 # expands entities or reads a DTD; it reports a DOCTYPE as an event, which the
 # xml crate refuses. Its only dependency is memchr.
 quick-xml = { version = "0.42", default-features = false }
+# Inflates a package's deflated zip entries (engine/package). Pure Rust,
+# `forbid(unsafe_code)`, its only dependency adler2. Its streaming `inflate`
+# writes into the caller's buffer, so the caller counts every byte it
+# produces and stops at a limit instead of trusting the declared size. Its
+# default `with-alloc` feature brings the boxed state and the compressor
+# the tests build deflated entries with.
+miniz_oxide = "0.9"
+# The CRC-32 a zip entry's inflated bytes are checked against. Its only
+# dependency is cfg-if; the `std` default picks the SIMD path at run time.
+crc32fast = "1"
 # Each crate's error enum (docs/guidelines.md § Rust code rules).
 thiserror = "2"
 # The Node.js addon's N-API glue (engine/napi, behind its `shim` feature):

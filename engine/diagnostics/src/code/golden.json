@@ -174,5 +174,397 @@
       "line": "maxXmlBytes: 16777217"
     },
     "origin": "<origin>"
+  },
+  {
+    "code": "not_a_zip",
+    "severity": "error",
+    "message": "the file is not a zip, so it is not an xlsx package",
+    "args": {},
+    "location": {},
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §7.3.1"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the file again as an Excel workbook (.xlsx)"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "ole_compound_file",
+    "severity": "error",
+    "message": "the file is an OLE compound file, not a zip: a password-protected workbook or a legacy .xls",
+    "args": {},
+    "location": {},
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §7.3.1"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "remove the password, or open the file in Excel and save it as .xlsx"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_truncated",
+    "severity": "error",
+    "message": "the zip ends before a record it describes: the file is truncated or damaged",
+    "args": {},
+    "location": {},
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "PKWARE APPNOTE 6.3.10 §4.3.6"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "copy the file again from where it came from, or save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_directory_invalid",
+    "severity": "error",
+    "message": "the zip's central directory cannot be read (missing_header)",
+    "args": {
+      "reason": "missing_header"
+    },
+    "location": {},
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "PKWARE APPNOTE 6.3.10 §4.3.12"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_unlisted_data",
+    "severity": "error",
+    "message": "the zip holds 12 bytes that no entry in its central directory accounts for",
+    "args": {
+      "size": 12
+    },
+    "location": {
+      "entry": "xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "PKWARE APPNOTE 6.3.10 §4.3.6"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_multi_disk",
+    "severity": "error",
+    "message": "the zip is split across disks, which a package may not be",
+    "args": {},
+    "location": {},
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 Annex B.4, Table B.2"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "join the parts into one file, or save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_prepended_data",
+    "severity": "error",
+    "message": "the zip starts after 4096 bytes of other data",
+    "args": {
+      "size": 4096
+    },
+    "location": {},
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "PKWARE APPNOTE 6.3.10 §4.3.6"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "remove the data in front of the zip, or save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_entry_count_exceeded",
+    "severity": "error",
+    "message": "the zip lists 12000 entries; the limit is 10000",
+    "args": {
+      "count": 12000,
+      "limit": 10000
+    },
+    "location": {},
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxEntries",
+      "value": 10000,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxEntries: 12000"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_directory_too_large",
+    "severity": "error",
+    "message": "the zip's central directory is 16777217 bytes; the limit is 16777216",
+    "args": {
+      "size": 16777217,
+      "limit": 16777216
+    },
+    "location": {},
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxDirectoryBytes",
+      "value": 16777216,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxDirectoryBytes: 16777217"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "entry_name_too_long",
+    "severity": "error",
+    "message": "the zip entry name is 1025 bytes; the limit is 1024",
+    "args": {
+      "length": 1025,
+      "limit": 1024
+    },
+    "location": {
+      "entry": "xl/worksheets/sheet1.xml"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxEntryNameBytes",
+      "value": 1024,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxEntryNameBytes: 1025"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_encrypted_entry",
+    "severity": "error",
+    "message": "the zip entry is encrypted, which a package's entries may not be",
+    "args": {},
+    "location": {
+      "entry": "xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §7.3.6"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel without zip encryption"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_unsupported_compression",
+    "severity": "error",
+    "message": "the zip entry is compressed with method 12; a package may use only stored (0) and deflate (8)",
+    "args": {
+      "method": 12
+    },
+    "location": {
+      "entry": "xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §7.3.6"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_header_mismatch",
+    "severity": "error",
+    "message": "the zip entry's local header or data descriptor disagrees with its central directory header on name",
+    "args": {
+      "field": "name"
+    },
+    "location": {
+      "entry": "xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 Annex B.2"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_entries_overlap",
+    "severity": "error",
+    "message": "the zip entry's data overlaps that of the entry xl/styles.xml",
+    "args": {
+      "other": "xl/styles.xml"
+    },
+    "location": {
+      "entry": "xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "PKWARE APPNOTE 6.3.10 §4.3.6"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_entry_overlaps_directory",
+    "severity": "error",
+    "message": "the zip entry's data runs into the central directory",
+    "args": {},
+    "location": {
+      "entry": "xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "PKWARE APPNOTE 6.3.10 §4.3.6"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_entry_too_large",
+    "severity": "error",
+    "message": "the zip entry inflates to 2147483649 bytes; the limit is 2147483648",
+    "args": {
+      "size": 2147483649,
+      "limit": 2147483648
+    },
+    "location": {
+      "entry": "xl/worksheets/sheet1.xml"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxEntryBytes",
+      "value": 2147483648,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxEntryBytes: 2147483649"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_total_too_large",
+    "severity": "error",
+    "message": "the zip's entries inflate to 8589934593 bytes in all; the limit is 8589934592",
+    "args": {
+      "size": 8589934593,
+      "limit": 8589934592
+    },
+    "location": {
+      "entry": "xl/worksheets/sheet9.xml"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxTotalBytes",
+      "value": 8589934592,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxTotalBytes: 8589934593"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_ratio_exceeded",
+    "severity": "error",
+    "message": "the zip entry inflates 1000000 bytes to 1073741824, more than 1000 times as many",
+    "args": {
+      "size": 1073741824,
+      "compressedSize": 1000000,
+      "limit": 1000
+    },
+    "location": {
+      "entry": "xl/worksheets/sheet1.xml"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxCompressionRatio",
+      "value": 1000,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxCompressionRatio: 1074"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_crc_mismatch",
+    "severity": "error",
+    "message": "the zip entry's data has CRC-32 000000ff; its header gives 1234abcd",
+    "args": {
+      "expected": 305441741,
+      "actual": 255
+    },
+    "location": {
+      "entry": "xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "PKWARE APPNOTE 6.3.10 §4.4.7"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "copy the file again from where it came from, or save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "zip_inflate_failed",
+    "severity": "error",
+    "message": "the zip entry's data cannot be inflated (corrupt_data)",
+    "args": {
+      "reason": "corrupt_data"
+    },
+    "location": {
+      "entry": "xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "RFC 1951 §3.2"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "copy the file again from where it came from, or save the workbook again from Excel"
+    },
+    "origin": "<origin>"
   }
 ]
