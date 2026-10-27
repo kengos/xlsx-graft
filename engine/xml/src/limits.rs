@@ -2,7 +2,8 @@
 
 use xlsx_graft_diagnostics::Limit;
 
-/// The limits an [`XmlReader`](crate::XmlReader) holds a part to.
+/// The limits an [`XmlReader`](crate::XmlReader) or an
+/// [`XmlStreamReader`](crate::XmlStreamReader) holds a part to.
 ///
 /// Each is a [`Limit`], so a diagnostic it decides names who set it. The
 /// defaults are provisional, to be revisited against large real workbooks.
@@ -18,8 +19,10 @@ pub struct XmlLimits {
     /// in scope at once. It also bounds what resolving a prefix costs, which
     /// walks the declarations in scope. Policy name `maxXmlNamespaces`.
     pub max_namespaces: Limit,
-    /// The most bytes of XML read into memory, before decoding. Policy name
-    /// `maxXmlBytes`.
+    /// The most bytes of XML read into memory, before decoding, by an
+    /// [`XmlReader`](crate::XmlReader). An
+    /// [`XmlStreamReader`](crate::XmlStreamReader) does not apply it. Policy
+    /// name `maxXmlBytes`.
     pub max_bytes: Limit,
 }
 

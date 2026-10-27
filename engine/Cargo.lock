@@ -498,6 +498,7 @@ name = "xlsx-graft-xml"
 version = "0.0.0"
 dependencies = [
  "quick-xml",
+ "thiserror",
  "xlsx-graft-diagnostics",
 ]
 

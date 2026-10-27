@@ -1,13 +1,14 @@
 //! The limits, each at its largest admitted value and one past it: nesting
 //! depth, attributes on one element, namespace declarations in scope, and
-//! bytes read into memory.
+//! bytes read into memory. Where the streaming reader differs (the depth it
+//! reports, and no size of its own), `streaming` covers it.
 
-use super::{read, read_with};
+use super::{read, read_memory_with, read_with};
 use crate::XmlLimits;
 use xlsx_graft_diagnostics::{Diagnostic, Limit};
 
 /// `depth` nested `<a>` elements, the innermost holding `inner`.
-fn nested(depth: usize, inner: &str) -> Vec<u8> {
+pub(super) fn nested(depth: usize, inner: &str) -> Vec<u8> {
     format!("{}{inner}{}", "<a>".repeat(depth), "</a>".repeat(depth)).into_bytes()
 }
 
@@ -17,8 +18,14 @@ fn attributes(count: usize) -> Vec<u8> {
     format!("<e{attributes}/>").into_bytes()
 }
 
+/// [`read_memory_with`] under the default limits: the in-memory reader
+/// alone, which reads on for the deepest nesting.
+fn read_memory(bytes: &[u8]) -> Result<usize, Diagnostic> {
+    read_memory_with(bytes, &XmlLimits::default())
+}
+
 /// `xml_too_deep` at byte 768, where the 257th level opens in every case.
-fn too_deep(depth: u64) -> Result<usize, Diagnostic> {
+pub(super) fn too_deep(depth: u64) -> Result<usize, Diagnostic> {
     Err(Diagnostic::XmlTooDeep {
         offset: 768,
         depth,
@@ -40,19 +47,19 @@ fn nesting_one_past_the_depth_limit_is_refused() {
 
 #[test]
 fn the_depth_reported_is_the_deepest_in_the_part() {
-    assert_eq!(read(&nested(300, "text")), too_deep(300));
-    assert_eq!(read(&nested(257, "<b/>")), too_deep(258));
+    assert_eq!(read_memory(&nested(300, "text")), too_deep(300));
+    assert_eq!(read_memory(&nested(257, "<b/>")), too_deep(258));
     let mut back_down = b"<r>".to_vec();
     back_down.extend(nested(257, ""));
     back_down.extend(b"<a><a></a></a></r>");
-    assert_eq!(read(&back_down), too_deep(258));
+    assert_eq!(read_memory(&back_down), too_deep(258));
 }
 
 #[test]
 fn a_malformed_rest_reports_the_deepest_before_it() {
     let mut bytes = "<a>".repeat(257).into_bytes();
     bytes.extend(b"<b></c>");
-    assert_eq!(read(&bytes), too_deep(258));
+    assert_eq!(read_memory(&bytes), too_deep(258));
 }
 
 #[test]
@@ -84,7 +91,7 @@ fn bytes_at_the_size_limit_read_and_one_more_are_refused() {
         size: 9,
         limit: Limit::default_of(8),
     });
-    assert_eq!(read_with(b"<a></a>  ", &limits), refused);
+    assert_eq!(read_memory_with(b"<a></a>  ", &limits), refused);
 }
 
 /// `count` namespace declarations of the prefixes `p{from}` onwards.
