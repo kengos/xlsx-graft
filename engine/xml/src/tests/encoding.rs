@@ -170,3 +170,42 @@ fn a_second_byte_order_mark_is_content_before_the_root() {
     let (offset, detail) = super::malformed_at(&utf16("\u{feff}<a/>", false));
     assert_eq!((offset, detail.as_str()), (0, outside));
 }
+
+#[test]
+fn characters_of_several_bytes_or_units_read_in_every_encoding() {
+    for big in [false, true] {
+        assert_eq!(read(&utf16("<a b=\"𝄞\">é𝄞あ</a>", big)), Ok(3));
+    }
+    assert_eq!(read("<a b=\"𝄞\">é𝄞あ</a>".as_bytes()), Ok(3));
+}
+
+#[test]
+fn a_character_cut_off_at_the_end_does_not_decode() {
+    let mut utf8 = b"<a/>".to_vec();
+    utf8.extend(&"あ".as_bytes()[..2]);
+    assert_eq!(
+        unsupported(&utf8),
+        expect("UTF-8", EncodingReason::InvalidUtf8)
+    );
+    let mut high = utf16("<a/>", false);
+    high.extend([0x34, 0xd8]);
+    assert_eq!(
+        unsupported(&high),
+        expect("UTF-16LE", EncodingReason::InvalidUtf16)
+    );
+}
+
+#[test]
+fn a_declaration_read_whole_is_judged_before_the_bytes_after_it() {
+    let latin1 = b"<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><a>\xe9</a>";
+    assert_eq!(
+        unsupported(latin1),
+        expect("ISO-8859-1", EncodingReason::OtherEncoding)
+    );
+    let mut mislabelled = utf16(r#"<?xml version="1.0" encoding="UTF-8"?><a>"#, true);
+    mislabelled.extend([0xd8, 0x00]);
+    assert_eq!(
+        unsupported(&mislabelled),
+        expect("UTF-8", EncodingReason::DeclarationMismatch)
+    );
+}

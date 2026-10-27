@@ -20,10 +20,33 @@ fn a_nul_character_is_refused_at_its_offset() {
         detail: xlsx_graft_diagnostics::Echo::new(nul),
     });
     assert_eq!(read(&utf16("<a>é\0</a>", false)), expected);
-    let opened = XmlReader::open(b"<a>\0</a>", &XmlLimits::default());
+}
+
+#[test]
+fn opening_a_part_reads_none_of_it() {
+    let mut reader = XmlReader::open(b"<a>\0</a>", &XmlLimits::default()).unwrap();
+    let mut buf = Vec::new();
     assert!(matches!(
-        opened,
+        reader.read_event_into(&mut buf),
+        Ok(crate::events::Event::Start(_))
+    ));
+    assert!(matches!(
+        reader.read_event_into(&mut buf),
         Err(Diagnostic::XmlMalformed { offset: 3, .. })
+    ));
+}
+
+#[test]
+fn a_problem_is_the_first_that_stops_reading() {
+    let doctype_first = b"<!DOCTYPE a><a>\xff</a>";
+    assert_eq!(
+        read(doctype_first),
+        Err(Diagnostic::XmlDoctype { offset: 0 })
+    );
+    let late_byte = b"<a></b>\xff";
+    assert!(matches!(
+        read(late_byte),
+        Err(Diagnostic::XmlMalformed { .. })
     ));
 }
 
@@ -94,4 +117,13 @@ fn a_duplicate_attribute_is_refused() {
 #[test]
 fn a_double_hyphen_in_a_comment_is_refused() {
     malformed_at(b"<a><!-- a -- b --></a>");
+}
+
+#[test]
+fn a_character_xml_does_not_allow_in_the_declaration_is_found_before_it() {
+    let refused = "a character XML does not allow (U+0001)";
+    let in_value = b"<?xml version=\"1.0\" encoding=\"UTF-8\x01\"?><a/>";
+    assert_eq!(malformed_at(in_value), (35, refused.to_owned()));
+    let between = b"<?xml version=\"1.0\"\x01 encoding=\"UTF-8\"?><a/>";
+    assert_eq!(malformed_at(between), (19, refused.to_owned()));
 }

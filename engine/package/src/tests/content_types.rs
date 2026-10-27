@@ -5,11 +5,13 @@
 
 use super::builder::Item;
 use super::opc::{
-    DEFAULTS, RELS_TYPE, at, clean, found, package_rels, part, read_with, rel, types,
+    DEFAULTS, RELS_TYPE, TYPES_NS, at, clean, found, package_rels, part, read_with, rel, types,
 };
 use super::{Reader, limit};
 use crate::{ContentType, Limits, Package, PackageError, ZipArchive, ZipLimits};
-use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Echo, PartNameReason, SchemaReason};
+use xlsx_graft_diagnostics::{
+    Diagnostic, Diagnostics, Echo, EncodingReason, PartNameReason, SchemaReason,
+};
 
 /// The content types stream with `DEFAULTS` and `more`.
 fn types_with(more: &str) -> Item {
@@ -302,6 +304,58 @@ fn an_xml_stream_is_held_to_the_size_limit_before_it_is_read() {
         limit: limit(size - 1),
     };
     assert_eq!(seen[0], at(too_large, STREAM));
+}
+
+/// The diagnostics found reading a package of `stream` as its content
+/// types that point at the stream.
+fn at_stream(stream: &[u8]) -> Vec<(Diagnostic, String)> {
+    let seen = found(package(Item::stored(STREAM, stream), vec![]));
+    seen.into_iter().filter(|(_, at)| at == STREAM).collect()
+}
+
+#[test]
+fn a_root_that_is_not_types_ends_the_reading_before_a_bad_byte_after_it() {
+    let stream = format!(r#"<Foo xmlns="{TYPES_NS}"/>"#).into_bytes();
+    let mut bad = stream.clone();
+    bad.push(0xff);
+    let root = schema(0, SchemaReason::UnexpectedElement, "Foo");
+    assert_eq!(at_stream(&bad), vec![at(root, STREAM)]);
+}
+
+#[test]
+fn what_is_read_before_a_bad_byte_is_reported_before_it() {
+    let head = format!(r#"<Types xmlns="{TYPES_NS}"><Default Extension="xml"/>"#);
+    let mut stream = head.clone().into_bytes();
+    stream.extend(b"\xff</Types>");
+    let offset = u64::try_from(head.find("<Default").unwrap()).unwrap();
+    let missing = schema(offset, SchemaReason::MissingAttribute, "ContentType");
+    let invalid = Diagnostic::XmlEncodingUnsupported {
+        encoding: Echo::new("UTF-8"),
+        reason: EncodingReason::InvalidUtf8,
+    };
+    assert_eq!(
+        at_stream(&stream),
+        vec![at(missing, STREAM), at(invalid, STREAM)]
+    );
+}
+
+#[test]
+fn a_stream_over_max_bytes_is_refused_by_the_xml_reader_too() {
+    // Reading a stream out of the zip stops at `max_bytes` first; the XML
+    // reader refuses a larger one handed to it all the same.
+    let limits = xlsx_graft_xml::XmlLimits {
+        max_bytes: limit(4),
+        ..xlsx_graft_xml::XmlLimits::default()
+    };
+    let mut diagnostics = Diagnostics::new();
+    let location = xlsx_graft_diagnostics::Location::default();
+    let types = crate::content_types::read(b"<Types/>", &limits, &location, &mut diagnostics);
+    assert!(types.is_none());
+    let too_large = Diagnostic::XmlTooLarge {
+        size: 8,
+        limit: limit(4),
+    };
+    assert_eq!(diagnostics.records()[0].diagnostic, too_large);
 }
 
 #[test]

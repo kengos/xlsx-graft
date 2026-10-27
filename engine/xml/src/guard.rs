@@ -1,8 +1,8 @@
 //! The checks the reader runs on every event before the caller sees it:
 //! DTDs, nesting depth, attribute and namespace counts and the
 //! well-formedness rules
-//! quick-xml leaves to its caller. It sees only events, so a streaming
-//! reader can run the same checks.
+//! quick-xml leaves to its caller. It sees only events, so the in-memory
+//! and the streaming reader run the same checks.
 
 use crate::XmlLimits;
 use crate::chars::{describe, is_xml_char};
@@ -10,25 +10,9 @@ use quick_xml::XmlVersion;
 use quick_xml::escape::resolve_predefined_entity;
 use quick_xml::events::{BytesRef, BytesStart, Event};
 
-/// Why the guard stopped the reader.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum Stop {
-    /// Not well-formed, for the reason given.
-    Malformed(String),
-    /// A DOCTYPE declaration.
-    Doctype,
-    /// An element one deeper than `max_depth`; `opened` when it is a start
-    /// tag, which leaves it open, rather than an empty element.
-    TooDeep {
-        /// Whether the element stays open.
-        opened: bool,
-    },
-    /// An element with this many attributes, more than `max_attributes`.
-    TooManyAttributes(u64),
-    /// An element with this many namespace declarations in scope, more than
-    /// `max_namespaces`.
-    TooManyNamespaces(u64),
-}
+mod stop;
+
+pub(crate) use stop::Stop;
 
 /// What the guard knows of the document so far.
 #[derive(Debug, Clone)]
@@ -59,6 +43,12 @@ impl Guard {
         }
     }
 
+    /// How many elements are open, the one a stop refused included when it
+    /// was a start tag.
+    pub(crate) fn depth(&self) -> u64 {
+        self.depth
+    }
+
     /// The limits the guard holds the document to.
     pub(crate) fn limits(&self) -> XmlLimits {
         self.limits
@@ -72,9 +62,11 @@ impl Guard {
             Event::Decl(_) if !first => malformed("the XML declaration is not at the start"),
             Event::DocType(_) => Err(Stop::Doctype),
             Event::Start(start) => {
-                self.element(start, true)?;
+                let checked = self.element(start, true);
+                // Counted even when refused, so a start tag one too deep
+                // leaves `depth` past `max_depth` and an empty element not.
                 self.depth = self.depth.saturating_add(1);
-                Ok(())
+                checked
             }
             Event::Empty(start) => self.element(start, false),
             Event::End(_) => {
@@ -102,7 +94,7 @@ impl Guard {
             self.rooted = true;
         }
         if self.depth >= self.limits.max_depth.value {
-            return Err(Stop::TooDeep { opened });
+            return Err(Stop::TooDeep);
         }
         let mut count: u64 = 0;
         let mut declared: u64 = 0;

@@ -9,6 +9,8 @@ repository.workspace = true
 
 [dependencies]
 quick-xml = { workspace = true }
+# The streaming reader's error: a diagnostic or the I/O of its reader.
+thiserror = { workspace = true }
 # Every problem is returned as a Diagnostic.
 xlsx-graft-diagnostics = { workspace = true }
 
