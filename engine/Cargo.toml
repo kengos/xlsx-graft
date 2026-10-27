@@ -4,6 +4,7 @@ members = [
     "capi",
     "cli",
     "core",
+    "diagnostics",
     "mcp",
     "napi",
 ]
@@ -20,6 +21,8 @@ repository = "https://github.com/kengos/xlsx-graft"
 # `{ workspace = true }`.
 [workspace.dependencies]
 xlsx-graft-core = { path = "core" }
+# The closed diagnostic codes and their JSON shape (engine/diagnostics).
+xlsx-graft-diagnostics = { path = "diagnostics" }
 # The C ABI host, linked as an rlib by the Node.js addon (engine/napi).
 xlsx-graft-capi = { path = "capi" }
 # The CLI's argument parser. derive keeps each flag's help beside its field,
