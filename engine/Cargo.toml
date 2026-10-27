@@ -8,6 +8,7 @@ members = [
     "mcp",
     "napi",
     "package",
+    "spool",
     "xml",
 ]
 
@@ -29,6 +30,8 @@ xlsx-graft-diagnostics = { path = "diagnostics" }
 xlsx-graft-xml = { path = "xml" }
 # The zip container of an untrusted package, read under limits (engine/package).
 xlsx-graft-package = { path = "package" }
+# Scratch storage that spills to a temporary file (engine/spool).
+xlsx-graft-spool = { path = "spool" }
 # The C ABI host, linked as an rlib by the Node.js addon (engine/napi).
 xlsx-graft-capi = { path = "capi" }
 # The CLI's argument parser. derive keeps each flag's help beside its field,
@@ -66,6 +69,16 @@ miniz_oxide = "0.9"
 # The CRC-32 a zip entry's inflated bytes are checked against. Its only
 # dependency is cfg-if; the `std` default picks the SIMD path at run time.
 crc32fast = "1"
+# The temporary files engine/spool spills to: an unnamed file in a
+# directory, removed by the OS when closed, however the process ends. Linux
+# opens it with O_TMPFILE where the file system can, other Unixes unlink it
+# at once, and Windows deletes it on close, which std alone cannot ask for.
+# It brings fastrand (the fallback file names) and once_cell, and per
+# platform rustix with errno and linux-raw-sys (Unix) or windows-sys
+# (Windows). No default features: `getrandom` only seeds those names from
+# the OS, and a name taken is retried, since every file is created
+# exclusively.
+tempfile = { version = "3", default-features = false }
 # Each crate's error enum (docs/guidelines.md § Rust code rules).
 thiserror = "2"
 # The Node.js addon's N-API glue (engine/napi, behind its `shim` feature):
