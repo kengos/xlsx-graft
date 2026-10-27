@@ -490,6 +490,7 @@ dependencies = [
  "miniz_oxide",
  "thiserror",
  "xlsx-graft-diagnostics",
+ "xlsx-graft-xml",
 ]
 
 [[package]]

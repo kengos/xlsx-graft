@@ -12,7 +12,8 @@
 
 use crate::table::diagnostics;
 use crate::{
-    DecidedBy, Echo, EncodingReason, Fix, InflateReason, Limit, ZipDirectoryReason, ZipHeaderField,
+    DecidedBy, Echo, EncodingReason, Fix, InflateReason, Limit, PartNameReason, SchemaReason,
+    ZipDirectoryReason, ZipHeaderField,
 };
 
 diagnostics! {
@@ -123,6 +124,21 @@ diagnostics! {
         message: format!("the XML is {size} bytes; the limit is {limit}"),
         decided_by: Some(DecidedBy::limit("maxXmlBytes", *limit)),
         fix: Some(Fix::policy(format!("maxXmlBytes: {size}")));
+
+    /// A package XML stream (the content types stream or a Relationships
+    /// part) breaks its schema. What the error spoils is left out: the
+    /// element, or the whole stream when its root is wrong.
+    XmlSchemaInvalid {
+        /// The byte offset of the element, as for `xml_malformed`.
+        offset: u64,
+        /// How it breaks the schema.
+        reason: SchemaReason,
+        /// The element or attribute, as written.
+        name: Echo,
+    } => "xml_schema_invalid", Error,
+        message: format!("the XML breaks its schema at byte {offset} ({reason}: {name})"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 Annex C")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
 
     /// The file is not a zip, so it cannot be a package.
     NotAZip {} => "not_a_zip", Error,
@@ -331,6 +347,198 @@ diagnostics! {
             InflateReason::EndedEarly | InflateReason::LongerThanDeclared => "PKWARE APPNOTE 6.3.10 §4.4.9",
         })),
         fix: Some(Fix::workbook("copy the file again from where it came from, or save the workbook again from Excel"));
+
+    /// A zip entry's name is not a part name, so the entry is not a part.
+    EntryNameInvalid {
+        /// What is wrong with the name.
+        reason: PartNameReason,
+    } => "entry_name_invalid", Error,
+        message: format!("the zip entry name is not a part name ({reason}), so the entry is not read as a part"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §6.2.2.2")),
+        fix: Some(Fix::workbook("rename the entry to a valid part name, or save the workbook again from Excel"));
+
+    /// Two zip entries name the same part, their names equal but for ASCII
+    /// letter case. Reported at every entry after the first; none of them
+    /// is read as a part, since readers differ on which one they take.
+    PartNameDuplicate {
+        /// The first entry with the name.
+        other: Echo,
+    } => "part_name_duplicate", Error,
+        message: format!("the zip entry names the same part as the entry {other}; neither is read as a part"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §6.2.2.3")),
+        fix: Some(Fix::workbook("remove one of the entries, or save the workbook again from Excel"));
+
+    /// A part's name continues another part's name with more segments
+    /// (`/a/b` beside `/a`). It is not read as a part; the other one is.
+    PartNameDerived {
+        /// The part name it is derived from.
+        other: Echo,
+    } => "part_name_derived", Error,
+        message: format!("the part name is derived from the part name {other}, so it is not read as a part"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §6.2.2.3")),
+        fix: Some(Fix::workbook("rename one of the parts, or save the workbook again from Excel"));
+
+    /// The package has no content types stream (`[Content_Types].xml`), so
+    /// no part has a media type. Reported once, instead of at every part.
+    ContentTypesMissing {} => "content_types_missing", Error,
+        message: String::from("the package has no [Content_Types].xml, so no part has a media type"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §7.3.7")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// The content types stream has more than one `Default` for an
+    /// extension, letter case aside. None of them applies.
+    ContentTypesDuplicateDefault {
+        /// The extension, as the later `Default` spells it.
+        extension: Echo,
+    } => "content_types_duplicate_default", Error,
+        message: format!("[Content_Types].xml has more than one Default for the extension {extension}; none of them applies"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §7.2.3.2.1")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// The content types stream has more than one `Override` for a part
+    /// name, letter case aside. None of them applies.
+    ContentTypesDuplicateOverride {
+        /// The part name, as the later `Override` spells it.
+        part_name: Echo,
+    } => "content_types_duplicate_override", Error,
+        message: format!("[Content_Types].xml has more than one Override for the part {part_name}; none of them applies"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §7.2.3.2.1")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// An `Override`'s `PartName` is not a part name, so it matches no part.
+    ContentTypesPartNameInvalid {
+        /// The `PartName`, as written.
+        part_name: Echo,
+        /// What is wrong with it.
+        reason: PartNameReason,
+    } => "content_types_part_name_invalid", Error,
+        message: format!("[Content_Types].xml has an Override for {part_name}, which is not a part name ({reason})"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §7.2.3.2.5")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// A media type in the content types stream does not follow RFC 7231
+    /// §3.1.1.1 without white space or comments. The `Default` or
+    /// `Override` that gives it applies to no part.
+    ContentTypeInvalid {
+        /// The media type, as written.
+        content_type: Echo,
+    } => "content_type_invalid", Error,
+        message: format!("[Content_Types].xml gives the media type {content_type}, which is not one"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §7.2.3.2.4")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// A part has no media type: no `Override` names it and no `Default`
+    /// matches its extension.
+    PartContentTypeMissing {} => "part_content_type_missing", Error,
+        message: String::from("the part has no media type in [Content_Types].xml"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §7.2.3.2.1")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// A part's media type disagrees with its name: a Relationships part's
+    /// name takes the Relationships media type, and no other part's does.
+    PartContentTypeMismatch {
+        /// The part's media type.
+        content_type: Echo,
+    } => "part_content_type_mismatch", Error,
+        message: format!("the part's media type {content_type} does not fit its name: the Relationships media type is for Relationships parts, and only them"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §6.5.2.1")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// A Relationships part's source part is not in the package. Its
+    /// relationships are not read.
+    RelationshipsSourceMissing {} => "relationships_source_missing", Error,
+        message: String::from("the Relationships part's source part is not in the package, so its relationships are not read"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §6.5.2.3")),
+        fix: Some(Fix::workbook("remove the Relationships part, or save the workbook again from Excel"));
+
+    /// A Relationships part has more relationships than the limit. None of
+    /// them is read.
+    RelationshipsTooMany {
+        /// How many relationships the part has.
+        count: u64,
+        /// The most relationships allowed in one part.
+        limit: Limit,
+    } => "relationships_too_many", Error,
+        message: format!("the Relationships part has {count} relationships; the limit is {limit}"),
+        decided_by: Some(DecidedBy::limit("maxRelationships", *limit)),
+        fix: Some(Fix::policy(format!("maxRelationships: {count}")));
+
+    /// The package's Relationships parts hold more relationships in all than
+    /// the limit. Reported once, at the part that crosses it; that part and
+    /// every later one are not read.
+    RelationshipsTotalTooMany {
+        /// How many relationships the parts read so far hold, that one's
+        /// included.
+        count: u64,
+        /// The most relationships allowed in all.
+        limit: Limit,
+    } => "relationships_total_too_many", Error,
+        message: format!("the package's Relationships parts hold {count} relationships so far; the limit is {limit}"),
+        decided_by: Some(DecidedBy::limit("maxTotalRelationships", *limit)),
+        fix: Some(Fix::policy(format!("maxTotalRelationships: {count}")));
+
+    /// Two relationships in one Relationships part share an `Id`. Reported
+    /// at every one after the first; none of them is read.
+    RelationshipIdDuplicate {} => "relationship_id_duplicate", Error,
+        message: String::from("another relationship in the same Relationships part has this Id; none of them is read"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §6.5.3.4")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// An internal relationship's target is not a relative reference that
+    /// resolves to a part name. The relationship is not read.
+    RelationshipTargetInvalid {
+        /// The `Target`, as written.
+        target: Echo,
+        /// What is wrong with it.
+        reason: PartNameReason,
+    } => "relationship_target_invalid", Error,
+        message: format!("the relationship's target {target} does not resolve to a part name ({reason})"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §6.5.3.4")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// An internal relationship's target climbs past the package root with
+    /// `..`, where resolving stays at the root, as RFC 3986 §5.2.4 has it.
+    /// The relationship is read.
+    RelationshipTargetAboveRoot {
+        /// The `Target`, as written.
+        target: Echo,
+    } => "relationship_target_above_root", Notice,
+        message: format!("the relationship's target {target} climbs above the package root; it resolves as if it stopped there"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §6.4.3.5")),
+        fix: None;
+
+    /// An internal relationship's target names no part in the package.
+    RelationshipTargetMissing {
+        /// The part name the target resolves to.
+        part_name: Echo,
+    } => "relationship_target_missing", Error,
+        message: format!("the relationship's target {part_name} is not a part in the package"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §6.5.3.4")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// A relationship is from or to a Relationships part, which may have
+    /// none. The relationship is not read. A Relationships part whose source
+    /// is one is reported once, without a relationship, and none of its
+    /// relationships is read.
+    RelationshipRelsPart {} => "relationship_rels_part", Error,
+        message: String::from("the relationship is from or to a Relationships part, which may have no relationships"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 §6.5.2.1")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// The package relationships have no `officeDocument` relationship to a
+    /// part, so the package has no main document: it is not a workbook.
+    MainDocumentMissing {} => "main_document_missing", Error,
+        message: String::from("the package relationships name no main document (officeDocument), so the package is not a workbook"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 SpreadsheetML Workbook part")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// No relationship targets the part, so nothing that follows
+    /// relationships reaches it. Relationships parts are reached by name and
+    /// are never reported.
+    PartUnreferenced {} => "part_unreferenced", Notice,
+        message: String::from("no relationship targets the part, so a reader that follows relationships never reaches it"),
+        decided_by: None,
+        fix: None;
 }
 
 #[cfg(test)]

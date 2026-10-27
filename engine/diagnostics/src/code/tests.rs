@@ -3,7 +3,7 @@
 
 use crate::{
     Code, DecidedBy, Diagnostic, Diagnostics, Echo, EncodingReason, InflateReason, Limit, Location,
-    Severity, ZipDirectoryReason, ZipHeaderField,
+    PartNameReason, SchemaReason, Severity, ZipDirectoryReason, ZipHeaderField,
 };
 
 /// Every wire string a code once had and no longer has. A removed code's
@@ -73,6 +73,14 @@ fn sample(code: Code) -> (Diagnostic, Location) {
             Diagnostic::XmlTooLarge {
                 size: 16_777_217,
                 limit: Limit::default_of(16_777_216),
+            },
+            Location::default().with_part("/_rels/.rels"),
+        ),
+        Code::XmlSchemaInvalid => (
+            Diagnostic::XmlSchemaInvalid {
+                offset: 120,
+                reason: SchemaReason::UnexpectedAttribute,
+                name: Echo::new("xml:base"),
             },
             Location::default().with_part("/_rels/.rels"),
         ),
@@ -173,6 +181,120 @@ fn sample(code: Code) -> (Diagnostic, Location) {
                 reason: InflateReason::CorruptData,
             },
             Location::default().with_entry("xl/workbook.xml"),
+        ),
+        Code::EntryNameInvalid => (
+            Diagnostic::EntryNameInvalid {
+                reason: PartNameReason::InvalidCharacter,
+            },
+            Location::default().with_entry("xl\\workbook.xml"),
+        ),
+        Code::PartNameDuplicate => (
+            Diagnostic::PartNameDuplicate {
+                other: Echo::new("xl/workbook.xml"),
+            },
+            Location::default().with_entry("xl/Workbook.xml"),
+        ),
+        Code::PartNameDerived => (
+            Diagnostic::PartNameDerived {
+                other: Echo::new("/xl/workbook.xml"),
+            },
+            Location::default().with_part("/xl/workbook.xml/sheet1.xml"),
+        ),
+        Code::ContentTypesMissing => (Diagnostic::ContentTypesMissing {}, Location::default()),
+        Code::ContentTypesDuplicateDefault => (
+            Diagnostic::ContentTypesDuplicateDefault {
+                extension: Echo::new("XML"),
+            },
+            Location::default().with_entry("[Content_Types].xml"),
+        ),
+        Code::ContentTypesDuplicateOverride => (
+            Diagnostic::ContentTypesDuplicateOverride {
+                part_name: Echo::new("/xl/workbook.xml"),
+            },
+            Location::default().with_entry("[Content_Types].xml"),
+        ),
+        Code::ContentTypesPartNameInvalid => (
+            Diagnostic::ContentTypesPartNameInvalid {
+                part_name: Echo::new("xl/workbook.xml"),
+                reason: PartNameReason::InvalidCharacter,
+            },
+            Location::default().with_entry("[Content_Types].xml"),
+        ),
+        Code::ContentTypeInvalid => (
+            Diagnostic::ContentTypeInvalid {
+                content_type: Echo::new("application/xml; charset = utf-8"),
+            },
+            Location::default().with_entry("[Content_Types].xml"),
+        ),
+        Code::PartContentTypeMissing => (
+            Diagnostic::PartContentTypeMissing {},
+            Location::default().with_part("/xl/media/image1.emf"),
+        ),
+        Code::PartContentTypeMismatch => (
+            Diagnostic::PartContentTypeMismatch {
+                content_type: Echo::new("application/xml"),
+            },
+            Location::default().with_part("/xl/_rels/workbook.xml.rels"),
+        ),
+        Code::RelationshipsSourceMissing => (
+            Diagnostic::RelationshipsSourceMissing {},
+            Location::default().with_part("/xl/worksheets/_rels/sheet9.xml.rels"),
+        ),
+        Code::RelationshipsTooMany => (
+            Diagnostic::RelationshipsTooMany {
+                count: 100_001,
+                limit: Limit::default_of(100_000),
+            },
+            Location::default().with_part("/xl/worksheets/_rels/sheet1.xml.rels"),
+        ),
+        Code::RelationshipsTotalTooMany => (
+            Diagnostic::RelationshipsTotalTooMany {
+                count: 1_000_100,
+                limit: Limit::default_of(1_000_000),
+            },
+            Location::default().with_part("/xl/worksheets/_rels/sheet11.xml.rels"),
+        ),
+        Code::RelationshipIdDuplicate => (
+            Diagnostic::RelationshipIdDuplicate {},
+            Location::default()
+                .with_rels_part("/xl/_rels/workbook.xml.rels")
+                .with_relationship_id("rId1"),
+        ),
+        Code::RelationshipTargetInvalid => (
+            Diagnostic::RelationshipTargetInvalid {
+                target: Echo::new("http://example.com/a.xml"),
+                reason: PartNameReason::HasScheme,
+            },
+            Location::default()
+                .with_rels_part("/xl/_rels/workbook.xml.rels")
+                .with_relationship_id("rId2"),
+        ),
+        Code::RelationshipTargetAboveRoot => (
+            Diagnostic::RelationshipTargetAboveRoot {
+                target: Echo::new("../../../xl/styles.xml"),
+            },
+            Location::default()
+                .with_rels_part("/xl/_rels/workbook.xml.rels")
+                .with_relationship_id("rId3"),
+        ),
+        Code::RelationshipTargetMissing => (
+            Diagnostic::RelationshipTargetMissing {
+                part_name: Echo::new("/xl/worksheets/sheet2.xml"),
+            },
+            Location::default()
+                .with_rels_part("/xl/_rels/workbook.xml.rels")
+                .with_relationship_id("rId4"),
+        ),
+        Code::RelationshipRelsPart => (
+            Diagnostic::RelationshipRelsPart {},
+            Location::default()
+                .with_rels_part("/_rels/.rels")
+                .with_relationship_id("rId5"),
+        ),
+        Code::MainDocumentMissing => (Diagnostic::MainDocumentMissing {}, Location::default()),
+        Code::PartUnreferenced => (
+            Diagnostic::PartUnreferenced {},
+            Location::default().with_part("/xl/printerSettings/printerSettings1.bin"),
         ),
     }
 }

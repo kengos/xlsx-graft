@@ -1,6 +1,6 @@
 [package]
 name = "xlsx-graft-package"
-description = "xlsx-graft package: reads an untrusted xlsx's zip container under limits, reporting every problem as a diagnostic"
+description = "xlsx-graft package: reads an untrusted xlsx's zip container, part names, content types and relationships under limits, reporting every problem as a diagnostic"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,6 +13,8 @@ miniz_oxide = { workspace = true }
 thiserror = { workspace = true }
 # Every problem in the workbook is returned as a Diagnostic.
 xlsx-graft-diagnostics = { workspace = true }
+# Reads the content types stream and the Relationships parts.
+xlsx-graft-xml = { workspace = true }
 
 [lints]
 workspace = true

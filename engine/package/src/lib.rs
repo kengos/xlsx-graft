@@ -1,8 +1,42 @@
-//! xlsx-graft package: an untrusted xlsx's zip container, read from its
-//! central directory under limits before any entry is inflated.
+//! xlsx-graft package: an untrusted xlsx read as an OPC package
+//! (ECMA-376-2:2021): its zip container, read from the central directory
+//! under limits before any entry is inflated, and on it the parts, their
+//! media types and the relationships between them.
 //!
-//! This crate holds the zip layer only. Part names, the content types stream
-//! and the relationships graph are built on it and are not here yet.
+//! # Reading a package
+//!
+//! [`Package::open`] takes a `Read + Seek`, the [`Limits`] in force and the
+//! [`Diagnostics`](xlsx_graft_diagnostics::Diagnostics) to push every
+//! problem into. It reads the zip as below, then:
+//!
+//! - **Part names** (§6.2.2, §7.3.5): each entry's name, with a `/` in
+//!   front and its non-ASCII percent-encodings decoded, must follow the part
+//!   name grammar, or the entry is not a part (`entry_name_invalid`). Folder
+//!   entries and the content types stream are not parts either. Names equal
+//!   but for ASCII letter case are none of them parts
+//!   (`part_name_duplicate`), and a name that continues another's with
+//!   more segments is not one (`part_name_derived`).
+//! - **Media types** (§7.2.3): from `[Content_Types].xml`, an `Override`
+//!   before a `Default`. A part with none, but a Relationships part, is
+//!   `part_content_type_missing`; a Relationships part's name with another
+//!   type, or another's with the Relationships type, is
+//!   `part_content_type_mismatch`.
+//! - **Relationships** (§6.5): every Relationships part whose source is
+//!   there is read, each `Id` unique and each internal target resolved
+//!   against its source part's name, with `..` above the root dropped
+//!   (`relationship_target_above_root`, a notice). The package's own
+//!   relationships must name a main document (`main_document_missing`),
+//!   and a part no relationship targets is `part_unreferenced`, a notice.
+//!
+//! What cannot be read stops what depends on it, without a second
+//! diagnostic: an entry the zip layer refused reports nothing more, an XML
+//! stream that cannot be read leaves out all it would have given, and a
+//! Relationships part not read means no part is reported unreferenced.
+//! Whatever is refused leaves what it would have given unknown rather than
+//! absent: a part an entry may have been is [`Presence::Unknown`] to
+//! [`Package::find`], and a part a refused mapping may have typed has
+//! [`Part::content_type_unknown`]. Only what is absent is reported missing,
+//! and a reader built on this model follows the same rule.
 //!
 //! # Reading a zip
 //!
@@ -123,13 +157,22 @@
 //! # }
 //! ```
 
+mod content_types;
 mod error;
 mod fields;
 mod limits;
+mod package;
+mod part_name;
+mod relationships;
+mod schema;
 mod zip;
 
+pub use content_types::ContentType;
 pub use error::PackageError;
-pub use limits::ZipLimits;
+pub use limits::{Limits, ZipLimits};
+pub use package::{Incoming, Package, Part, Presence, RelationshipSource};
+pub use part_name::PartName;
+pub use relationships::{Relationship, Target};
 pub use zip::{Entry, EntryReader, Method, ZipArchive};
 
 #[cfg(test)]

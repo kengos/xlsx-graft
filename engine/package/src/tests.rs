@@ -1,17 +1,25 @@
 //! Tests for `ZipArchive`, driven through `open`, `entries` and
-//! `open_entry` on zips the builder lays out byte by byte. Each file under
-//! `tests/` covers one aspect of what the reader refuses or admits.
+//! `open_entry` on zips the builder lays out byte by byte, and for
+//! `Package`, driven through `open` on packages built from them (`opc.rs`).
+//! Each file under `tests/` covers one aspect of what the reader refuses or
+//! admits.
 
 mod builder;
+mod content_types;
 mod directory;
 mod end;
 mod entries;
+mod graph;
+mod names;
+mod opc;
 mod reading;
 mod sizes;
+mod streams;
 
 use crate::{ZipArchive, ZipLimits};
 use std::cell::Cell;
 use std::io::{self, Cursor, Read, Seek, SeekFrom};
+use std::ops::Range;
 use std::rc::Rc;
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Limit};
 
@@ -28,6 +36,8 @@ struct Reader {
     failing: Rc<Cell<bool>>,
     /// How many bytes were read.
     read: Rc<Cell<u64>>,
+    /// Reads that start in this range fail, as the host would.
+    poisoned: Range<u64>,
 }
 
 impl Reader {
@@ -42,6 +52,15 @@ impl Reader {
             inner: Cursor::new(bytes),
             failing,
             read: Rc::default(),
+            poisoned: 0..0,
+        }
+    }
+
+    /// `bytes`, failing every read that starts in `poisoned`.
+    fn poisoned(bytes: Vec<u8>, poisoned: Range<u64>) -> Self {
+        Self {
+            poisoned,
+            ..Self::new(bytes)
         }
     }
 
@@ -65,6 +84,9 @@ impl Reader {
 impl Read for Reader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.check()?;
+        if self.poisoned.contains(&self.inner.position()) {
+            return Err(io::Error::other("the disk went bad"));
+        }
         let len = self.inner.read(buf)?;
         self.read.set(self.read.get() + len as u64);
         Ok(len)

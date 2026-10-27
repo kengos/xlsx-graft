@@ -1,6 +1,51 @@
-//! [`ZipLimits`]: how much of a zip the reader admits.
+//! [`Limits`]: how much of a package the reader admits, and [`ZipLimits`],
+//! its share for the zip.
 
 use xlsx_graft_diagnostics::Limit;
+use xlsx_graft_xml::XmlLimits;
+
+/// The limits a [`Package`](crate::Package) holds a package to: the zip's,
+/// the XML's for the content types stream and the Relationships parts, and
+/// the package model's own.
+///
+/// The defaults are provisional, to be revisited against large real
+/// workbooks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Limits {
+    /// The limits on the zip.
+    pub zip: ZipLimits,
+    /// The limits on each XML stream the package model reads.
+    pub xml: XmlLimits,
+    /// The most relationships one Relationships part may hold. Policy name
+    /// `maxRelationships`.
+    pub max_relationships: Limit,
+    /// The most relationships all the Relationships parts may hold in all,
+    /// since the graph keeps every one in memory. It bounds their count,
+    /// not their size: the `Id`, `Type` and external `Target` strings kept
+    /// are bounded only by the parts' sizes, so by `max_total_bytes` of the
+    /// zip in all. Policy name `maxTotalRelationships`.
+    pub max_total_relationships: Limit,
+}
+
+impl Limits {
+    /// The default `max_relationships`. A worksheet's relationships grow with
+    /// its hyperlinks, up to Excel's 65,530.
+    pub const DEFAULT_MAX_RELATIONSHIPS: u64 = 100_000;
+    /// The default `max_total_relationships`: ten worksheets at the
+    /// `max_relationships` default.
+    pub const DEFAULT_MAX_TOTAL_RELATIONSHIPS: u64 = 1_000_000;
+}
+
+impl Default for Limits {
+    fn default() -> Self {
+        Self {
+            zip: ZipLimits::default(),
+            xml: XmlLimits::default(),
+            max_relationships: Limit::default_of(Self::DEFAULT_MAX_RELATIONSHIPS),
+            max_total_relationships: Limit::default_of(Self::DEFAULT_MAX_TOTAL_RELATIONSHIPS),
+        }
+    }
+}
 
 /// The limits a [`ZipArchive`](crate::ZipArchive) holds a zip to.
 ///
