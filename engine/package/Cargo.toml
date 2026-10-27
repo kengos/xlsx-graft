@@ -1,0 +1,18 @@
+[package]
+name = "xlsx-graft-package"
+description = "xlsx-graft package: reads an untrusted xlsx's zip container under limits, reporting every problem as a diagnostic"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[dependencies]
+crc32fast = { workspace = true }
+miniz_oxide = { workspace = true }
+thiserror = { workspace = true }
+# Every problem in the workbook is returned as a Diagnostic.
+xlsx-graft-diagnostics = { workspace = true }
+
+[lints]
+workspace = true

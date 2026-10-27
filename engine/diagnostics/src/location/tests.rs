@@ -38,3 +38,9 @@ fn values_are_echoed() {
     let location = Location::default().with_entry("a\nb");
     assert_eq!(location.entry.unwrap().as_str(), "ab");
 }
+
+#[test]
+fn an_entry_name_in_bytes_is_echoed_lossily() {
+    let location = Location::default().with_entry_bytes(b"xl/\xff\nsheet.xml");
+    assert_eq!(location.entry.unwrap().as_str(), "xl/\u{fffd}sheet.xml");
+}

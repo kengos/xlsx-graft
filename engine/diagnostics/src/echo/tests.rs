@@ -70,3 +70,11 @@ fn an_echo_serializes_as_a_string() {
         r#""a\"b""#
     );
 }
+
+#[test]
+fn bytes_that_are_not_utf8_read_as_replacement_characters() {
+    assert_eq!(
+        Echo::from_utf8_lossy(b"a\xffb\n\xe8\xa1\xa8").as_str(),
+        "a\u{fffd}b表"
+    );
+}

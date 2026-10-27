@@ -45,7 +45,7 @@ pub use decided::{DecidedBy, Fix};
 pub use echo::{Echo, MAX_ECHO};
 pub use limit::{Limit, LimitSource};
 pub use location::Location;
-pub use reason::EncodingReason;
+pub use reason::{EncodingReason, InflateReason, ZipDirectoryReason, ZipHeaderField};
 pub use record::Record;
 
 use serde::Serialize;
