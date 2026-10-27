@@ -1,0 +1,16 @@
+[package]
+name = "xlsx-graft-xml"
+description = "xlsx-graft xml: the guarded entry point for reading a package's untrusted XML"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[dependencies]
+quick-xml = { workspace = true }
+# Every problem is returned as a Diagnostic.
+xlsx-graft-diagnostics = { workspace = true }
+
+[lints]
+workspace = true

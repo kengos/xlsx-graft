@@ -35,6 +35,7 @@ mod decided;
 mod echo;
 mod limit;
 mod location;
+mod reason;
 mod record;
 mod table;
 
@@ -44,6 +45,7 @@ pub use decided::{DecidedBy, Fix};
 pub use echo::{Echo, MAX_ECHO};
 pub use limit::{Limit, LimitSource};
 pub use location::Location;
+pub use reason::EncodingReason;
 pub use record::Record;
 
 use serde::Serialize;
