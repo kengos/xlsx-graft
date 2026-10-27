@@ -1,0 +1,21 @@
+[
+  {
+    "code": "diagnostics_truncated",
+    "severity": "notice",
+    "message": "3 more diagnostic(s), 0 of them error(s), were found after the first 1000 and are not listed",
+    "args": {
+      "dropped": 3,
+      "droppedErrors": 0,
+      "limit": 1000
+    },
+    "location": {},
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxDiagnostics",
+      "value": 1000,
+      "source": "default"
+    },
+    "fix": null,
+    "origin": "<origin>"
+  }
+]

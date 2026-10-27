@@ -423,6 +423,14 @@ name = "xlsx-graft-core"
 version = "0.0.0"
 
 [[package]]
+name = "xlsx-graft-diagnostics"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "xlsx-graft-mcp"
 version = "0.0.0"
 dependencies = [
