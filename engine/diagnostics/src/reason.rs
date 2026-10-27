@@ -124,6 +124,50 @@ reasons! {
         /// The data inflates to more than the header declares.
         LongerThanDeclared => "longer_than_declared",
     }
+
+    /// Why a zip entry name, a relationship's target or an `Override`'s
+    /// `PartName` does not name a part (ECMA-376-2:2021 §6.2.2.2).
+    PartNameReason {
+        /// The zip entry name is not UTF-8.
+        NotUtf8 => "not_utf8",
+        /// The name does not start with `/`.
+        MissingLeadingSlash => "missing_leading_slash",
+        /// A segment is empty: the name is empty, ends with `/`, or holds
+        /// `//` (a zip entry name that starts with `/` does).
+        EmptySegment => "empty_segment",
+        /// A segment holds a character a part name may not: one outside
+        /// `ipchar` (RFC 3987 §2.2), such as `\`, `[` or a space, or a `%`
+        /// not followed by two hexadecimal digits.
+        InvalidCharacter => "invalid_character",
+        /// A segment percent-encodes `/` or `\`.
+        EncodedSlash => "encoded_slash",
+        /// A segment percent-encodes an unreserved ASCII character, such as
+        /// `%41` for `A`.
+        EncodedUnreserved => "encoded_unreserved",
+        /// A segment ends with `.`, as `.` and `..` do.
+        EndsWithDot => "ends_with_dot",
+        /// The reference has a scheme, or a colon in its first segment: it is
+        /// not a relative reference to a part.
+        HasScheme => "has_scheme",
+        /// The reference starts with `//`, naming an authority: it is not a
+        /// reference to a part.
+        HasAuthority => "has_authority",
+    }
+
+    /// How a package XML stream breaks its schema (ECMA-376-2:2021 Annex C).
+    SchemaReason {
+        /// An element the schema does not allow where it stands: another
+        /// root, an unknown child, or one in another namespace.
+        UnexpectedElement => "unexpected_element",
+        /// An attribute the element does not have.
+        UnexpectedAttribute => "unexpected_attribute",
+        /// A required attribute is not there.
+        MissingAttribute => "missing_attribute",
+        /// Text other than white space where only elements may stand.
+        UnexpectedText => "unexpected_text",
+        /// An attribute's value is not one its type allows.
+        InvalidValue => "invalid_value",
+    }
 }
 
 #[cfg(test)]

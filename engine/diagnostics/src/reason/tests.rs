@@ -1,6 +1,8 @@
 //! Unit tests for the reason enums: each prints as it serializes.
 
-use super::{EncodingReason, InflateReason, ZipDirectoryReason, ZipHeaderField};
+use super::{
+    EncodingReason, InflateReason, PartNameReason, SchemaReason, ZipDirectoryReason, ZipHeaderField,
+};
 use serde::Serialize;
 use std::fmt::Display;
 
@@ -66,5 +68,37 @@ fn every_inflate_reason_prints_as_its_wire_string() {
             InflateReason::LongerThanDeclared,
         ],
         r#"["corrupt_data","ended_early","longer_than_declared"]"#,
+    );
+}
+
+#[test]
+fn every_part_name_reason_prints_as_its_wire_string() {
+    assert_wire(
+        &[
+            PartNameReason::NotUtf8,
+            PartNameReason::MissingLeadingSlash,
+            PartNameReason::EmptySegment,
+            PartNameReason::InvalidCharacter,
+            PartNameReason::EncodedSlash,
+            PartNameReason::EncodedUnreserved,
+            PartNameReason::EndsWithDot,
+            PartNameReason::HasScheme,
+            PartNameReason::HasAuthority,
+        ],
+        r#"["not_utf8","missing_leading_slash","empty_segment","invalid_character","encoded_slash","encoded_unreserved","ends_with_dot","has_scheme","has_authority"]"#,
+    );
+}
+
+#[test]
+fn every_schema_reason_prints_as_its_wire_string() {
+    assert_wire(
+        &[
+            SchemaReason::UnexpectedElement,
+            SchemaReason::UnexpectedAttribute,
+            SchemaReason::MissingAttribute,
+            SchemaReason::UnexpectedText,
+            SchemaReason::InvalidValue,
+        ],
+        r#"["unexpected_element","unexpected_attribute","missing_attribute","unexpected_text","invalid_value"]"#,
     );
 }

@@ -176,6 +176,28 @@
     "origin": "<origin>"
   },
   {
+    "code": "xml_schema_invalid",
+    "severity": "error",
+    "message": "the XML breaks its schema at byte 120 (unexpected_attribute: xml:base)",
+    "args": {
+      "offset": 120,
+      "reason": "unexpected_attribute",
+      "name": "xml:base"
+    },
+    "location": {
+      "part": "/_rels/.rels"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 Annex C"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
     "code": "not_a_zip",
     "severity": "error",
     "message": "the file is not a zip, so it is not an xlsx package",
@@ -565,6 +587,392 @@
       "in": "workbook",
       "text": "copy the file again from where it came from, or save the workbook again from Excel"
     },
+    "origin": "<origin>"
+  },
+  {
+    "code": "entry_name_invalid",
+    "severity": "error",
+    "message": "the zip entry name is not a part name (invalid_character), so the entry is not read as a part",
+    "args": {
+      "reason": "invalid_character"
+    },
+    "location": {
+      "entry": "xl\\workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §6.2.2.2"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "rename the entry to a valid part name, or save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "part_name_duplicate",
+    "severity": "error",
+    "message": "the zip entry names the same part as the entry xl/workbook.xml; neither is read as a part",
+    "args": {
+      "other": "xl/workbook.xml"
+    },
+    "location": {
+      "entry": "xl/Workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §6.2.2.3"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "remove one of the entries, or save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "part_name_derived",
+    "severity": "error",
+    "message": "the part name is derived from the part name /xl/workbook.xml, so it is not read as a part",
+    "args": {
+      "other": "/xl/workbook.xml"
+    },
+    "location": {
+      "part": "/xl/workbook.xml/sheet1.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §6.2.2.3"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "rename one of the parts, or save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "content_types_missing",
+    "severity": "error",
+    "message": "the package has no [Content_Types].xml, so no part has a media type",
+    "args": {},
+    "location": {},
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §7.3.7"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "content_types_duplicate_default",
+    "severity": "error",
+    "message": "[Content_Types].xml has more than one Default for the extension XML; none of them applies",
+    "args": {
+      "extension": "XML"
+    },
+    "location": {
+      "entry": "[Content_Types].xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §7.2.3.2.1"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "content_types_duplicate_override",
+    "severity": "error",
+    "message": "[Content_Types].xml has more than one Override for the part /xl/workbook.xml; none of them applies",
+    "args": {
+      "partName": "/xl/workbook.xml"
+    },
+    "location": {
+      "entry": "[Content_Types].xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §7.2.3.2.1"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "content_types_part_name_invalid",
+    "severity": "error",
+    "message": "[Content_Types].xml has an Override for xl/workbook.xml, which is not a part name (invalid_character)",
+    "args": {
+      "partName": "xl/workbook.xml",
+      "reason": "invalid_character"
+    },
+    "location": {
+      "entry": "[Content_Types].xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §7.2.3.2.5"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "content_type_invalid",
+    "severity": "error",
+    "message": "[Content_Types].xml gives the media type application/xml; charset = utf-8, which is not one",
+    "args": {
+      "contentType": "application/xml; charset = utf-8"
+    },
+    "location": {
+      "entry": "[Content_Types].xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §7.2.3.2.4"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "part_content_type_missing",
+    "severity": "error",
+    "message": "the part has no media type in [Content_Types].xml",
+    "args": {},
+    "location": {
+      "part": "/xl/media/image1.emf"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §7.2.3.2.1"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "part_content_type_mismatch",
+    "severity": "error",
+    "message": "the part's media type application/xml does not fit its name: the Relationships media type is for Relationships parts, and only them",
+    "args": {
+      "contentType": "application/xml"
+    },
+    "location": {
+      "part": "/xl/_rels/workbook.xml.rels"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §6.5.2.1"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "relationships_source_missing",
+    "severity": "error",
+    "message": "the Relationships part's source part is not in the package, so its relationships are not read",
+    "args": {},
+    "location": {
+      "part": "/xl/worksheets/_rels/sheet9.xml.rels"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §6.5.2.3"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "remove the Relationships part, or save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "relationships_too_many",
+    "severity": "error",
+    "message": "the Relationships part has 100001 relationships; the limit is 100000",
+    "args": {
+      "count": 100001,
+      "limit": 100000
+    },
+    "location": {
+      "part": "/xl/worksheets/_rels/sheet1.xml.rels"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxRelationships",
+      "value": 100000,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxRelationships: 100001"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "relationships_total_too_many",
+    "severity": "error",
+    "message": "the package's Relationships parts hold 1000100 relationships so far; the limit is 1000000",
+    "args": {
+      "count": 1000100,
+      "limit": 1000000
+    },
+    "location": {
+      "part": "/xl/worksheets/_rels/sheet11.xml.rels"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxTotalRelationships",
+      "value": 1000000,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxTotalRelationships: 1000100"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "relationship_id_duplicate",
+    "severity": "error",
+    "message": "another relationship in the same Relationships part has this Id; none of them is read",
+    "args": {},
+    "location": {
+      "relationshipId": "rId1",
+      "relsPart": "/xl/_rels/workbook.xml.rels"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §6.5.3.4"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "relationship_target_invalid",
+    "severity": "error",
+    "message": "the relationship's target http://example.com/a.xml does not resolve to a part name (has_scheme)",
+    "args": {
+      "target": "http://example.com/a.xml",
+      "reason": "has_scheme"
+    },
+    "location": {
+      "relationshipId": "rId2",
+      "relsPart": "/xl/_rels/workbook.xml.rels"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §6.5.3.4"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "relationship_target_above_root",
+    "severity": "notice",
+    "message": "the relationship's target ../../../xl/styles.xml climbs above the package root; it resolves as if it stopped there",
+    "args": {
+      "target": "../../../xl/styles.xml"
+    },
+    "location": {
+      "relationshipId": "rId3",
+      "relsPart": "/xl/_rels/workbook.xml.rels"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §6.4.3.5"
+    },
+    "fix": null,
+    "origin": "<origin>"
+  },
+  {
+    "code": "relationship_target_missing",
+    "severity": "error",
+    "message": "the relationship's target /xl/worksheets/sheet2.xml is not a part in the package",
+    "args": {
+      "partName": "/xl/worksheets/sheet2.xml"
+    },
+    "location": {
+      "relationshipId": "rId4",
+      "relsPart": "/xl/_rels/workbook.xml.rels"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §6.5.3.4"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "relationship_rels_part",
+    "severity": "error",
+    "message": "the relationship is from or to a Relationships part, which may have no relationships",
+    "args": {},
+    "location": {
+      "relationshipId": "rId5",
+      "relsPart": "/_rels/.rels"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-2:2021 §6.5.2.1"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "main_document_missing",
+    "severity": "error",
+    "message": "the package relationships name no main document (officeDocument), so the package is not a workbook",
+    "args": {},
+    "location": {},
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 SpreadsheetML Workbook part"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "part_unreferenced",
+    "severity": "notice",
+    "message": "no relationship targets the part, so a reader that follows relationships never reaches it",
+    "args": {},
+    "location": {
+      "part": "/xl/printerSettings/printerSettings1.bin"
+    },
+    "decidedBy": null,
+    "fix": null,
     "origin": "<origin>"
   }
 ]
