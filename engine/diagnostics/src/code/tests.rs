@@ -296,6 +296,30 @@ fn sample(code: Code) -> (Diagnostic, Location) {
             Diagnostic::PartUnreferenced {},
             Location::default().with_part("/xl/printerSettings/printerSettings1.bin"),
         ),
+        Code::RelationshipTypeDuplicate => (
+            Diagnostic::RelationshipTypeDuplicate {
+                rel_type: Echo::new(
+                    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings",
+                ),
+            },
+            Location::default()
+                .with_rels_part("/xl/_rels/workbook.xml.rels")
+                .with_relationship_id("rId7"),
+        ),
+        Code::SharedStringsTooMany => (
+            Diagnostic::SharedStringsTooMany {
+                count: 16_777_217,
+                limit: Limit::default_of(16_777_216),
+            },
+            Location::default().with_part("/xl/sharedStrings.xml"),
+        ),
+        Code::SharedStringsTooLarge => (
+            Diagnostic::SharedStringsTooLarge {
+                size: 4_294_967_300,
+                limit: Limit::default_of(4_294_967_295),
+            },
+            Location::default().with_part("/xl/sharedStrings.xml"),
+        ),
     }
 }
 
@@ -379,4 +403,34 @@ fn a_ratio_fix_rounds_up_and_sends_an_empty_compressed_size_to_the_workbook() {
         fix(0),
         Some(crate::Fix::workbook("save the workbook again from Excel"))
     );
+}
+
+#[test]
+fn a_shared_strings_size_fix_raises_the_limit_until_32_bits_hold_no_more() {
+    let fix = |size, limit| {
+        Diagnostic::SharedStringsTooLarge {
+            size,
+            limit: Limit::default_of(limit),
+        }
+        .fix()
+    };
+    assert_eq!(
+        fix(1_025, 1_024),
+        Some(crate::Fix::policy("maxSharedStringsBytes: 1025"))
+    );
+    assert_eq!(
+        fix(4_294_967_295, 4_294_967_294),
+        Some(crate::Fix::policy("maxSharedStringsBytes: 4294967295"))
+    );
+    for (size, limit) in [
+        (4_294_967_296, 4_294_967_295),
+        (4_294_967_300, 4_294_967_290),
+    ] {
+        assert_eq!(
+            fix(size, limit),
+            Some(crate::Fix::workbook(
+                "split the workbook: no limit admits more than 4 GiB of shared strings"
+            ))
+        );
+    }
 }

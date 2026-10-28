@@ -1,0 +1,26 @@
+[package]
+name = "xlsx-graft-read"
+description = "xlsx-graft read: a workbook's shared strings read from its package in memory that does not grow with its rows, spilling to a temporary file past a threshold"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+# Every problem in the workbook is returned as a Diagnostic.
+xlsx-graft-diagnostics = { workspace = true }
+# The package the parts are read from, and its relationships.
+xlsx-graft-package = { workspace = true }
+# Where the shared strings go once they pass the threshold.
+xlsx-graft-spool = { workspace = true }
+# Reads the shared strings part as a stream.
+xlsx-graft-xml = { workspace = true }
+
+[dev-dependencies]
+# The CRC-32 of each entry of the zips the tests build.
+crc32fast = { workspace = true }
+
+[lints]
+workspace = true

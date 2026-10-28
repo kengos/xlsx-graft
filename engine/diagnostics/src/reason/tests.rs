@@ -96,9 +96,10 @@ fn every_schema_reason_prints_as_its_wire_string() {
             SchemaReason::UnexpectedElement,
             SchemaReason::UnexpectedAttribute,
             SchemaReason::MissingAttribute,
+            SchemaReason::MissingElement,
             SchemaReason::UnexpectedText,
             SchemaReason::InvalidValue,
         ],
-        r#"["unexpected_element","unexpected_attribute","missing_attribute","unexpected_text","invalid_value"]"#,
+        r#"["unexpected_element","unexpected_attribute","missing_attribute","missing_element","unexpected_text","invalid_value"]"#,
     );
 }

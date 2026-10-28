@@ -10,7 +10,7 @@ pub(crate) use resolve::resolve;
 
 /// The `officeDocument` relationship types, Transitional and Strict, of the
 /// package relationship to a workbook's main part.
-pub(crate) const OFFICE_DOCUMENT: [&str; 2] = [
+pub const OFFICE_DOCUMENT: [&str; 2] = [
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument",
     "http://purl.oclc.org/ooxml/officeDocument/relationships/officeDocument",
 ];

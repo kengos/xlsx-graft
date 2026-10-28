@@ -125,9 +125,10 @@ diagnostics! {
         decided_by: Some(DecidedBy::limit("maxXmlBytes", *limit)),
         fix: Some(Fix::policy(format!("maxXmlBytes: {size}")));
 
-    /// A package XML stream (the content types stream or a Relationships
-    /// part) breaks its schema. What the error spoils is left out: the
-    /// element, or the whole stream when its root is wrong.
+    /// An XML part breaks its schema: a package XML stream (the content
+    /// types stream or a Relationships part), whose error spoils only the
+    /// element, or the whole stream when its root is wrong; or the shared
+    /// strings table, which is then not read at all.
     XmlSchemaInvalid {
         /// The byte offset of the element, as for `xml_malformed`.
         offset: u64,
@@ -137,7 +138,7 @@ diagnostics! {
         name: Echo,
     } => "xml_schema_invalid", Error,
         message: format!("the XML breaks its schema at byte {offset} ({reason}: {name})"),
-        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 Annex C")),
+        decided_by: Some(DecidedBy::standard("ECMA-376-2:2021 Annex C, ECMA-376-1:2016 Annex A")),
         fix: Some(Fix::workbook("save the workbook again from Excel"));
 
     /// The file is not a zip, so it cannot be a package.
@@ -539,6 +540,52 @@ diagnostics! {
         message: String::from("no relationship targets the part, so a reader that follows relationships never reaches it"),
         decided_by: None,
         fix: None;
+
+    /// Two relationships of one type in one Relationships part target
+    /// different parts where the part type allows one, such as the
+    /// workbook's shared strings table: which one a reader takes is not
+    /// known, so neither is read. Reported once, at the first relationship
+    /// whose target differs from the first one's.
+    RelationshipTypeDuplicate {
+        /// The relationship type, as written.
+        rel_type: Echo,
+    } => "relationship_type_duplicate", Error,
+        message: format!("another relationship of type {rel_type} in the same Relationships part targets another part, where only one is allowed; neither is read"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §12.3")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// The shared strings table holds more strings than the limit. The table
+    /// is not read.
+    SharedStringsTooMany {
+        /// The strings counted when reading stopped: the first past the
+        /// limit, so the table holds at least this many.
+        count: u64,
+        /// The most strings allowed.
+        limit: Limit,
+    } => "shared_strings_too_many", Error,
+        message: format!("the shared strings table holds at least {count} strings; the limit is {limit}"),
+        decided_by: Some(DecidedBy::limit("maxSharedStrings", *limit)),
+        fix: Some(Fix::policy(format!("maxSharedStrings: {count}")));
+
+    /// The text of the shared strings table, as UTF-8 once read, is larger
+    /// than the limit. The table is not read. The offsets into the text are
+    /// 32-bit, so the limit is never past `u32::MAX`, and a table that
+    /// passes that is sent back to the workbook.
+    SharedStringsTooLarge {
+        /// The bytes of text when reading stopped: the text read so far and
+        /// the piece of it that passed the limit, so the table holds at least
+        /// this much.
+        size: u64,
+        /// The most bytes of text allowed.
+        limit: Limit,
+    } => "shared_strings_too_large", Error,
+        message: format!("the shared strings table holds at least {size} bytes of text; the limit is {limit}"),
+        decided_by: Some(DecidedBy::limit("maxSharedStringsBytes", *limit)),
+        fix: Some(if *size <= u64::from(u32::MAX) {
+            Fix::policy(format!("maxSharedStringsBytes: {size}"))
+        } else {
+            Fix::workbook("split the workbook: no limit admits more than 4 GiB of shared strings")
+        });
 }
 
 #[cfg(test)]

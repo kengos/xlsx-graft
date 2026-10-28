@@ -154,7 +154,9 @@ reasons! {
         HasAuthority => "has_authority",
     }
 
-    /// How a package XML stream breaks its schema (ECMA-376-2:2021 Annex C).
+    /// How an XML part breaks its schema: a package XML stream
+    /// (ECMA-376-2:2021 Annex C) or a SpreadsheetML part (ECMA-376-1:2016
+    /// Annex A).
     SchemaReason {
         /// An element the schema does not allow where it stands: another
         /// root, an unknown child, or one in another namespace.
@@ -163,6 +165,8 @@ reasons! {
         UnexpectedAttribute => "unexpected_attribute",
         /// A required attribute is not there.
         MissingAttribute => "missing_attribute",
+        /// A required child element is not there.
+        MissingElement => "missing_element",
         /// Text other than white space where only elements may stand.
         UnexpectedText => "unexpected_text",
         /// An attribute's value is not one its type allows.
