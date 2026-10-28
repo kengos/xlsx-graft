@@ -189,7 +189,7 @@
     },
     "decidedBy": {
       "kind": "standard",
-      "ref": "ECMA-376-2:2021 Annex C"
+      "ref": "ECMA-376-2:2021 Annex C, ECMA-376-1:2016 Annex A"
     },
     "fix": {
       "in": "workbook",
@@ -973,6 +973,73 @@
     },
     "decidedBy": null,
     "fix": null,
+    "origin": "<origin>"
+  },
+  {
+    "code": "relationship_type_duplicate",
+    "severity": "error",
+    "message": "another relationship of type http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings in the same Relationships part targets another part, where only one is allowed; neither is read",
+    "args": {
+      "relType": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings"
+    },
+    "location": {
+      "relationshipId": "rId7",
+      "relsPart": "/xl/_rels/workbook.xml.rels"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §12.3"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "shared_strings_too_many",
+    "severity": "error",
+    "message": "the shared strings table holds at least 16777217 strings; the limit is 16777216",
+    "args": {
+      "count": 16777217,
+      "limit": 16777216
+    },
+    "location": {
+      "part": "/xl/sharedStrings.xml"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxSharedStrings",
+      "value": 16777216,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxSharedStrings: 16777217"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "shared_strings_too_large",
+    "severity": "error",
+    "message": "the shared strings table holds at least 4294967300 bytes of text; the limit is 4294967295",
+    "args": {
+      "size": 4294967300,
+      "limit": 4294967295
+    },
+    "location": {
+      "part": "/xl/sharedStrings.xml"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxSharedStringsBytes",
+      "value": 4294967295,
+      "source": "default"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "split the workbook: no limit admits more than 4 GiB of shared strings"
+    },
     "origin": "<origin>"
   }
 ]

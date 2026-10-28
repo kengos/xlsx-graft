@@ -8,6 +8,7 @@ members = [
     "mcp",
     "napi",
     "package",
+    "read",
     "spool",
     "xml",
 ]
@@ -32,6 +33,8 @@ xlsx-graft-xml = { path = "xml" }
 xlsx-graft-package = { path = "package" }
 # Scratch storage that spills to a temporary file (engine/spool).
 xlsx-graft-spool = { path = "spool" }
+# A workbook's shared strings, read on the package (engine/read).
+xlsx-graft-read = { path = "read" }
 # The C ABI host, linked as an rlib by the Node.js addon (engine/napi).
 xlsx-graft-capi = { path = "capi" }
 # The CLI's argument parser. derive keeps each flag's help beside its field,

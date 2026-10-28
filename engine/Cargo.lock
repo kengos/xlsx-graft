@@ -556,6 +556,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "xlsx-graft-read"
+version = "0.0.0"
+dependencies = [
+ "crc32fast",
+ "thiserror",
+ "xlsx-graft-diagnostics",
+ "xlsx-graft-package",
+ "xlsx-graft-spool",
+ "xlsx-graft-xml",
+]
+
+[[package]]
 name = "xlsx-graft-spool"
 version = "0.0.0"
 dependencies = [

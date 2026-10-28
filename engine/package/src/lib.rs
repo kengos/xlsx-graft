@@ -172,7 +172,7 @@ pub use error::PackageError;
 pub use limits::{Limits, ZipLimits};
 pub use package::{Incoming, Package, Part, Presence, RelationshipSource};
 pub use part_name::PartName;
-pub use relationships::{Relationship, Target};
+pub use relationships::{OFFICE_DOCUMENT, Relationship, Target};
 pub use zip::{Entry, EntryReader, Method, ZipArchive};
 
 #[cfg(test)]
