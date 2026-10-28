@@ -6,7 +6,7 @@ use super::builder::Item;
 use super::opc::{DEFAULTS, at, clean, found, minimal, part, types, with};
 use crate::{Incoming, RelationshipSource, Target};
 use std::io::Read;
-use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Echo, PartNameReason};
+use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Echo, Limit, PartNameReason};
 
 /// `entry_name_invalid` for `reason`.
 fn invalid(reason: PartNameReason) -> Diagnostic {
@@ -156,6 +156,24 @@ fn a_package_gives_back_its_parts_and_their_relationships() {
     reader.read_to_end(&mut bytes).unwrap();
     assert_eq!(bytes, b"<a/>");
     assert!(package.open_part(2, &mut diagnostics).unwrap().is_none());
+    let read = package.read_xml_part(1, Limit::default_of(4), &mut diagnostics);
+    assert_eq!(read.unwrap(), Some(b"<a/>".to_vec()));
+    assert!(diagnostics.records().is_empty());
+    let read = package.read_xml_part(1, Limit::default_of(3), &mut diagnostics);
+    assert_eq!(read.unwrap(), None);
+    let read = package.read_xml_part(2, Limit::default_of(4), &mut diagnostics);
+    assert_eq!(read.unwrap(), None);
+    let limit = Limit::default_of(3);
+    let too_large = Diagnostic::XmlTooLarge { size: 4, limit };
+    let seen: Vec<_> = (diagnostics.finish().into_iter())
+        .map(|record| {
+            (
+                record.diagnostic,
+                record.location.part.map(|p| p.as_str().to_owned()),
+            )
+        })
+        .collect();
+    assert_eq!(seen, [(too_large, Some(String::from("/xl/workbook.xml")))]);
 }
 
 #[test]

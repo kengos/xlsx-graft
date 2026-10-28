@@ -69,6 +69,14 @@ fn sample(code: Code) -> (Diagnostic, Location) {
             },
             Location::default().with_part("/xl/workbook.xml"),
         ),
+        Code::XmlNamespaceTooLong => (
+            Diagnostic::XmlNamespaceTooLong {
+                offset: 0,
+                length: 257,
+                limit: Limit::default_of(256),
+            },
+            Location::default().with_part("/xl/styles.xml"),
+        ),
         Code::XmlTooLarge => (
             Diagnostic::XmlTooLarge {
                 size: 16_777_217,
@@ -319,6 +327,20 @@ fn sample(code: Code) -> (Diagnostic, Location) {
                 limit: Limit::default_of(4_294_967_295),
             },
             Location::default().with_part("/xl/sharedStrings.xml"),
+        ),
+        Code::CellFormatsTooMany => (
+            Diagnostic::CellFormatsTooMany {
+                count: 65_537,
+                limit: Limit::default_of(65_536),
+            },
+            Location::default().with_part("/xl/styles.xml"),
+        ),
+        Code::NumberFormatsTooMany => (
+            Diagnostic::NumberFormatsTooMany {
+                count: 65_537,
+                limit: Limit::default_of(65_536),
+            },
+            Location::default().with_part("/xl/styles.xml"),
         ),
     }
 }

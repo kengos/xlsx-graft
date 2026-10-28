@@ -83,6 +83,7 @@ fn the_default_limits_are_the_documented_values() {
     assert_eq!(limits.max_depth, Limit::default_of(256));
     assert_eq!(limits.max_attributes, Limit::default_of(1_024));
     assert_eq!(limits.max_namespaces, Limit::default_of(256));
+    assert_eq!(limits.max_namespace_bytes, Limit::default_of(256));
     assert_eq!(limits.max_bytes, Limit::default_of(16 * 1024 * 1024));
 }
 
@@ -117,6 +118,26 @@ fn names_resolve_to_the_namespaces_in_scope() {
     };
     let (namespace, _) = reader.resolve_element(e.name());
     assert!(matches!(namespace, ResolveResult::Unknown(_)));
+}
+
+#[test]
+fn a_prefix_alone_resolves_as_a_prefixed_name_does() {
+    let xml = br#"<a xmlns:p="urn:p" xmlns="urn:d"/>"#;
+    let mut reader = XmlReader::open(xml, &XmlLimits::default()).unwrap();
+    let mut buf = Vec::new();
+    reader.read_event_into(&mut buf).unwrap();
+    assert_eq!(reader.resolve_prefix("p"), Some("urn:p"));
+    assert_eq!(
+        reader.resolve_prefix("xml"),
+        Some("http://www.w3.org/XML/1998/namespace")
+    );
+    assert_eq!(
+        reader.resolve_prefix("xmlns"),
+        Some("http://www.w3.org/2000/xmlns/")
+    );
+    for none in ["q", "", "p:q", ":p"] {
+        assert_eq!(reader.resolve_prefix(none), None, "{none}");
+    }
 }
 
 #[test]

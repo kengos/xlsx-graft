@@ -112,6 +112,21 @@ diagnostics! {
         decided_by: Some(DecidedBy::limit("maxXmlNamespaces", *limit)),
         fix: Some(Fix::policy(format!("maxXmlNamespaces: {count}")));
 
+    /// A namespace declaration in a part's XML is longer, as written, than
+    /// the limit.
+    XmlNamespaceTooLong {
+        /// The byte offset of the element that declares it, as for
+        /// `xml_malformed`.
+        offset: u64,
+        /// The bytes of the declaration's value, as written.
+        length: u64,
+        /// The most bytes a declaration's value may hold.
+        limit: Limit,
+    } => "xml_namespace_too_long", Error,
+        message: format!("the XML element at byte {offset} declares a namespace of {length} bytes; the limit is {limit}"),
+        decided_by: Some(DecidedBy::limit("maxXmlNamespaceBytes", *limit)),
+        fix: Some(Fix::policy(format!("maxXmlNamespaceBytes: {length}")));
+
     /// A part's XML is larger than the engine reads into memory.
     XmlTooLarge {
         /// The part's size in bytes: its length when in memory, else the
@@ -128,7 +143,7 @@ diagnostics! {
     /// An XML part breaks its schema: a package XML stream (the content
     /// types stream or a Relationships part), whose error spoils only the
     /// element, or the whole stream when its root is wrong; or the shared
-    /// strings table, which is then not read at all.
+    /// strings table or the styles, which are then not read at all.
     XmlSchemaInvalid {
         /// The byte offset of the element, as for `xml_malformed`.
         offset: u64,
@@ -586,6 +601,32 @@ diagnostics! {
         } else {
             Fix::workbook("split the workbook: no limit admits more than 4 GiB of shared strings")
         });
+
+    /// The styles part's cell formats (`cellXfs`) hold more `xf` records
+    /// than the limit. The styles are not read.
+    CellFormatsTooMany {
+        /// The records counted when reading stopped: the first past the
+        /// limit, so the part holds at least this many.
+        count: u64,
+        /// The most cell formats allowed.
+        limit: Limit,
+    } => "cell_formats_too_many", Error,
+        message: format!("the styles part holds at least {count} cell formats; the limit is {limit}"),
+        decided_by: Some(DecidedBy::limit("maxCellFormats", *limit)),
+        fix: Some(Fix::policy(format!("maxCellFormats: {count}")));
+
+    /// The styles part's number formats (`numFmts`) hold more `numFmt`
+    /// records than the limit. The styles are not read.
+    NumberFormatsTooMany {
+        /// The records counted when reading stopped: the first past the
+        /// limit, so the part holds at least this many.
+        count: u64,
+        /// The most number formats allowed.
+        limit: Limit,
+    } => "number_formats_too_many", Error,
+        message: format!("the styles part holds at least {count} number formats; the limit is {limit}"),
+        decided_by: Some(DecidedBy::limit("maxNumberFormats", *limit)),
+        fix: Some(Fix::policy(format!("maxNumberFormats: {count}")));
 }
 
 #[cfg(test)]

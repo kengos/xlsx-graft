@@ -106,6 +106,10 @@ impl Guard {
             let key = attribute.key.as_ref();
             if key == "xmlns" || key.starts_with("xmlns:") {
                 declared = declared.saturating_add(1);
+                let length = u64::try_from(attribute.value.len()).unwrap_or(u64::MAX);
+                if length > self.limits.max_namespace_bytes.value {
+                    return Err(Stop::NamespaceTooLong(length));
+                }
             }
             // Past the limit only the count matters: the element is refused.
             if count <= self.limits.max_attributes.value {

@@ -11,7 +11,8 @@ use xlsx_graft_xml::XmlLimits;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReadLimits {
     /// The limits on each XML part read. The shared strings table is read
-    /// as a stream, so `max_bytes` does not apply to it.
+    /// as a stream, so `max_bytes` does not apply to it; the styles are
+    /// read in memory, so it does.
     pub xml: XmlLimits,
     /// The most strings the shared strings table may hold. Policy name
     /// `maxSharedStrings`.
@@ -25,6 +26,12 @@ pub struct ReadLimits {
     /// write buffer of half this in memory. Policy name
     /// `sharedStringsSpillBytes`.
     pub shared_strings_spill_bytes: u64,
+    /// The most cell formats (`xf` in `cellXfs`) the styles may hold.
+    /// Policy name `maxCellFormats`.
+    pub max_cell_formats: Limit,
+    /// The most number formats (`numFmt` in `numFmts`) the styles may hold.
+    /// Policy name `maxNumberFormats`.
+    pub max_number_formats: Limit,
 }
 
 impl ReadLimits {
@@ -36,6 +43,12 @@ impl ReadLimits {
     pub const DEFAULT_MAX_SHARED_STRINGS_BYTES: u64 = u32::MAX as u64;
     /// The default `shared_strings_spill_bytes`, 32 MiB.
     pub const DEFAULT_SHARED_STRINGS_SPILL_BYTES: u64 = 32 * 1024 * 1024;
+    /// The default `max_cell_formats`: past the 65,430 Excel writes at
+    /// most (MS-OI29500 on §18.8.10, note a).
+    pub const DEFAULT_MAX_CELL_FORMATS: u64 = 65_536;
+    /// The default `max_number_formats`: as many as there are `numFmtId`
+    /// values Excel admits (MS-OI29500 on §18.18.47, note a).
+    pub const DEFAULT_MAX_NUMBER_FORMATS: u64 = 65_536;
 }
 
 impl Default for ReadLimits {
@@ -45,6 +58,8 @@ impl Default for ReadLimits {
             max_shared_strings: Limit::default_of(Self::DEFAULT_MAX_SHARED_STRINGS),
             max_shared_strings_bytes: Limit::default_of(Self::DEFAULT_MAX_SHARED_STRINGS_BYTES),
             shared_strings_spill_bytes: Self::DEFAULT_SHARED_STRINGS_SPILL_BYTES,
+            max_cell_formats: Limit::default_of(Self::DEFAULT_MAX_CELL_FORMATS),
+            max_number_formats: Limit::default_of(Self::DEFAULT_MAX_NUMBER_FORMATS),
         }
     }
 }
