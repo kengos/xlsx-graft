@@ -25,7 +25,7 @@ pub(super) const LONGEST_ESCAPE: usize = 2 * ESCAPE;
 /// and returns how many bytes of `text` it read. Unless `last`, it stops
 /// at an `_` too close to the end to tell whether it starts an escape, and
 /// the caller hands the rest in again ahead of what follows.
-pub(super) fn unescape<E>(
+pub(crate) fn unescape<E>(
     text: &str,
     last: bool,
     mut out: impl FnMut(&str) -> Result<(), E>,

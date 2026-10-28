@@ -1,6 +1,6 @@
 [package]
 name = "xlsx-graft-read"
-description = "xlsx-graft read: a workbook's shared strings read from its package in memory that does not grow with its rows, spilling to a temporary file past a threshold"
+description = "xlsx-graft read: a workbook's shared strings and what its styles make of a cell's number, read from its package in memory that does not grow with its rows"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

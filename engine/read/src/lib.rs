@@ -1,6 +1,7 @@
 //! xlsx-graft read: the parts of a workbook a reader of its cells needs,
 //! read from a [`Package`](xlsx_graft_package::Package) in memory that does
-//! not grow with the workbook's rows. For now, the shared strings table.
+//! not grow with the workbook's rows: the shared strings table, and what
+//! the styles make of a cell's number.
 //!
 //! # Finding a part
 //!
@@ -82,17 +83,93 @@
 //! the XML reader reads it, so one long run of text is bounded only by the
 //! zip limits on an entry.
 //!
+//! # The styles
+//!
+//! [`Styles::read`] reads the styles part (§18.8) in memory, under
+//! `maxXmlBytes` (`xml_too_large`), as the part is small: what it keeps is
+//! the [`FormatKind`] of each cell format (`cellXfs/xf`), from its
+//! `numFmtId`, and nothing else. The number formats the part defines
+//! (`numFmts/numFmt`) are read on the way and their format codes dropped;
+//! every other child of `styleSheet` and of `xf` is skipped unread. A
+//! cell's format is looked up by its index, a cell's `s`
+//! ([`Styles::kind`]). With no styles part every cell is General, as Excel
+//! shows it; a styles part without `cellXfs` holds no cell format, not
+//! even the 0 a cell without `s` has, so each is unknown: Excel requires
+//! every format a cell refers to be there (MS-OI29500 on §18.8.39, note
+//! a).
+//!
+//! - Only the cell format counts, not the cell style (`cellStyleXfs`) it
+//!   comes from, and `applyNumberFormat` is not read: in a cell format it
+//!   says whether a change to the style overwrites the format, not whether
+//!   the format applies (MS-OI29500 on §18.8.10, note b, and on §18.8.45,
+//!   note e).
+//! - An `xf` with no `numFmtId` takes 0, as the default style has: General
+//!   unless the part defines 0.
+//! - A `numFmtId` the part defines takes its definition, a built-in one
+//!   included; two definitions of one id that make different kinds leave
+//!   it [`FormatKind::Unknown`]. One it does not define takes the built-in
+//!   format of §18.8.30, and is unknown when there is none (5–8, 23–26,
+//!   41–44, 63–66 and past 81), which the standard leaves to the definition
+//!   the workbook ought to hold.
+//! - The built-in ids 27–36 and 50–58 differ by language: each takes its
+//!   Japanese and Korean meaning, a date but for the times 32 and 33.
+//! - A format code is read token by token, never by a pattern: its up to
+//!   four sections at `;`, with what is quoted (`"..."`), escaped (`\`, and
+//!   the character after `_` and `*`) and bracketed (`[Red]`, `[>100]`,
+//!   `[$-411]`) passed over, but for elapsed time (`[h]`, `[mm]`, `[ss]`).
+//!   `General`, or `G/` and a localized name in letters other than ASCII
+//!   (`G/標準`), is General.
+//!   The date and time letters left (`y`, `m`, `d`, `h`, `s`, the era `g`
+//!   and `e`, the Buddhist year `b` but for the calendars `b1` and `b2`,
+//!   the Japanese day of the week `a`, in
+//!   either case; `e` is an exponent only as `E+` or `E-`, as in Office)
+//!   decide a section's kind, an `m` being minutes right after hours or
+//!   right before seconds and a month otherwise. The sections for
+//!   text (one with `@`, or the fourth) do not count unless they are all
+//!   there is, nor do sections of literals alone (`"-"` for zero), which
+//!   show no number; sections whose kinds differ make the format unknown,
+//!   but for General and Number, which make Number. `_xHHHH_` escapes in
+//!   a format code are undone first.
+//!
+//! What the styles are refused for, each its one diagnostic, leaves them
+//! [`Styles::Unknown`]:
+//!
+//! - **Schema** (`xml_schema_invalid`): as for the shared strings table,
+//!   against CT_Stylesheet, CT_NumFmts, CT_NumFmt, CT_CellXfs and CT_Xf;
+//!   and a `numFmtId` that is not an `unsignedInt`, a `numFmt` without its
+//!   `numFmtId` or `formatCode`, a `cellXfs` without an `xf`. The values of
+//!   the other attributes are not checked.
+//!   Of markup compatibility, `mc:Ignorable` alone is taken, as every part
+//!   Excel writes carries it on `styleSheet`: an element or attribute of a
+//!   namespace it names is passed over, on the element that names it and
+//!   inside it. Any other markup compatibility element or attribute on or
+//!   in an element read is refused, as is a prefix it names that is not
+//!   declared or that names markup compatibility itself; one that names
+//!   SpreadsheetML or XML's own namespace is taken and changes nothing, as
+//!   a namespace the reader understands is read whatever it names. What a
+//!   skipped element holds is not looked at.
+//! - **Limits**: more cell formats than `maxCellFormats`
+//!   (`cell_formats_too_many`), more number formats than `maxNumberFormats`
+//!   (`number_formats_too_many`).
+//! - **XML**: whatever the XML reader refuses.
+//!
+//! The part is read whole before its XML is, so a damaged entry reports
+//! its own diagnostic and nothing more.
+//!
 //! An `Err` is a failure of the host alone ([`ReadError`]): reading the
 //! package, or the spool.
 
+mod compat;
 mod error;
 mod limits;
 mod shared_strings;
+mod styles;
 mod workbook;
 
 pub use error::ReadError;
 pub use limits::ReadLimits;
 pub use shared_strings::{Lookup, SHARED_STRINGS, SharedStrings, StringTable};
+pub use styles::{FormatKind, STYLES, Styles};
 pub use workbook::Workbook;
 
 #[cfg(test)]

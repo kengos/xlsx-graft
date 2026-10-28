@@ -19,6 +19,12 @@ pub struct XmlLimits {
     /// in scope at once. It also bounds what resolving a prefix costs, which
     /// walks the declarations in scope. Policy name `maxXmlNamespaces`.
     pub max_namespaces: Limit,
+    /// The most bytes a namespace declaration's value, its URI as written,
+    /// may hold. A URI is declared once and referred to by a prefix of a
+    /// few bytes as often as an element is written, so a reader comparing
+    /// URIs per element is bounded by this, not by the part. Policy name
+    /// `maxXmlNamespaceBytes`.
+    pub max_namespace_bytes: Limit,
     /// The most bytes of XML read into memory, before decoding, by an
     /// [`XmlReader`](crate::XmlReader). An
     /// [`XmlStreamReader`](crate::XmlStreamReader) does not apply it. Policy
@@ -35,6 +41,9 @@ impl XmlLimits {
     /// The default `max_namespaces`. Excel declares a dozen or two on a
     /// worksheet's root.
     pub const DEFAULT_MAX_NAMESPACES: u64 = 256;
+    /// The default `max_namespace_bytes`. The longest URI Excel writes is
+    /// about 70 bytes.
+    pub const DEFAULT_MAX_NAMESPACE_BYTES: u64 = 256;
     /// The default `max_bytes`, 16 MiB: a worksheet's relationships, one per
     /// hyperlink up to Excel's 65,530, come to about 7 MiB.
     pub const DEFAULT_MAX_BYTES: u64 = 16 * 1024 * 1024;
@@ -46,6 +55,7 @@ impl Default for XmlLimits {
             max_depth: Limit::default_of(Self::DEFAULT_MAX_DEPTH),
             max_attributes: Limit::default_of(Self::DEFAULT_MAX_ATTRIBUTES),
             max_namespaces: Limit::default_of(Self::DEFAULT_MAX_NAMESPACES),
+            max_namespace_bytes: Limit::default_of(Self::DEFAULT_MAX_NAMESPACE_BYTES),
             max_bytes: Limit::default_of(Self::DEFAULT_MAX_BYTES),
         }
     }

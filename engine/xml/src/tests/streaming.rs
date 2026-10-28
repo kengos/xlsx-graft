@@ -132,6 +132,9 @@ fn names_resolve_and_offsets_count_as_in_memory() {
         panic!("expected b");
     };
     assert_eq!(reader.offset(), 21);
+    assert_eq!(reader.resolve_prefix("p"), Some("urn:p"));
+    assert_eq!(reader.resolve_prefix("q"), None);
+    assert_eq!(reader.resolve_prefix("p:c"), None);
     let key = b.attributes().next().unwrap().unwrap().key;
     let (namespace, local) = reader.resolve_attribute(key);
     assert_eq!(

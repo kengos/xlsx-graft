@@ -26,7 +26,9 @@
 //! - **Shape**: nesting deeper than `max_depth` is `xml_too_deep`; an element
 //!   with more than `max_attributes` attributes is `xml_too_many_attributes`;
 //!   more than `max_namespaces` namespace declarations in scope is
-//!   `xml_too_many_namespaces`.
+//!   `xml_too_many_namespaces`; a declaration whose value, as written, is
+//!   longer than `max_namespace_bytes` is `xml_namespace_too_long`, so a
+//!   URI a reader holds and compares is bounded.
 //! - **Well-formedness**: whatever quick-xml refuses, plus what it lets
 //!   through and the reader checks: a character XML does not allow, an
 //!   unclosed element at the end, no root or a second one, content outside

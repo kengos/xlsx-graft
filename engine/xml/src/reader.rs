@@ -80,8 +80,8 @@ impl<'a> XmlReader<'a> {
     /// The first problem found, as a diagnostic the caller pushes with the
     /// part it read: `xml_encoding_unsupported`, `xml_malformed`,
     /// `xml_doctype`, `xml_too_deep` (with the deepest nesting in the part),
-    /// `xml_too_many_attributes` or `xml_too_many_namespaces`. Every call
-    /// after it returns it again.
+    /// `xml_too_many_attributes`, `xml_too_many_namespaces` or
+    /// `xml_namespace_too_long`. Every call after it returns it again.
     pub fn read_event_into<'b>(&mut self, buf: &'b mut Vec<u8>) -> Result<Event<'b>, Diagnostic> {
         if let Some(failed) = &self.failed {
             return Err(failed.clone());
@@ -125,5 +125,15 @@ impl<'a> XmlReader<'a> {
     #[must_use]
     pub fn resolve_attribute<'n>(&self, name: QName<'n>) -> (ResolveResult<'_>, LocalName<'n>) {
         self.reader.resolve_attribute(name)
+    }
+
+    /// The namespace `prefix` (a prefix alone, such as a markup
+    /// compatibility attribute lists) is bound to in scope at the event read
+    /// last, as a prefixed name resolves; `xml` and `xmlns` are always
+    /// bound. `None` when it has no binding, or is empty or holds a `:`,
+    /// and so is no prefix.
+    #[must_use]
+    pub fn resolve_prefix(&self, prefix: &str) -> Option<&str> {
+        self.reader.resolve_prefix(prefix)
     }
 }

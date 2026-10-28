@@ -18,6 +18,9 @@ pub(crate) enum Stop {
     /// An element with this many namespace declarations in scope, more than
     /// `max_namespaces`.
     TooManyNamespaces(u64),
+    /// A namespace declaration whose value is this many bytes, more than
+    /// `max_namespace_bytes`.
+    NamespaceTooLong(u64),
 }
 
 impl Stop {
@@ -43,6 +46,11 @@ impl Stop {
                 offset,
                 count,
                 limit: limits.max_namespaces,
+            },
+            Self::NamespaceTooLong(length) => Diagnostic::XmlNamespaceTooLong {
+                offset,
+                length,
+                limit: limits.max_namespace_bytes,
             },
         }
     }

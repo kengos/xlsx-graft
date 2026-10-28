@@ -1,7 +1,8 @@
 //! The limits, each at its largest admitted value and one past it: nesting
-//! depth, attributes on one element, namespace declarations in scope, and
-//! bytes read into memory. Where the streaming reader differs (the depth it
-//! reports, and no size of its own), `streaming` covers it.
+//! depth, attributes on one element, namespace declarations in scope, the
+//! length of one, and bytes read into memory. Where the streaming reader
+//! differs (the depth it reports, and no size of its own), `streaming`
+//! covers it.
 
 use super::{read, read_memory_with, read_with};
 use crate::XmlLimits;
@@ -107,6 +108,28 @@ fn too_many_namespaces(offset: u64, count: u64) -> Result<usize, Diagnostic> {
         count,
         limit: Limit::default_of(256),
     })
+}
+
+#[test]
+fn a_namespace_as_long_as_the_limit_reads_and_one_byte_longer_is_refused() {
+    let at = format!(
+        r#"<r xmlns="{}"><p:a xmlns:p="{}"/></r>"#,
+        "u".repeat(256),
+        "&amp;".repeat(51)
+    );
+    assert_eq!(read(at.as_bytes()), Ok(3));
+    let past = format!(
+        r#"<r xmlns="urn:d"><p:a xmlns:p="{}"/></r>"#,
+        "u".repeat(257)
+    );
+    assert_eq!(
+        read(past.as_bytes()),
+        Err(Diagnostic::XmlNamespaceTooLong {
+            offset: 17,
+            length: 257,
+            limit: Limit::default_of(256),
+        })
+    );
 }
 
 #[test]

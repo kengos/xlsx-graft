@@ -1,11 +1,14 @@
-//! Tests for the crate, driven through `Workbook::find`, `related` and
-//! `SharedStrings::read` and `get` on packages the tests build (`zip.rs`).
-//! Each file under `tests/` covers one aspect.
+//! Tests for the crate, driven through `Workbook::find`, `related`,
+//! `SharedStrings::read` and `get`, and `Styles::read` and `kind` on
+//! packages the tests build (`zip.rs`). Each file under `tests/` covers one
+//! aspect; `styles.rs` and the files under `tests/styles/` cover the
+//! styles.
 
 mod failures;
 mod limits;
 mod schema;
 mod strings;
+mod styles;
 mod workbook;
 mod zip;
 

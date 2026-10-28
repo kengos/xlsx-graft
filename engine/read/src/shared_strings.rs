@@ -2,7 +2,7 @@
 //! §18.4), found by the workbook's relationship, read as a stream
 //! (`sst.rs`) into a [`StringTable`] (`table.rs`), as the crate root says.
 
-mod escape;
+pub(crate) mod escape;
 mod sst;
 mod table;
 

@@ -153,6 +153,30 @@
     "origin": "<origin>"
   },
   {
+    "code": "xml_namespace_too_long",
+    "severity": "error",
+    "message": "the XML element at byte 0 declares a namespace of 257 bytes; the limit is 256",
+    "args": {
+      "offset": 0,
+      "length": 257,
+      "limit": 256
+    },
+    "location": {
+      "part": "/xl/styles.xml"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxXmlNamespaceBytes",
+      "value": 256,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxXmlNamespaceBytes: 257"
+    },
+    "origin": "<origin>"
+  },
+  {
     "code": "xml_too_large",
     "severity": "error",
     "message": "the XML is 16777217 bytes; the limit is 16777216",
@@ -1039,6 +1063,52 @@
     "fix": {
       "in": "workbook",
       "text": "split the workbook: no limit admits more than 4 GiB of shared strings"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "cell_formats_too_many",
+    "severity": "error",
+    "message": "the styles part holds at least 65537 cell formats; the limit is 65536",
+    "args": {
+      "count": 65537,
+      "limit": 65536
+    },
+    "location": {
+      "part": "/xl/styles.xml"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxCellFormats",
+      "value": 65536,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxCellFormats: 65537"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "number_formats_too_many",
+    "severity": "error",
+    "message": "the styles part holds at least 65537 number formats; the limit is 65536",
+    "args": {
+      "count": 65537,
+      "limit": 65536
+    },
+    "location": {
+      "part": "/xl/styles.xml"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxNumberFormats",
+      "value": 65536,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxNumberFormats: 65537"
     },
     "origin": "<origin>"
   }

@@ -7,7 +7,7 @@ use crate::guard::Guard;
 use crate::{XmlLimits, malformed};
 use quick_xml::NsReader;
 use quick_xml::events::Event;
-use quick_xml::name::{LocalName, QName, ResolveResult};
+use quick_xml::name::{LocalName, Namespace, QName, ResolveResult};
 use source::Source;
 use std::io::BufRead;
 use xlsx_graft_diagnostics::Diagnostic;
@@ -93,8 +93,8 @@ impl<R: BufRead> XmlStreamReader<R> {
     /// [`XmlStreamError::Invalid`] with the first problem found, as a
     /// diagnostic the caller pushes with the part it read:
     /// `xml_encoding_unsupported`, `xml_malformed`, `xml_doctype`,
-    /// `xml_too_deep`, `xml_too_many_attributes` or
-    /// `xml_too_many_namespaces`. [`XmlStreamError::Io`] when `R` fails.
+    /// `xml_too_deep`, `xml_too_many_attributes`, `xml_too_many_namespaces`
+    /// or `xml_namespace_too_long`. [`XmlStreamError::Io`] when `R` fails.
     /// Every call after either returns it again.
     pub fn read_event_into<'b>(
         &mut self,
@@ -165,5 +165,21 @@ impl<R: BufRead> XmlStreamReader<R> {
     #[must_use]
     pub fn resolve_attribute<'n>(&self, name: QName<'n>) -> (ResolveResult<'_>, LocalName<'n>) {
         self.reader.resolver().resolve_attribute(name)
+    }
+
+    /// The namespace `prefix` is bound to, as
+    /// [`XmlReader::resolve_prefix`](crate::XmlReader::resolve_prefix)
+    /// resolves it.
+    #[must_use]
+    pub fn resolve_prefix(&self, prefix: &str) -> Option<&str> {
+        if prefix.is_empty() || prefix.contains(':') {
+            return None;
+        }
+        // quick-xml resolves a prefix only as part of a name.
+        let name = format!("{prefix}:_");
+        match self.resolve_attribute(QName(&name)).0 {
+            ResolveResult::Bound(Namespace(namespace)) => Some(namespace),
+            _ => None,
+        }
     }
 }
