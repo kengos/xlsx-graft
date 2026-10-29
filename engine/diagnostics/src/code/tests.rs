@@ -380,6 +380,31 @@ fn sample(code: Code) -> (Diagnostic, Location) {
                 .with_rels_part("/xl/_rels/workbook.xml.rels")
                 .with_relationship_id("rId3"),
         ),
+        Code::SharedStringMissing => (
+            Diagnostic::SharedStringMissing { index: 12 },
+            Location::default().with_part("/xl/worksheets/sheet1.xml"),
+        ),
+        Code::RowTooLarge => (
+            Diagnostic::RowTooLarge {
+                row: 7,
+                size: 67_108_865,
+                limit: Limit::default_of(67_108_864),
+            },
+            Location::default().with_part("/xl/worksheets/sheet1.xml"),
+        ),
+        Code::CellReferenceInvalid => (
+            Diagnostic::CellReferenceInvalid {
+                reference: Echo::new("XFE7"),
+            },
+            Location::default().with_part("/xl/worksheets/sheet1.xml"),
+        ),
+        Code::CellOrderInvalid => (
+            Diagnostic::CellOrderInvalid {
+                reference: Echo::new("B3"),
+                previous: Echo::new("C3"),
+            },
+            Location::default().with_part("/xl/worksheets/sheet1.xml"),
+        ),
     }
 }
 
