@@ -644,6 +644,55 @@ diagnostics! {
         message: format!("the styles part holds at least {count} number formats; the limit is {limit}"),
         decided_by: Some(DecidedBy::limit("maxNumberFormats", *limit)),
         fix: Some(Fix::policy(format!("maxNumberFormats: {count}")));
+
+    /// Two sheets of the workbook have the same name, letter case aside,
+    /// which Excel does not allow in any locale. Reported at every sheet
+    /// after the first; both stay listed.
+    SheetNameDuplicate {
+        /// The sheet's name.
+        name: Echo,
+        /// The name of the sheet before it with the same name.
+        other: Echo,
+    } => "sheet_name_duplicate", Error,
+        message: format!("the sheet {name} has the same name as the sheet {other}, letter case aside"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.2.19; MS-OI29500 on §18.2.19, note d")),
+        fix: Some(Fix::workbook("rename one of the sheets, or save the workbook again from Excel"));
+
+    /// Two sheets of the workbook are one part: their relationships, or
+    /// their one relationship, target the same part. Reported at every
+    /// sheet after the first; both stay listed.
+    SheetPartDuplicate {
+        /// The sheet's name.
+        name: Echo,
+        /// The name of the sheet before it that is the same part.
+        other: Echo,
+    } => "sheet_part_duplicate", Error,
+        message: format!("the sheet {name} is the same part as the sheet {other}"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.2.19")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// A sheet's `r:id` names no relationship of the workbook part that
+    /// targets a part: none has the `Id` (reported against the workbook
+    /// part), or the one that has it is external (reported against it).
+    /// The sheet is listed without its part.
+    SheetRelationshipMissing {
+        /// The sheet's `r:id`.
+        relationship_id: Echo,
+    } => "sheet_relationship_missing", Error,
+        message: format!("the sheet's relationship {relationship_id} is not a relationship of the workbook to a part, so the sheet has no part"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.2.19")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// The relationship a sheet's `r:id` names is not of a sheet's type
+    /// (a worksheet, chartsheet, dialogsheet or macro sheet). The sheet is
+    /// listed without its part.
+    SheetRelationshipTypeInvalid {
+        /// The relationship type, as written.
+        rel_type: Echo,
+    } => "sheet_relationship_type_invalid", Error,
+        message: format!("a sheet's relationship is of type {rel_type}, which is not a sheet's, so the sheet has no part"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §12.3")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
 }
 
 #[cfg(test)]
