@@ -19,18 +19,23 @@
 //! A reader of either XML reader keeps one for the part:
 //!
 //! ```text
-//! let mut ignorable = Ignorable::new(&SPREADSHEETML);
-//! // At each element read, before its attributes:
+//! let mut ignorable = Ignorable::new(&NAMESPACES);
+//! // At each element read, before its other attributes:
 //! ignorable.enter();
-//! if Ignorable::is_attribute(namespace, local) {
-//!     ignorable.name(value, |prefix| resolve(prefix))?;
-//! }
-//! // An element or attribute whose namespace `ignorable.contains(ns)` is
-//! // passed over. At the element's end:
+//! ignorable.take(start, &reader, offset)?;
+//! // An element whose namespace `ignorable.contains(ns)`, and an
+//! // attribute that `ignorable.passes_over(ns, local)`, are passed over.
+//! // At the element's end:
 //! ignorable.leave();
 //! ```
 
+use crate::schema::{namespace, refuse};
 use std::collections::BTreeSet;
+use std::io::BufRead;
+use xlsx_graft_diagnostics::{Diagnostic, SchemaReason};
+use xlsx_graft_xml::events::BytesStart;
+use xlsx_graft_xml::name::{LocalName, QName, ResolveResult};
+use xlsx_graft_xml::{XmlReader, XmlStreamReader, XmlVersion};
 
 /// The namespace of markup compatibility.
 pub(crate) const MARKUP_COMPATIBILITY: &str =
@@ -66,6 +71,34 @@ pub(crate) struct Ignorable {
 /// elements and attributes it would let through.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Refused;
+
+/// What resolves the names of the element read: either XML reader.
+pub(crate) trait Resolve {
+    /// The namespace and local name of the attribute `name`.
+    fn resolve_attribute<'n>(&self, name: QName<'n>) -> (ResolveResult<'_>, LocalName<'n>);
+    /// The namespace `prefix` is bound to.
+    fn resolve_prefix(&self, prefix: &str) -> Option<&str>;
+}
+
+impl Resolve for XmlReader<'_> {
+    fn resolve_attribute<'n>(&self, name: QName<'n>) -> (ResolveResult<'_>, LocalName<'n>) {
+        XmlReader::resolve_attribute(self, name)
+    }
+
+    fn resolve_prefix(&self, prefix: &str) -> Option<&str> {
+        XmlReader::resolve_prefix(self, prefix)
+    }
+}
+
+impl<B: BufRead> Resolve for XmlStreamReader<B> {
+    fn resolve_attribute<'n>(&self, name: QName<'n>) -> (ResolveResult<'_>, LocalName<'n>) {
+        XmlStreamReader::resolve_attribute(self, name)
+    }
+
+    fn resolve_prefix(&self, prefix: &str) -> Option<&str> {
+        XmlStreamReader::resolve_prefix(self, prefix)
+    }
+}
 
 impl Ignorable {
     /// None named yet, for a reader that understands `understood`.
@@ -123,6 +156,42 @@ impl Ignorable {
             }
         }
         Ok(())
+    }
+
+    /// Takes in the `mc:Ignorable` of `start`, the element entered, which
+    /// `reader` read at `offset`: the attribute covers the ones beside it,
+    /// so it is taken before them.
+    ///
+    /// # Errors
+    ///
+    /// `xml_schema_invalid` (an invalid value) naming the attribute, when
+    /// [`Ignorable::name`] refuses its value.
+    pub(crate) fn take(
+        &mut self,
+        start: &BytesStart<'_>,
+        reader: &impl Resolve,
+        offset: u64,
+    ) -> Result<(), Diagnostic> {
+        for attribute in start.attributes().flatten() {
+            if attribute.key.local_name().as_ref() != "Ignorable" {
+                continue;
+            }
+            let (resolved, local) = reader.resolve_attribute(attribute.key);
+            if Self::is_attribute(namespace(&resolved), local.as_ref()) {
+                let value = attribute.normalized_value(XmlVersion::Implicit1_0);
+                let key = attribute.key.as_ref();
+                let resolve = |prefix: &str| reader.resolve_prefix(prefix);
+                (self.name(&value.unwrap_or_default(), resolve))
+                    .map_err(|_| refuse(offset, SchemaReason::InvalidValue, key))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Whether an attribute in `namespace` named `local` is passed over:
+    /// `mc:Ignorable`, taken already, or one in a namespace it names.
+    pub(crate) fn passes_over(&self, namespace: Option<&str>, local: &str) -> bool {
+        Self::is_attribute(namespace, local) || namespace.is_some_and(|ns| self.contains(ns))
     }
 
     /// Whether an element or attribute in `namespace` is passed over.

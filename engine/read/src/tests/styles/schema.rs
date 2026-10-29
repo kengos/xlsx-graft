@@ -3,7 +3,7 @@
 
 use super::super::{NS, at};
 use super::{PART, part, read, styled_with};
-use crate::Styles;
+use crate::{FormatKind, Styles};
 use xlsx_graft_diagnostics::{Diagnostic, Echo, SchemaReason};
 
 /// The markup compatibility namespace.
@@ -154,6 +154,15 @@ fn text_where_only_elements_stand_is_refused() {
     );
     body_refused_as("<cellXfs><xf/>&amp;</cellXfs>", 14, text, "cellXfs");
     body_refused_as("<cellXfs><xf><![CDATA[x]]></xf></cellXfs>", 13, text, "xf");
+    // White space written as a reference or a CDATA section is text.
+    body_refused_as("<cellXfs>&#32;<xf/></cellXfs>", 9, text, "cellXfs");
+    body_refused_as("<cellXfs><xf/><![CDATA[ ]]></cellXfs>", 14, text, "cellXfs");
+}
+
+#[test]
+fn white_space_written_as_such_or_an_empty_cdata_stands_between_elements() {
+    let body = "\r\n\t <cellXfs>\n<![CDATA[]]><xf/> </cellXfs>\n";
+    assert_eq!(super::kinds(body), [FormatKind::General]);
 }
 
 #[test]

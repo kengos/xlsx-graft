@@ -110,6 +110,16 @@ fn text_where_only_elements_may_stand_is_refused() {
     body_refused_as("a", 0, text, "sst");
     body_refused_as("<si> <![CDATA[x]]></si>", 5, text, "si");
     body_refused_as("<si><r>&amp;<t/></r></si>", 7, text, "r");
+    // White space written as a reference or a CDATA section is text.
+    body_refused_as("<si>&#32;<t/></si>", 4, text, "si");
+    body_refused_as("&#x9;<si/>", 0, text, "sst");
+    body_refused_as("<si><![CDATA[ ]]><t/></si>", 4, text, "si");
+}
+
+#[test]
+fn white_space_written_as_such_or_an_empty_cdata_stands_between_elements() {
+    let body = "\r\n\t <si> <t>a&#32;</t>\n<![CDATA[]]></si>\n";
+    assert_eq!(super::clean(body), ["a "]);
 }
 
 #[test]

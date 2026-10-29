@@ -13,17 +13,12 @@ use super::format::classify;
 use super::kind::builtin;
 use crate::ReadLimits;
 use crate::compat::Ignorable;
-use shape::{Child, Frame, Values, attributes, child, namespace, refuse};
+use crate::schema::{NAMESPACES, is_blank, namespace, refuse};
+use shape::{Child, Frame, Values, attributes, child};
 use std::collections::BTreeMap;
 use xlsx_graft_diagnostics::{Diagnostic, SchemaReason};
 use xlsx_graft_xml::XmlReader;
 use xlsx_graft_xml::events::{BytesStart, Event};
-
-/// The namespaces of `styleSheet`, Transitional and Strict.
-const NAMESPACES: [&str; 2] = [
-    "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
-    "http://purl.oclc.org/ooxml/spreadsheetml/main",
-];
 
 /// Where the walk is.
 struct Walk<'a> {
@@ -67,7 +62,7 @@ pub(super) fn read(bytes: &[u8], limits: &ReadLimits) -> Result<Vec<FormatKind>,
             Event::Empty(start) => walk.start(&reader, &start, offset, false)?,
             Event::End(_) => walk.end()?,
             Event::Text(text) if !is_blank(&text.xml10_content()) => walk.text(offset)?,
-            Event::CData(data) if !is_blank(&data.xml10_content()) => walk.text(offset)?,
+            Event::CData(data) if !data.is_empty() => walk.text(offset)?,
             Event::GeneralRef(_) => walk.text(offset)?,
             Event::Eof => return Ok(walk.cells),
             _ => {}
@@ -90,7 +85,7 @@ impl Walk<'_> {
             return Ok(());
         }
         let (resolved, local) = reader.resolve_element(start.name());
-        let namespace = namespace(resolved);
+        let namespace = namespace(&resolved);
         let unexpected = || {
             refuse(
                 offset,
@@ -194,10 +189,4 @@ impl Walk<'_> {
         };
         Err(refuse(offset, SchemaReason::UnexpectedText, name))
     }
-}
-
-/// Whether `text` is all XML white space.
-fn is_blank(text: &str) -> bool {
-    text.bytes()
-        .all(|b| matches!(b, b' ' | b'\t' | b'\r' | b'\n'))
 }

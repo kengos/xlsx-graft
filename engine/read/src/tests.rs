@@ -5,6 +5,7 @@
 //! styles.
 
 mod failures;
+mod ignorable;
 mod limits;
 mod schema;
 mod strings;
