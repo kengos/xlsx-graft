@@ -12,8 +12,11 @@
 )]
 
 mod output;
+mod read;
+mod read_failures;
 mod usage;
 mod version;
+mod workbook;
 
 use std::process::{Command, Output};
 

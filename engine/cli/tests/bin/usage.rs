@@ -35,3 +35,11 @@ fn an_unknown_flag_is_refused_with_exit_2() {
     assert_eq!(stdout(&output), "");
     assert!(stderr(&output).contains("unexpected argument '--no-such-flag'"));
 }
+
+#[test]
+fn version_beside_a_command_is_refused_with_exit_2() {
+    let output = run(&["--version", "read", "book.xlsx"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(stdout(&output), "");
+    assert!(stderr(&output).contains("'--version' cannot be used with a command"));
+}

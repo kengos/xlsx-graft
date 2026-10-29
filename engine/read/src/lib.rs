@@ -9,7 +9,8 @@
 //! [`Book::open`] opens a workbook from a `Read + Seek`: its package, then
 //! the parts below, each found and read once. [`Book::sheets`] lists its
 //! sheets, [`Book::sheet`] finds one by name as `sheet_name_duplicate`
-//! compares them (a name two sheets have finds neither), and
+//! compares them (a name two sheets have finds neither, and says so:
+//! [`SheetLookup`]), and
 //! [`Book::rows`] reads a worksheet's rows: a [`SheetRows`] the caller
 //! pulls one [`Row`] at a time from, into a buffer it hands back each time.
 //!
@@ -260,7 +261,7 @@ mod value;
 mod workbook;
 mod workbook_part;
 
-pub use book::Book;
+pub use book::{Book, SheetLookup};
 pub use error::ReadError;
 pub use limits::ReadLimits;
 pub use reference::CellRef;

@@ -1,19 +1,20 @@
-//! Unit tests for the crate root: how the command line is read, and what
-//! `run` writes for it.
+//! Unit tests for the crate root: how the command line is read, what
+//! `run` writes for it, and the status `exit_status` makes of a run.
 
-use super::{Cli, CliError, Format, run};
+use super::{Cli, CliError, Format, Outcome, exit_status, run};
 use clap::Parser;
 use clap::error::ErrorKind;
 use std::io::{self, Write};
 use xlsx_graft_core::version;
 
 fn parse(args: &[&str]) -> Cli {
-    Cli::try_parse_from(std::iter::once("xlsx-graft").chain(args.iter().copied())).unwrap()
+    Cli::try_parse_args(std::iter::once("xlsx-graft").chain(args.iter().copied())).unwrap()
 }
 
 fn run_to_string(args: &[&str]) -> String {
     let mut out = Vec::new();
-    run(&parse(args), &mut out).unwrap();
+    let outcome = run(&parse(args), &mut out, &mut io::sink()).unwrap();
+    assert_eq!(outcome, Outcome::Success);
     String::from_utf8(out).unwrap()
 }
 
@@ -48,6 +49,51 @@ fn an_unknown_format_is_a_usage_error() {
 }
 
 #[test]
+fn read_takes_a_sheet_by_name_or_by_index_but_not_both() {
+    for args in [
+        &["read", "book.xlsx"][..],
+        &["read", "book.xlsx", "--sheet", "Data"],
+        &[
+            "read",
+            "--sheet-index",
+            "2",
+            "book.xlsx",
+            "--format",
+            "json",
+        ],
+    ] {
+        assert!(parse(args).command.is_some());
+    }
+    let both = [
+        "xlsx-graft",
+        "read",
+        "b.xlsx",
+        "--sheet",
+        "A",
+        "--sheet-index",
+        "1",
+    ];
+    let err = Cli::try_parse_from(both).unwrap_err();
+    assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
+    assert_eq!(err.exit_code(), 2);
+}
+
+#[test]
+fn version_is_not_taken_beside_a_command() {
+    let err = Cli::try_parse_args(["xlsx-graft", "--version", "read", "b.xlsx"]).unwrap_err();
+    assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
+    assert_eq!(err.exit_code(), 2);
+    // `--format` is no argument of the program's to refuse there.
+    assert!(Cli::try_parse_args(["xlsx-graft", "--format=json", "read", "b.xlsx"]).is_ok());
+}
+
+#[test]
+fn a_negative_sheet_index_is_a_usage_error() {
+    let err = Cli::try_parse_from(["xlsx-graft", "read", "b.xlsx", "--sheet-index", "-1"]);
+    assert_eq!(err.unwrap_err().exit_code(), 2);
+}
+
+#[test]
 fn version_prints_the_core_version_as_text() {
     assert_eq!(
         run_to_string(&["--version"]),
@@ -69,6 +115,7 @@ fn nothing_to_do_prints_the_help() {
     assert!(help.starts_with("Read, verify, create and edit xlsx workbooks"));
     assert!(help.contains("Usage: xlsx-graft"));
     assert!(help.contains("--version"));
+    assert!(help.contains("read"));
     assert!(help.contains("--format <FORMAT>"));
     // The help is not a command's output, so --format leaves it text.
     assert_eq!(run_to_string(&["--format", "json"]), help);
@@ -79,7 +126,7 @@ fn a_full_stdout_is_an_error_rather_than_a_panic() {
     for args in [&["--version"][..], &[]] {
         // A zero-length buffer takes no bytes, like a full disk.
         let mut full: &mut [u8] = &mut [];
-        let err = run(&parse(args), &mut full).unwrap_err();
+        let err = run(&parse(args), &mut full, &mut io::sink()).unwrap_err();
         assert!(matches!(err, CliError::Write(e) if e.kind() == io::ErrorKind::WriteZero));
     }
 }
@@ -99,6 +146,35 @@ fn a_stdout_that_fails_only_on_flush_is_an_error_too() {
         }
     }
 
-    let err = run(&parse(&["--version"]), &mut FlushFails).unwrap_err();
+    let err = run(&parse(&["--version"]), &mut FlushFails, &mut io::sink()).unwrap_err();
     assert!(matches!(err, CliError::Write(e) if e.kind() == io::ErrorKind::StorageFull));
+}
+
+#[test]
+fn the_status_is_0_on_success_and_1_on_a_failure_with_its_reason() {
+    let mut err = Vec::new();
+    assert_eq!(exit_status(Ok(Outcome::Success), &mut err), 0);
+    assert_eq!(exit_status(Ok(Outcome::Failure), &mut err), 1);
+    // A failure the output already says nothing more of.
+    assert!(err.is_empty());
+    let full = CliError::Write(io::ErrorKind::StorageFull.into());
+    assert_eq!(exit_status(Err(full), &mut err), 1);
+    let said = String::from_utf8(err).unwrap();
+    assert!(said.starts_with("xlsx-graft: failed to write the output: "));
+    assert!(said.ends_with('\n'));
+}
+
+#[test]
+fn a_closed_stdout_is_0_and_says_nothing() {
+    let mut err = Vec::new();
+    let closed = CliError::Write(io::ErrorKind::BrokenPipe.into());
+    assert_eq!(exit_status(Err(closed), &mut err), 0);
+    assert!(err.is_empty());
+}
+
+#[test]
+fn a_reason_stderr_refuses_still_fails_the_run() {
+    let full = CliError::Write(io::ErrorKind::StorageFull.into());
+    let mut refusing: &mut [u8] = &mut [];
+    assert_eq!(exit_status(Err(full), &mut refusing), 1);
 }

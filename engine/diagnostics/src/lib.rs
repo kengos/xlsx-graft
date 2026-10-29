@@ -64,5 +64,17 @@ pub enum Severity {
     Notice,
 }
 
+impl Severity {
+    /// The stable wire string, as it serializes.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Error => "error",
+            Self::Warn => "warn",
+            Self::Notice => "notice",
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests;

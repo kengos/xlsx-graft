@@ -14,8 +14,9 @@ use std::io::{self, Write};
 pub enum Format {
     /// For a person reading a terminal. Not a contract: it may change.
     Text,
-    /// One JSON value per command run. Its keys and their types are a
-    /// contract. The help stays text.
+    /// One JSON value per command run, or one a line as `read` reads
+    /// (JSON Lines). Its keys and their types are a contract. The help
+    /// stays text.
     Json,
 }
 
