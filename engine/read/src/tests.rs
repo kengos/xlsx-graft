@@ -3,7 +3,8 @@
 //! and `kind` on packages the tests build (`zip.rs`). Each file under
 //! `tests/` covers one aspect; `styles.rs` and the files under
 //! `tests/styles/` cover the styles, and `workbook_part.rs` and those under
-//! `tests/workbook_part/` the workbook part.
+//! `tests/workbook_part/` the workbook part. `values.rs` and those under
+//! `tests/values/` cover the cell values, which take no package.
 
 mod failures;
 mod ignorable;
@@ -11,6 +12,7 @@ mod limits;
 mod schema;
 mod strings;
 mod styles;
+mod values;
 mod workbook;
 mod workbook_part;
 mod zip;

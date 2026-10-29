@@ -214,22 +214,39 @@
 //! The part is read whole before its XML is, so a damaged entry reports
 //! its own diagnostic and nothing more.
 //!
+//! # Cell values
+//!
+//! [`Value`] is what a cell holds, typed; a string and an error value
+//! borrow their text. [`Value::from_serial`] makes a cell's number the
+//! [`Date`], [`Time`], [`DateTime`] or [`Elapsed`] its [`FormatKind`] says,
+//! counted in the workbook's [`DateSystem`], and leaves it a number where
+//! it is no date-time of Excel's: negative, not finite, past 9999-12-31,
+//! or, as a date or date-time in [`DateSystem::Compatibility1900`], before
+//! 1900-01-01 or on 1900-02-29. It is rounded to the millisecond.
+//! [`Value::from_iso`] reads the ISO 8601 text of a `t="d"` cell, and
+//! [`CellRef::parse`] a cell's `r`, to XFD1048576. Each source the rules
+//! come from is in the `value` module's docs.
+//!
 //! An `Err` is a failure of the host alone ([`ReadError`]): reading the
 //! package, or the spool.
 
 mod compat;
 mod error;
 mod limits;
+mod reference;
 mod schema;
 mod shared_strings;
 mod styles;
+mod value;
 mod workbook;
 mod workbook_part;
 
 pub use error::ReadError;
 pub use limits::ReadLimits;
+pub use reference::CellRef;
 pub use shared_strings::{Lookup, SHARED_STRINGS, SharedStrings, StringTable};
 pub use styles::{FormatKind, STYLES, Styles};
+pub use value::{Date, DateTime, Elapsed, Time, Value, ValueError};
 pub use workbook::Workbook;
 pub use workbook_part::{DateSystem, Sheet, SheetKind, SheetPart, SheetState, WorkbookPart};
 
