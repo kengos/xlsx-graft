@@ -12,6 +12,7 @@
 use super::walk::Listed;
 use super::{Sheet, SheetKind, SheetPart};
 use crate::Workbook;
+use crate::schema::fold;
 use crate::workbook::rels_of;
 use std::collections::BTreeMap;
 use std::io::{Read, Seek};
@@ -96,7 +97,7 @@ pub(super) fn link<R: Read + Seek>(
             }
         };
         let name = listed.name;
-        let folded = name.to_lowercase();
+        let folded = fold(&name);
         if let Some(other) = names.get(&folded) {
             let other = sheet_name(&sheets, *other);
             let diagnostic = Diagnostic::SheetNameDuplicate {

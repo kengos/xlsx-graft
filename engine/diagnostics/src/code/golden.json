@@ -1218,5 +1218,90 @@
       "text": "save the workbook again from Excel"
     },
     "origin": "<origin>"
+  },
+  {
+    "code": "shared_string_missing",
+    "severity": "error",
+    "message": "a cell refers to shared string 12, which the shared strings table does not hold",
+    "args": {
+      "index": 12
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.3.1.4, §18.4.8"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "row_too_large",
+    "severity": "error",
+    "message": "row 7 holds at least 67108865 bytes of text; the limit is 67108864",
+    "args": {
+      "row": 7,
+      "size": 67108865,
+      "limit": 67108864
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxRowBytes",
+      "value": 67108864,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxRowBytes: 67108865"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "cell_reference_invalid",
+    "severity": "error",
+    "message": "XFE7 is not a place in the sheet a row or cell of it may have",
+    "args": {
+      "reference": "XFE7"
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.3.1.4, §18.17.5.1; MS-OI29500 on §18.3.1.73, note a"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "cell_order_invalid",
+    "severity": "error",
+    "message": "B3 comes after C3; rows go down the sheet and a row's cells go across it",
+    "args": {
+      "reference": "B3",
+      "previous": "C3"
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.3.1.4, §18.3.1.73; MS-OI29500 on §18.3.1.73, note a"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
   }
 ]

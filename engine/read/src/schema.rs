@@ -4,8 +4,8 @@
 //! ([`UNDERSTOOD`]), the one a name is bound to ([`namespace`]), the white
 //! space that may stand between elements ([`is_blank`]) and that a value's
 //! type collapses ([`is_space`]), an `xsd:boolean` ([`boolean`]), the text
-//! a reference stands for ([`resolve`]), and the `xml_schema_invalid` it
-//! refuses with ([`refuse`]).
+//! a reference stands for ([`resolve`]), a sheet name as names are compared
+//! ([`fold`]), and the `xml_schema_invalid` it refuses with ([`refuse`]).
 
 use xlsx_graft_diagnostics::{Diagnostic, Echo, SchemaReason};
 use xlsx_graft_xml::events::BytesRef;
@@ -71,6 +71,12 @@ pub(crate) fn resolve(reference: &BytesRef<'_>) -> String {
     c.or(named.map(|&(_, c)| c))
         .map(String::from)
         .unwrap_or_default()
+}
+
+/// `name` as sheet names are compared: lowercased as Unicode has it, the
+/// same in every locale (the workbook part's `link.rs` says why).
+pub(crate) fn fold(name: &str) -> String {
+    name.to_lowercase()
 }
 
 /// The namespace `resolved` binds, if it binds one.

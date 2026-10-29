@@ -2,7 +2,23 @@
 //! read from a [`Package`](xlsx_graft_package::Package) in memory that does
 //! not grow with the workbook's rows: the workbook's sheets and date
 //! system, the shared strings table, and what the styles make of a cell's
-//! number.
+//! number; and on them a worksheet's rows, read one at a time.
+//!
+//! # A book and its rows
+//!
+//! [`Book::open`] opens a workbook from a `Read + Seek`: its package, then
+//! the parts below, each found and read once. [`Book::sheets`] lists its
+//! sheets, [`Book::sheet`] finds one by name as `sheet_name_duplicate`
+//! compares them (a name two sheets have finds neither), and
+//! [`Book::rows`] reads a worksheet's rows: a [`SheetRows`] the caller
+//! pulls one [`Row`] at a time from, into a buffer it hands back each time.
+//!
+//! What a worksheet is read to and refused for is [`SheetRows`]'s to
+//! say. Reading stops at the first problem, with its one diagnostic: the
+//! rows before it have come, and none comes after. One event of the XML is
+//! held at a time, under `maxXmlEventBytes`, and one row, under
+//! `maxRowBytes`, so what a reader holds does not grow with the sheet's
+//! rows.
 //!
 //! # Finding a part
 //!
@@ -230,21 +246,27 @@
 //! An `Err` is a failure of the host alone ([`ReadError`]): reading the
 //! package, or the spool.
 
+mod book;
 mod compat;
 mod error;
 mod limits;
 mod reference;
+mod row;
 mod schema;
 mod shared_strings;
+mod sheet_rows;
 mod styles;
 mod value;
 mod workbook;
 mod workbook_part;
 
+pub use book::Book;
 pub use error::ReadError;
 pub use limits::ReadLimits;
 pub use reference::CellRef;
+pub use row::Row;
 pub use shared_strings::{Lookup, SHARED_STRINGS, SharedStrings, StringTable};
+pub use sheet_rows::SheetRows;
 pub use styles::{FormatKind, STYLES, Styles};
 pub use value::{Date, DateTime, Elapsed, Time, Value, ValueError};
 pub use workbook::Workbook;
