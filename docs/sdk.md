@@ -223,6 +223,54 @@ JS SDK maps the status to a result as below.
   not read. The diagnostic codes name the status codes for now (`null_arg`,
   `panic`, `unknown_status`); the engine's own diagnostics replace them.
 
+### Reading rows through the C ABI
+
+The header gives the whole contract; this is the shape an SDK builds on.
+
+- **A book, then rows.** `xlsx_graft_book_open_path` / `_open_bytes` make a
+  book handle, `xlsx_graft_rows_open` (by index) /
+  `xlsx_graft_rows_open_name` (by name, letter case aside) a rows handle
+  for one sheet, and `xlsx_graft_rows_next` reads a row a call until it
+  writes row number 0 (an empty row has its number and no values). Each
+  handle has its close, which an SDK calls however its caller's block
+  ends; the two may close in either order, but the diagnostics are the
+  book's, so read them before closing it.
+- **Null a handle as you close it.** Using a closed handle is undefined
+  behaviour, but a null one is refused with `XLSX_GRAFT_ERR_NULL_ARG` and
+  closing it does nothing.
+- **One thread at a time** for a book and its rows together, closes
+  included: they share state the library does not lock. A finalizer that
+  runs on a thread of its own closes only under the program's lock for
+  that book, or not at all. After `XLSX_GRAFT_ERR_PANIC` close the book
+  and all its rows.
+- **An empty input may be null.** A null pointer with a length of 0 is
+  read as no bytes, so an empty array an FFI passes as null needs no
+  special case. A path that is not UTF-8 is refused; read that file and
+  open its bytes.
+- **A cell** is an `XlsxGraftValue`: its `kind` is one of the nine types
+  of `read`'s JSON Lines ([below](#reading-rows-read)), in the same order,
+  and its fields carry the same value (an elapsed time in milliseconds, a
+  date or time in parts). Copy what you keep before the next call: the
+  values, and the text they point at, live until then.
+- **What is a result.** Opening returns `XLSX_GRAFT_OK` for any file the
+  engine could read, a workbook or not; the book's diagnostics
+  (`xlsx_graft_book_diagnostics`, the JSON every host prints, read after
+  the rows) say what it found. A status refusing a sheet maps to the code
+  `read` puts in its end line's `error`:
+
+  | Status | `error.code` |
+  | --- | --- |
+  | `XLSX_GRAFT_ERR_WORKBOOK_UNREADABLE` | `workbook_unreadable` |
+  | `XLSX_GRAFT_ERR_SHEET_NOT_FOUND` | `sheet_not_found` |
+  | `XLSX_GRAFT_ERR_SHEET_AMBIGUOUS` | `sheet_ambiguous` |
+  | `XLSX_GRAFT_ERR_SHEET_NOT_WORKSHEET` | `sheet_not_worksheet` |
+  | `XLSX_GRAFT_ERR_SHEET_UNREADABLE` | `sheet_unreadable` |
+
+  `XLSX_GRAFT_ERR_IO` is the host failing (the file would not open or
+  read, a temporary file would not write), as `read`'s exit 1 without an
+  end line is; `xlsx_graft_error_message` says why, on the thread that
+  made the call.
+
 ## Running the CLI
 
 An SDK that runs the engine's CLI (PHP, Go) treats a run the way the others
