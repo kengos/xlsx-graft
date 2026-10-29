@@ -162,6 +162,16 @@ impl<R: BufRead> XmlStreamReader<R> {
         self.reader.get_ref().get_ref()
     }
 
+    /// The reader the part is read from, given back for a caller that
+    /// stops reading the XML and reads the rest of the part another way,
+    /// such as to its end to check a zip entry's CRC-32. It has been read
+    /// ahead of the event read last, by as much as the reader decodes at a
+    /// time; those bytes are not given back.
+    #[must_use]
+    pub fn into_inner(self) -> R {
+        self.reader.into_inner().into_inner()
+    }
+
     /// The namespace and local name of the element name `name`, as
     /// [`XmlReader::resolve_element`](crate::XmlReader::resolve_element)
     /// resolves it.

@@ -1,5 +1,5 @@
-//! Tests for `ZipArchive`, driven through `open`, `entries` and
-//! `open_entry` on zips the builder lays out byte by byte, and for
+//! Tests for `ZipArchive`, driven through `open`, `entries`, `open_entry`
+//! and `stream_entry` on zips the builder lays out byte by byte, and for
 //! `Package`, driven through `open` on packages built from them (`opc.rs`).
 //! Each file under `tests/` covers one aspect of what the reader refuses or
 //! admits.
@@ -9,6 +9,7 @@ mod content_types;
 mod directory;
 mod end;
 mod entries;
+mod entry_streams;
 mod graph;
 mod names;
 mod opc;

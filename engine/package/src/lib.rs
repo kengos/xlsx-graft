@@ -127,6 +127,12 @@
 //! or `zip_crc_mismatch` against the entry; the read fails, and
 //! [`EntryReader::is_stopped`] tells that failure from one of the host.
 //!
+//! An [`EntryReader`] borrows the archive while it lives. A caller that
+//! keeps an entry open beside the archive, or beside a [`Package`] that
+//! owns it, takes an [`EntryStream`] instead ([`ZipArchive::stream_entry`],
+//! [`Package::stream_part`]): the same reading, handed the archive and the
+//! diagnostics at each read, and seeking to where it is in the data first.
+//!
 //! ```
 //! use std::io::{Cursor, Read};
 //! use xlsx_graft_diagnostics::Diagnostics;
@@ -173,7 +179,7 @@ pub use limits::{Limits, ZipLimits};
 pub use package::{Incoming, Package, Part, Presence, RelationshipSource};
 pub use part_name::PartName;
 pub use relationships::{OFFICE_DOCUMENT, Relationship, Target};
-pub use zip::{Entry, EntryReader, Method, ZipArchive};
+pub use zip::{Entry, EntryReader, EntryStream, Method, ZipArchive};
 
 #[cfg(test)]
 mod tests;

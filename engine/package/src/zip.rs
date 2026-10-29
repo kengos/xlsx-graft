@@ -15,12 +15,14 @@ mod layout;
 mod local;
 mod reader;
 mod source;
+mod stream;
 
 pub use reader::EntryReader;
+pub use stream::EntryStream;
 
 use crate::{PackageError, ZipLimits};
 use source::Source;
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, SeekFrom};
 use std::ops::Range;
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Location};
 
@@ -194,6 +196,16 @@ impl<R: Read + Seek> ZipArchive<R> {
         self.entries.iter().position(|entry| entry.name == name)
     }
 
+    /// A stream of the inflated data of the entry at `index`, read from
+    /// this archive through [`EntryStream::read`], or `None` when there is
+    /// no such entry or it is not readable (the diagnostic that says why is
+    /// already pushed).
+    #[must_use]
+    pub fn stream_entry(&self, index: usize) -> Option<EntryStream> {
+        let entry = self.entries.get(index).filter(|entry| entry.readable)?;
+        Some(EntryStream::new(index, entry))
+    }
+
     /// A reader of the inflated data of the entry at `index`, or `None` when
     /// there is no such entry or it is not readable (the diagnostic that says
     /// why is already pushed).
@@ -206,13 +218,13 @@ impl<R: Read + Seek> ZipArchive<R> {
         index: usize,
         diagnostics: &'a mut Diagnostics,
     ) -> Result<Option<EntryReader<'a, R>>, PackageError> {
-        let Some(entry) = self.entries.get_mut(index).filter(|entry| entry.readable) else {
+        let Some(stream) = self.stream_entry(index) else {
             return Ok(None);
         };
-        Ok(Some(EntryReader::new(
-            &mut self.source.reader,
-            entry,
-            diagnostics,
-        )?))
+        // Seek now, so a host that cannot reach the data fails here rather
+        // than at the first read.
+        let offset = self.entries.get(index).map_or(0, |entry| entry.data_offset);
+        self.source.reader.seek(SeekFrom::Start(offset))?;
+        Ok(Some(EntryReader::new(self, diagnostics, stream)))
     }
 }
