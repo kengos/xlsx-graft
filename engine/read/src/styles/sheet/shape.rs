@@ -7,7 +7,7 @@
 //! come, as in the shared strings part.
 
 use crate::compat::Ignorable;
-use crate::schema::{namespace, refuse};
+use crate::schema::{is_space, namespace, refuse};
 use crate::shared_strings::escape::unescape;
 use std::convert::Infallible;
 use xlsx_graft_diagnostics::{Diagnostic, SchemaReason};
@@ -163,9 +163,4 @@ pub(super) fn attributes(
         Some(name) => Err(refuse(offset, SchemaReason::MissingAttribute, name)),
         None => Ok(values),
     }
-}
-
-/// Whether `c` is XML white space, which `xsd:unsignedInt` collapses.
-fn is_space(c: char) -> bool {
-    matches!(c, ' ' | '\t' | '\r' | '\n')
 }

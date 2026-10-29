@@ -350,6 +350,36 @@ fn sample(code: Code) -> (Diagnostic, Location) {
             },
             Location::default().with_part("/xl/styles.xml"),
         ),
+        Code::SheetNameDuplicate => (
+            Diagnostic::SheetNameDuplicate {
+                name: Echo::new("DATA"),
+                other: Echo::new("Data"),
+            },
+            Location::default().with_part("/xl/workbook.xml"),
+        ),
+        Code::SheetPartDuplicate => (
+            Diagnostic::SheetPartDuplicate {
+                name: Echo::new("Sheet2"),
+                other: Echo::new("Sheet1"),
+            },
+            Location::default().with_part("/xl/workbook.xml"),
+        ),
+        Code::SheetRelationshipMissing => (
+            Diagnostic::SheetRelationshipMissing {
+                relationship_id: Echo::new("rId9"),
+            },
+            Location::default().with_part("/xl/workbook.xml"),
+        ),
+        Code::SheetRelationshipTypeInvalid => (
+            Diagnostic::SheetRelationshipTypeInvalid {
+                rel_type: Echo::new(
+                    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles",
+                ),
+            },
+            Location::default()
+                .with_rels_part("/xl/_rels/workbook.xml.rels")
+                .with_relationship_id("rId3"),
+        ),
     }
 }
 

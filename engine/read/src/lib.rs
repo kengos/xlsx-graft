@@ -1,7 +1,8 @@
 //! xlsx-graft read: the parts of a workbook a reader of its cells needs,
 //! read from a [`Package`](xlsx_graft_package::Package) in memory that does
-//! not grow with the workbook's rows: the shared strings table, and what
-//! the styles make of a cell's number.
+//! not grow with the workbook's rows: the workbook's sheets and date
+//! system, the shared strings table, and what the styles make of a cell's
+//! number.
 //!
 //! # Finding a part
 //!
@@ -29,6 +30,60 @@
 //!
 //! A caller finds the workbook once and looks each part type up once, so
 //! each duplicate is reported once.
+//!
+//! # The workbook part
+//!
+//! [`WorkbookPart::read`] reads the workbook part (§18.2) in memory, under
+//! `maxXmlBytes` (`xml_too_large`), as the styles are read: its sheets
+//! (`sheets/sheet`), in order, and its [`DateSystem`]. Every other child of
+//! `workbook` (`bookViews`, `definedNames`, `calcPr`, `extLst` and the
+//! rest) is skipped unread.
+//!
+//! - A [`Sheet`] has its `name`, its `_xHHHH_` escapes undone, its
+//!   `sheetId` and its `state`. Its part is the one the workbook's
+//!   relationship its `r:id` names targets, never one found by name, and
+//!   its [`SheetKind`] is that relationship's type: a worksheet, a
+//!   chartsheet or a dialogsheet (Transitional or Strict, whatever the
+//!   workbook's kind, §12.3), or a macro sheet ([MS-OFFMACRO2] 2.2.1.1 and
+//!   2.2.1.2).
+//! - Neither the `sheetId` being unique (§18.2.19) nor a name Excel would
+//!   not take (past 31 characters, or with a character its formulas do not
+//!   allow in a sheet name, MS-OI29500 on §18.2.19, note a) is checked: nothing here reads a
+//!   sheet by its `sheetId` or writes its name.
+//! - The date system is 1904 when `workbookPr@date1904` says so; else it
+//!   is 1900 as the standard has it (§18.17.4.1) when `workbook@conformance`
+//!   is `strict`, and 1900 with the day that never was, 1900-02-29,
+//!   otherwise: Excel decides it so and ignores `dateCompatibility`
+//!   (MS-OI29500 on §18.2.28, note j), which is not read.
+//!
+//! What a sheet is reported for, each its own diagnostic; the sheet stays
+//! listed:
+//!
+//! - its name is another sheet's before it, letter case aside, compared as
+//!   Unicode lowercases them in any locale (`sheet_name_duplicate`), which
+//!   Excel requires (MS-OI29500 on §18.2.19, note d);
+//! - its part is another sheet's before it (`sheet_part_duplicate`);
+//! - its `r:id` names no relationship to a part, or an external one
+//!   (`sheet_relationship_missing`), or one whose type is not a sheet's
+//!   (`sheet_relationship_type_invalid`);
+//!   it has no part then. A relationship the package model left out, for a
+//!   reason already reported, is not reported again.
+//!
+//! What the part is refused for, each its one diagnostic, leaves it unread:
+//!
+//! - **Schema** (`xml_schema_invalid`): as for the styles, against
+//!   CT_Workbook, CT_WorkbookPr, CT_Sheets and CT_Sheet (Strict `sml.xsd`,
+//!   and the Transitional twin, whose `workbookPr` may also have
+//!   `dateCompatibility`, taken in either kind); a `workbook` without
+//!   `sheets`, a `sheets`
+//!   without a `sheet`, a `sheet` without its `name`, `sheetId` or `r:id`;
+//!   a `sheetId` that is not an `unsignedInt`, a `state`, `conformance` or
+//!   `date1904` its type does not allow. An `r:id` is in the relationships
+//!   namespace of the root's kind, Transitional or Strict. The values of
+//!   the other attributes are not checked. Markup compatibility is taken as
+//!   for the styles, and a `mc:AlternateContent` right inside `workbook`,
+//!   which Excel writes there, is skipped unread.
+//! - **XML**: whatever the XML reader refuses.
 //!
 //! # The shared strings table
 //!
@@ -169,12 +224,14 @@ mod schema;
 mod shared_strings;
 mod styles;
 mod workbook;
+mod workbook_part;
 
 pub use error::ReadError;
 pub use limits::ReadLimits;
 pub use shared_strings::{Lookup, SHARED_STRINGS, SharedStrings, StringTable};
 pub use styles::{FormatKind, STYLES, Styles};
 pub use workbook::Workbook;
+pub use workbook_part::{DateSystem, Sheet, SheetKind, SheetPart, SheetState, WorkbookPart};
 
 #[cfg(test)]
 mod tests;

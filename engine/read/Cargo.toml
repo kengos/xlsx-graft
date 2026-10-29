@@ -1,6 +1,6 @@
 [package]
 name = "xlsx-graft-read"
-description = "xlsx-graft read: a workbook's shared strings and what its styles make of a cell's number, read from its package in memory that does not grow with its rows"
+description = "xlsx-graft read: a workbook's sheets and date system, its shared strings and what its styles make of a cell's number, read from its package in memory that does not grow with its rows"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

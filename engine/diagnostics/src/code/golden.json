@@ -1135,5 +1135,88 @@
       "line": "maxNumberFormats: 65537"
     },
     "origin": "<origin>"
+  },
+  {
+    "code": "sheet_name_duplicate",
+    "severity": "error",
+    "message": "the sheet DATA has the same name as the sheet Data, letter case aside",
+    "args": {
+      "name": "DATA",
+      "other": "Data"
+    },
+    "location": {
+      "part": "/xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.2.19; MS-OI29500 on §18.2.19, note d"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "rename one of the sheets, or save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "sheet_part_duplicate",
+    "severity": "error",
+    "message": "the sheet Sheet2 is the same part as the sheet Sheet1",
+    "args": {
+      "name": "Sheet2",
+      "other": "Sheet1"
+    },
+    "location": {
+      "part": "/xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.2.19"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "sheet_relationship_missing",
+    "severity": "error",
+    "message": "the sheet's relationship rId9 is not a relationship of the workbook to a part, so the sheet has no part",
+    "args": {
+      "relationshipId": "rId9"
+    },
+    "location": {
+      "part": "/xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.2.19"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "sheet_relationship_type_invalid",
+    "severity": "error",
+    "message": "a sheet's relationship is of type http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles, which is not a sheet's, so the sheet has no part",
+    "args": {
+      "relType": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"
+    },
+    "location": {
+      "relationshipId": "rId3",
+      "relsPart": "/xl/_rels/workbook.xml.rels"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §12.3"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
   }
 ]
