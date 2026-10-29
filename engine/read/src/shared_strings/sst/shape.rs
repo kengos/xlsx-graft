@@ -1,20 +1,15 @@
-//! The schema shape of the shared strings part: the namespaces of `sst`,
-//! the elements read ([`Frame`]) and where each may stand ([`child`]), and
-//! the attributes each may have ([`attributes`]).
+//! The schema shape of the shared strings part: the elements read
+//! ([`Frame`]) and where each may stand ([`child`]), and the attributes
+//! each may have ([`attributes`]).
 //!
 //! Each frame knows how far into its schema sequence it is (its stage), so
 //! a child is admitted only in the schema's order and as often as it may
 //! come.
 
+use crate::schema;
 use crate::shared_strings::Halt;
-use xlsx_graft_diagnostics::{Diagnostic, Echo, SchemaReason};
+use xlsx_graft_diagnostics::SchemaReason;
 use xlsx_graft_xml::events::BytesStart;
-
-/// The namespaces of `sst`, Transitional and Strict.
-pub(super) const NAMESPACES: [&str; 2] = [
-    "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
-    "http://purl.oclc.org/ooxml/spreadsheetml/main",
-];
 
 /// An element being read, and its stage in its schema sequence.
 #[derive(Debug, Clone, Copy)]
@@ -79,9 +74,5 @@ pub(super) fn attributes(frame: &Frame, start: &BytesStart<'_>, offset: u64) -> 
 
 /// `xml_schema_invalid` at `offset`, for `reason`, naming `name`.
 pub(super) fn refuse(offset: u64, reason: SchemaReason, name: &str) -> Halt {
-    Halt::Refused(Diagnostic::XmlSchemaInvalid {
-        offset,
-        reason,
-        name: Echo::new(name),
-    })
+    Halt::Refused(schema::refuse(offset, reason, name))
 }

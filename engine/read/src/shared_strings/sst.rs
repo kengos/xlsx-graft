@@ -11,12 +11,12 @@ use super::Halt;
 use super::escape::{LONGEST_ESCAPE, unescape};
 use super::table::{Builder, StringTable};
 use crate::ReadLimits;
-use shape::{Child, Frame, NAMESPACES, attributes, child, refuse};
+use crate::schema::{NAMESPACES, is_blank, namespace};
+use shape::{Child, Frame, attributes, child, refuse};
 use std::io::BufRead;
 use xlsx_graft_diagnostics::SchemaReason;
 use xlsx_graft_spool::SpoolFactory;
 use xlsx_graft_xml::events::{BytesRef, BytesStart, Event};
-use xlsx_graft_xml::name::{Namespace, ResolveResult};
 use xlsx_graft_xml::{XmlStreamError, XmlStreamReader};
 
 /// The predefined entities (XML 1.0 §4.6), the only ones the XML reader
@@ -92,11 +92,8 @@ impl Walk<'_> {
             self.skipped = self.skipped.saturating_add(u64::from(opened));
             return Ok(());
         }
-        let (namespace, local) = reader.resolve_element(start.name());
-        let namespace = match namespace {
-            ResolveResult::Bound(Namespace(namespace)) => Some(namespace),
-            _ => None,
-        };
+        let (resolved, local) = reader.resolve_element(start.name());
+        let namespace = namespace(resolved);
         let unexpected = || {
             refuse(
                 offset,
@@ -212,10 +209,4 @@ fn resolve(reference: &BytesRef<'_>) -> String {
     c.or(named.map(|&(_, c)| c))
         .map(String::from)
         .unwrap_or_default()
-}
-
-/// Whether `text` is all XML white space.
-fn is_blank(text: &str) -> bool {
-    text.bytes()
-        .all(|b| matches!(b, b' ' | b'\t' | b'\r' | b'\n'))
 }

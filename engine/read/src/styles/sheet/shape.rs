@@ -7,9 +7,10 @@
 //! come, as in the shared strings part.
 
 use crate::compat::Ignorable;
+use crate::schema::{namespace, refuse};
 use crate::shared_strings::escape::unescape;
 use std::convert::Infallible;
-use xlsx_graft_diagnostics::{Diagnostic, Echo, SchemaReason};
+use xlsx_graft_diagnostics::{Diagnostic, SchemaReason};
 use xlsx_graft_xml::XmlReader;
 use xlsx_graft_xml::XmlVersion;
 use xlsx_graft_xml::events::BytesStart;
@@ -182,24 +183,7 @@ pub(super) fn attributes(
     }
 }
 
-/// The namespace `resolved` binds, if it binds one.
-pub(super) fn namespace<'a>(resolved: ResolveResult<'a>) -> Option<&'a str> {
-    match resolved {
-        ResolveResult::Bound(Namespace(ns)) => Some(ns),
-        _ => None,
-    }
-}
-
 /// Whether `c` is XML white space, which `xsd:unsignedInt` collapses.
 fn is_space(c: char) -> bool {
     matches!(c, ' ' | '\t' | '\r' | '\n')
-}
-
-/// `xml_schema_invalid` at `offset`, for `reason`, naming `name`.
-pub(super) fn refuse(offset: u64, reason: SchemaReason, name: &str) -> Diagnostic {
-    Diagnostic::XmlSchemaInvalid {
-        offset,
-        reason,
-        name: Echo::new(name),
-    }
 }

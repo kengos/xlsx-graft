@@ -162,6 +162,7 @@
 mod compat;
 mod error;
 mod limits;
+mod schema;
 mod shared_strings;
 mod styles;
 mod workbook;
