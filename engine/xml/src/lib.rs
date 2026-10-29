@@ -11,7 +11,15 @@
 //! What they guard, while the caller reads:
 //!
 //! - **Size**: the in-memory reader refuses a part larger than `max_bytes`
-//!   before a byte of it is parsed (`xml_too_large`).
+//!   before a byte of it is parsed (`xml_too_large`). Both refuse an event
+//!   longer than `max_event_bytes` (`xml_event_too_large`): a tag with its
+//!   attributes and prefixes, a run of text, a CDATA section, a comment, a
+//!   processing instruction, the declaration, a DOCTYPE or a reference, as
+//!   read, in UTF-8. The caller's buffer holds one event whole, so this
+//!   bounds its length; reading stops one byte past the limit, before the
+//!   rest of the event is read. Read that far, the event is too large
+//!   whatever else is wrong with it; a byte before that which does not
+//!   decode stops reading first, as below.
 //! - **Encoding**: package XML is UTF-8 or UTF-16 and nothing else
 //!   (ECMA-376-2:2021 §6.2.5; 4th edition §9.1.4, M1.17). The byte order mark
 //!   and the XML declaration decide which; UTF-16 is decoded to UTF-8 with
@@ -59,9 +67,8 @@
 //!   the part: it holds one event at a time, read into the caller's buffer,
 //!   and a chunk of the part being decoded, 64 KiB of it at most.
 //!   What bounds the bytes it reads is the zip limits on what an entry
-//!   inflates to (`maxEntryBytes`, `maxTotalBytes`), and they bound the
-//!   largest event too: one long text is held whole, up to the size of the
-//!   entry. No limit of the reader's own bounds an event yet.
+//!   inflates to (`maxEntryBytes`, `maxTotalBytes`); what bounds the event
+//!   it holds is `max_event_bytes`.
 //! - The in-memory reader reads on past a too-deep element to report the
 //!   deepest nesting in `xml_too_deep`; the streaming reader reports
 //!   `max_depth + 1`, since in a large worksheet reading on would read the

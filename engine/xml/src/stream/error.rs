@@ -1,6 +1,5 @@
 //! [`XmlStreamError`]: what reading a streamed part can end in.
 
-use super::decoder::Decoder;
 use crate::malformed;
 use std::io;
 use thiserror::Error;
@@ -31,9 +30,10 @@ impl From<Diagnostic> for XmlStreamError {
 
 impl XmlStreamError {
     /// The error quick-xml's I/O error `error` stands for: the problem
-    /// `decoder` stopped at, or else a failure of the reader underneath.
-    pub(super) fn from_source(decoder: &Decoder, error: &io::Error) -> Self {
-        match decoder.failed() {
+    /// the source stopped at, `failed`, or else a failure of the reader
+    /// underneath.
+    pub(super) fn from_source(failed: Option<&Diagnostic>, error: &io::Error) -> Self {
+        match failed {
             Some(diagnostic) => Self::Invalid(diagnostic.clone()),
             None => Self::io(error),
         }

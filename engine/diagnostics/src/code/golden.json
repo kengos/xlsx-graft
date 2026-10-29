@@ -177,6 +177,30 @@
     "origin": "<origin>"
   },
   {
+    "code": "xml_event_too_large",
+    "severity": "error",
+    "message": "the XML event at byte 40 holds at least 16777217 bytes; the limit is 16777216",
+    "args": {
+      "offset": 40,
+      "size": 16777217,
+      "limit": 16777216
+    },
+    "location": {
+      "part": "/xl/sharedStrings.xml"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxXmlEventBytes",
+      "value": 16777216,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxXmlEventBytes: 16777217"
+    },
+    "origin": "<origin>"
+  },
+  {
     "code": "xml_too_large",
     "severity": "error",
     "message": "the XML is 16777217 bytes; the limit is 16777216",

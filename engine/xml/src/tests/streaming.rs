@@ -1,10 +1,11 @@
 //! What only the streaming reader does: it stops at the first level past
-//! the depth limit, has no size limit, reads no further than it must, hands
-//! a host failure back apart from the diagnostics, and puts characters split
+//! the depth limit, does not apply `max_bytes`, reads no further than it
+//! must, holds no more of an event too large than one byte past the limit,
+//! hands a host failure back apart from the diagnostics, and puts characters split
 //! across reads back together. The inputs both readers share are in the
 //! other files, run through both by `read_with`.
 
-use super::limits::{nested, too_deep};
+use super::limits::{event_limits, event_too_large, nested, too_deep};
 use super::{Chunked, chunked, read_stream_with, utf16};
 use crate::events::Event;
 use crate::name::{Namespace, ResolveResult};
@@ -49,6 +50,62 @@ fn reading_stops_at_the_element_past_the_depth_limit() {
     ));
     let read = reader.get_ref().get_ref().pos;
     assert!(read < 1_024, "read {read} of {} bytes", bytes.len());
+}
+
+#[test]
+fn an_event_too_large_is_held_to_one_byte_past_the_limit() {
+    // A megabyte of text in one event, under a limit of 64 bytes.
+    let bytes = format!("<a>{}</a>", "t".repeat(1 << 20)).into_bytes();
+    for step in [1, 4_096] {
+        let mut reader = XmlStreamReader::new(chunked(&bytes, step), &event_limits());
+        let mut buf = Vec::new();
+        assert!(matches!(
+            reader.read_event_into(&mut buf),
+            Ok(Event::Start(_))
+        ));
+        let Err(XmlStreamError::Invalid(first)) = reader.read_event_into(&mut buf) else {
+            panic!("expected xml_event_too_large");
+        };
+        assert_eq!(Err(first.clone()), event_too_large(3));
+        assert_eq!(buf.len(), 65);
+        assert!(buf.capacity() <= 130, "held {} bytes", buf.capacity());
+        let read = reader.get_ref().get_ref().pos;
+        assert!(read < 3 * 4_096, "read {read} of {} bytes", bytes.len());
+        let Err(XmlStreamError::Invalid(again)) = reader.read_event_into(&mut buf) else {
+            panic!("expected the diagnostic again");
+        };
+        assert_eq!(again, first);
+    }
+}
+
+#[test]
+fn a_host_failure_after_the_byte_past_the_event_limit_comes_after_the_limit() {
+    // The text starts at byte 3, so its 65th byte, one past the limit, is 67.
+    let bytes = format!("<a>{}</a>", "t".repeat(100)).into_bytes();
+    let read_failing = |fail_at, interrupt_at| {
+        let mut source = chunked(&bytes, 1);
+        source.get_mut().fail_at = fail_at;
+        source.get_mut().interrupt_at = interrupt_at;
+        let mut reader = XmlStreamReader::new(source, &event_limits());
+        let mut buf = Vec::new();
+        assert!(matches!(
+            reader.read_event_into(&mut buf),
+            Ok(Event::Start(_))
+        ));
+        match reader.read_event_into(&mut buf) {
+            Err(XmlStreamError::Invalid(diagnostic)) => Ok(diagnostic),
+            Err(XmlStreamError::Io(error)) => Err(error.to_string()),
+            Ok(event) => panic!("unexpected {event:?}"),
+        }
+    };
+    let refused = event_too_large(3).unwrap_err();
+    assert_eq!(read_failing(Some(68), None), Ok(refused.clone()));
+    assert_eq!(
+        read_failing(Some(67), None),
+        Err("the host failed".to_owned())
+    );
+    assert_eq!(read_failing(None, Some(67)), Ok(refused.clone()));
+    assert_eq!(read_failing(None, Some(66)), Ok(refused));
 }
 
 #[test]

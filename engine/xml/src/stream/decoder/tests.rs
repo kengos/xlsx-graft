@@ -19,9 +19,8 @@ fn the_text_before_a_problem_comes_out_before_the_error() {
     let mut decoder = Decoder::default();
     decoder.push(b"<a>\x01");
     assert!(!decoder.wants_more());
-    let mut buf = [0; 8];
-    assert_eq!(decoder.take_into(&mut buf), 3);
-    assert_eq!(&buf[..3], b"<a>");
+    assert_eq!(decoder.pending().unwrap(), b"<a>");
+    decoder.consume(3);
     assert!(decoder.pending().is_err());
     assert!(decoder.failed().is_some());
 }

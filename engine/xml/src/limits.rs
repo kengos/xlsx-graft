@@ -25,6 +25,13 @@ pub struct XmlLimits {
     /// URIs per element is bounded by this, not by the part. Policy name
     /// `maxXmlNamespaceBytes`.
     pub max_namespace_bytes: Limit,
+    /// The most bytes one event may hold, as read: a tag from its `<` to
+    /// its `>` with every attribute and prefix in it, a run of text, a CDATA
+    /// section, a comment, a processing instruction, the declaration, a
+    /// DOCTYPE or a reference, counted as UTF-8 as offsets are. An event is
+    /// held whole in the caller's buffer, so this bounds its length:
+    /// reading stops one byte past it. Policy name `maxXmlEventBytes`.
+    pub max_event_bytes: Limit,
     /// The most bytes of XML read into memory, before decoding, by an
     /// [`XmlReader`](crate::XmlReader). An
     /// [`XmlStreamReader`](crate::XmlStreamReader) does not apply it. Policy
@@ -44,6 +51,10 @@ impl XmlLimits {
     /// The default `max_namespace_bytes`. The longest URI Excel writes is
     /// about 70 bytes.
     pub const DEFAULT_MAX_NAMESPACE_BYTES: u64 = 256;
+    /// The default `max_event_bytes`, 16 MiB. A cell holds at most 32,767
+    /// characters, under 128 KiB as UTF-8, and a tag a few attributes, so
+    /// a workbook Excel wrote does not come near it.
+    pub const DEFAULT_MAX_EVENT_BYTES: u64 = 16 * 1024 * 1024;
     /// The default `max_bytes`, 16 MiB: a worksheet's relationships, one per
     /// hyperlink up to Excel's 65,530, come to about 7 MiB.
     pub const DEFAULT_MAX_BYTES: u64 = 16 * 1024 * 1024;
@@ -56,6 +67,7 @@ impl Default for XmlLimits {
             max_attributes: Limit::default_of(Self::DEFAULT_MAX_ATTRIBUTES),
             max_namespaces: Limit::default_of(Self::DEFAULT_MAX_NAMESPACES),
             max_namespace_bytes: Limit::default_of(Self::DEFAULT_MAX_NAMESPACE_BYTES),
+            max_event_bytes: Limit::default_of(Self::DEFAULT_MAX_EVENT_BYTES),
             max_bytes: Limit::default_of(Self::DEFAULT_MAX_BYTES),
         }
     }
