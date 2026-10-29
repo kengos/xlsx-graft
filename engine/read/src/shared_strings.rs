@@ -1,8 +1,11 @@
 //! [`SharedStrings`]: a workbook's shared strings table (ECMA-376-1:2016
 //! §18.4), found by the workbook's relationship, read as a stream
 //! (`sst.rs`) into a [`StringTable`] (`table.rs`), as the crate root says.
+//! The shape of a rich text string (`rst.rs`) and the undoing of its
+//! escapes (`escape.rs`) are shared with a cell's inline string.
 
 pub(crate) mod escape;
+pub(crate) mod rst;
 mod sst;
 mod table;
 
