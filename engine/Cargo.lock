@@ -552,9 +552,11 @@ dependencies = [
 name = "xlsx-graft-napi"
 version = "0.0.0"
 dependencies = [
+ "crc32fast",
  "napi",
  "napi-build",
  "napi-derive",
+ "tempfile",
  "xlsx-graft-capi",
 ]
 

@@ -7,6 +7,9 @@
 //! The read crate's tests and the CLI's build zips with builders of their
 //! own; theirs are test code this crate cannot link, so the few lines a
 //! well-formed zip takes are written again here, as the CLI's.
+//!
+//! `tests/capi` and engine/napi include this file by its path: it names
+//! nothing of this crate (`crate::`), so it builds in any of them.
 
 use std::path::PathBuf;
 use tempfile::TempDir;
