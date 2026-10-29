@@ -14,7 +14,24 @@ repository.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+# The book handle's diagnostics, lent out as JSON.
+serde = { workspace = true }
+serde_json = { workspace = true }
 xlsx-graft-core = { workspace = true }
+# The problems a book and its rows find, as every host prints them.
+xlsx-graft-diagnostics = { workspace = true }
+# The package's limits.
+xlsx-graft-package = { workspace = true }
+# A workbook and its rows, behind the book and rows handles.
+xlsx-graft-read = { workspace = true }
+# A large shared strings table spills to a temporary file.
+xlsx-graft-spool = { workspace = true }
+
+[dev-dependencies]
+# The CRC-32 of each entry of the zips the tests build.
+crc32fast = { workspace = true }
+# A directory of its own for the workbooks a test writes.
+tempfile = { workspace = true }
 
 [lints]
 workspace = true

@@ -14,5 +14,12 @@
 )]
 #![deny(clippy::undocumented_unsafe_blocks)]
 
+mod handles;
 mod header;
+mod layout;
 mod version;
+// The unit tests' workbooks, the same file: this binary links the library
+// without its `cfg(test)` code.
+#[allow(dead_code, reason = "each binary uses only some of the builders")]
+#[path = "../../src/tests/workbook.rs"]
+mod workbook;

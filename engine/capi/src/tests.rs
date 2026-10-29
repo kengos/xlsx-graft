@@ -1,5 +1,8 @@
-//! Unit tests for the exported entry point: what it writes, and the
-//! null-argument refusals.
+//! Unit tests for `xlsx_graft_version`: what it writes, and the
+//! null-argument refusals. The workbooks the handles' tests read are
+//! `workbook`.
+
+pub(crate) mod workbook;
 
 use super::{XLSX_GRAFT_ERR_NULL_ARG, XLSX_GRAFT_OK, xlsx_graft_version};
 use std::ptr;
