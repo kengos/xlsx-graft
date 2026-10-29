@@ -25,6 +25,12 @@ xlsx-graft-capi = { workspace = true }
 napi = { workspace = true, optional = true }
 napi-derive = { workspace = true, optional = true }
 
+[dev-dependencies]
+# The workbooks the tests read: the C ABI's builder, whose zips need a
+# CRC-32 per entry and a directory of their own when written.
+crc32fast = { workspace = true }
+tempfile = { workspace = true }
+
 [build-dependencies]
 napi-build = { workspace = true, optional = true }
 

@@ -9,12 +9,13 @@
 //!
 //! Two parts, split by what the gates can see:
 //!
-//! * `call` crosses into the C ABI and copies what it lends into an owned
-//!   [`Outcome`]. It builds without features, so the test and coverage gates
-//!   cover it like any other module.
-//! * `shim` (the `shim` feature) is the N-API surface. It only maps an
-//!   [`Outcome`] to a JavaScript object, so that it can stay out of the
-//!   coverage gate: the JS SDK's tests run it through the real addon.
+//! * `call` crosses into the C ABI and copies what it lends into owned
+//!   values: an [`Outcome`], and the [`Book`] and [`Rows`] handles with the
+//!   rows they read. It builds without features, so the test and coverage
+//!   gates cover it like any other module.
+//! * `shim` (the `shim` feature) is the N-API surface. It only maps those
+//!   values to JavaScript objects and classes, so that it can stay out of
+//!   the coverage gate: the JS SDK's tests run it through the real addon.
 //!
 //! Linking the C ABI crate also carries its `xlsx_graft_*` exports into the
 //! addon. They are harmless there: Node.js looks only for the N-API
@@ -32,9 +33,15 @@
 
 mod call;
 
+// The C ABI's unit tests' workbooks, the same file, for this crate's own.
+#[cfg(test)]
+#[allow(dead_code, reason = "the addon's tests use only some of the builders")]
+#[path = "../../capi/src/tests/workbook.rs"]
+mod workbook;
+
 #[cfg(feature = "shim")]
 pub mod shim;
 
 // Public so the calls stay reachable in a build without the shim, which is
 // how the test and coverage gates build this crate.
-pub use call::{Outcome, version};
+pub use call::{Book, Cell, Next, Outcome, Row, Rows, Sheet, Sheets, version};
