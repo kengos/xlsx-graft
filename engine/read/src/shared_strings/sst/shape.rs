@@ -6,9 +6,12 @@
 //! a child is admitted only in the schema's order and as often as it may
 //! come.
 
-use crate::schema;
+use crate::compat::Ignorable;
+use crate::schema::{self, namespace};
 use crate::shared_strings::Halt;
+use std::io::BufRead;
 use xlsx_graft_diagnostics::SchemaReason;
+use xlsx_graft_xml::XmlStreamReader;
 use xlsx_graft_xml::events::BytesStart;
 
 /// An element being read, and its stage in its schema sequence.
@@ -55,17 +58,32 @@ pub(super) fn child(parent: &mut Frame, local: &str, offset: u64) -> Option<Chil
     admitted.then_some(child)
 }
 
-/// Refuses an attribute of `start`, an element read as `frame`, that the
-/// schema does not give it. Namespace declarations are not attributes.
-pub(super) fn attributes(frame: &Frame, start: &BytesStart<'_>, offset: u64) -> Result<(), Halt> {
+/// Reads the attributes of `start`, an element read as `frame` at
+/// `offset`, entered in `ignorable`: names in it what its `mc:Ignorable`
+/// names, passes over those in them, and refuses one the schema does not
+/// give it. Namespace declarations are not attributes.
+pub(super) fn attributes<B: BufRead>(
+    frame: &Frame,
+    start: &BytesStart<'_>,
+    reader: &XmlStreamReader<B>,
+    ignorable: &mut Ignorable,
+    offset: u64,
+) -> Result<(), Halt> {
     let allowed: &[&str] = match frame {
         Frame::Sst { .. } => &["count", "uniqueCount"],
         Frame::Text => &["xml:space"],
         Frame::Si { .. } | Frame::Run { .. } => &[],
     };
+    ignorable
+        .take(start, reader, offset)
+        .map_err(Halt::Refused)?;
     for attribute in start.attributes().flatten() {
         let key = attribute.key.as_ref();
-        if key != "xmlns" && !key.starts_with("xmlns:") && !allowed.contains(&key) {
+        if key == "xmlns" || key.starts_with("xmlns:") || allowed.contains(&key) {
+            continue;
+        }
+        let (resolved, local) = reader.resolve_attribute(attribute.key);
+        if !ignorable.passes_over(namespace(&resolved), local.as_ref()) {
             return Err(refuse(offset, SchemaReason::UnexpectedAttribute, key));
         }
     }

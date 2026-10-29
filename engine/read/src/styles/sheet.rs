@@ -62,7 +62,7 @@ pub(super) fn read(bytes: &[u8], limits: &ReadLimits) -> Result<Vec<FormatKind>,
             Event::Empty(start) => walk.start(&reader, &start, offset, false)?,
             Event::End(_) => walk.end()?,
             Event::Text(text) if !is_blank(&text.xml10_content()) => walk.text(offset)?,
-            Event::CData(data) if !is_blank(&data.xml10_content()) => walk.text(offset)?,
+            Event::CData(data) if !data.is_empty() => walk.text(offset)?,
             Event::GeneralRef(_) => walk.text(offset)?,
             Event::Eof => return Ok(walk.cells),
             _ => {}
@@ -85,7 +85,7 @@ impl Walk<'_> {
             return Ok(());
         }
         let (resolved, local) = reader.resolve_element(start.name());
-        let namespace = namespace(resolved);
+        let namespace = namespace(&resolved);
         let unexpected = || {
             refuse(
                 offset,

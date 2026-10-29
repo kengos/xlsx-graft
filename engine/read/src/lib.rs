@@ -58,11 +58,20 @@
 //!   where only elements may stand; a run without its `t`. What is skipped
 //!   is not checked inside, nor are the values of `count`, `uniqueCount`
 //!   and `xml:space`, which nothing reads.
-//!   No markup compatibility processing (ECMA-376-3) runs first, so an
-//!   `mc:Ignorable` attribute, or an element or attribute of a namespace it
-//!   names, is refused like any other. Part 3 lets a SpreadsheetML part
-//!   carry them, unlike a package XML stream; the processing comes with the
-//!   worksheets, which carry them, and this part reads through it then.
+//!   Where only elements may stand, only white space written as such may
+//!   stand between them: a character reference (`&#32;`) is text even when
+//!   it stands for white space, and so is a CDATA section that holds
+//!   anything, as XML 1.0 (Fifth Edition) §3 has it in the validity
+//!   constraint Element Valid. An empty CDATA section holds no text.
+//!   Of markup compatibility (ECMA-376-3), `mc:Ignorable` alone is taken:
+//!   an element or attribute of a namespace it names is passed over, on the
+//!   element that names it and inside it. Any other markup compatibility
+//!   element or attribute on or in an element read is refused, as is a
+//!   prefix it names that is not declared or that names markup
+//!   compatibility itself; one that names SpreadsheetML or XML's own
+//!   namespace is taken and changes nothing, as a namespace the reader
+//!   understands is read whatever it names. What a skipped element holds
+//!   is not looked at.
 //! - **Limits**: more strings than `maxSharedStrings`
 //!   (`shared_strings_too_many`), or more bytes of text than
 //!   `maxSharedStringsBytes` (`shared_strings_too_large`), which holds the
@@ -138,16 +147,10 @@
 //!   against CT_Stylesheet, CT_NumFmts, CT_NumFmt, CT_CellXfs and CT_Xf;
 //!   and a `numFmtId` that is not an `unsignedInt`, a `numFmt` without its
 //!   `numFmtId` or `formatCode`, a `cellXfs` without an `xf`. The values of
-//!   the other attributes are not checked.
-//!   Of markup compatibility, `mc:Ignorable` alone is taken, as every part
-//!   Excel writes carries it on `styleSheet`: an element or attribute of a
-//!   namespace it names is passed over, on the element that names it and
-//!   inside it. Any other markup compatibility element or attribute on or
-//!   in an element read is refused, as is a prefix it names that is not
-//!   declared or that names markup compatibility itself; one that names
-//!   SpreadsheetML or XML's own namespace is taken and changes nothing, as
-//!   a namespace the reader understands is read whatever it names. What a
-//!   skipped element holds is not looked at.
+//!   the other attributes are not checked. White space between elements
+//!   and markup compatibility are taken as for the shared strings table:
+//!   every styles part Excel writes carries `mc:Ignorable` on
+//!   `styleSheet`.
 //! - **Limits**: more cell formats than `maxCellFormats`
 //!   (`cell_formats_too_many`), more number formats than `maxNumberFormats`
 //!   (`number_formats_too_many`).

@@ -20,8 +20,8 @@ pub(crate) fn is_blank(text: &str) -> bool {
 }
 
 /// The namespace `resolved` binds, if it binds one.
-pub(crate) fn namespace<'a>(resolved: ResolveResult<'a>) -> Option<&'a str> {
-    match resolved {
+pub(crate) fn namespace<'a>(resolved: &ResolveResult<'a>) -> Option<&'a str> {
+    match *resolved {
         ResolveResult::Bound(Namespace(ns)) => Some(ns),
         _ => None,
     }

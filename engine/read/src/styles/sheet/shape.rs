@@ -14,7 +14,7 @@ use xlsx_graft_diagnostics::{Diagnostic, SchemaReason};
 use xlsx_graft_xml::XmlReader;
 use xlsx_graft_xml::XmlVersion;
 use xlsx_graft_xml::events::BytesStart;
-use xlsx_graft_xml::name::{Namespace, ResolveResult};
+use xlsx_graft_xml::name::ResolveResult;
 
 /// An element being read, and its stage in its schema sequence.
 #[derive(Debug, Clone, Copy)]
@@ -92,9 +92,8 @@ pub(super) fn child(parent: &mut Frame, local: &str, offset: u64) -> Option<Chil
 
 /// Reads the attributes of `start`, an element read as `frame` at
 /// `offset`, entered in `ignorable`: names in it what its `mc:Ignorable`
-/// names,
-/// passes over those in them, and refuses one the schema does not give it
-/// or a value it reads that its type does not allow.
+/// names, passes over those in them, and refuses one the schema does not
+/// give it or a value it reads that its type does not allow.
 pub(super) fn attributes(
     frame: &Frame,
     start: &BytesStart<'_>,
@@ -122,29 +121,14 @@ pub(super) fn attributes(
             "applyProtection",
         ],
     };
-    // Namespace declarations are not attributes.
-    let attributes = || {
-        (start.attributes().flatten()).filter(|attribute| {
-            let key = attribute.key.as_ref();
-            key != "xmlns" && !key.starts_with("xmlns:")
-        })
-    };
-    // `mc:Ignorable` first: it covers the attributes beside it.
-    for attribute in attributes() {
-        if attribute.key.local_name().as_ref() != "Ignorable" {
-            continue;
-        }
-        let (resolved, local) = reader.resolve_attribute(attribute.key);
-        if Ignorable::is_attribute(namespace(resolved), local.as_ref()) {
-            let value = attribute.normalized_value(XmlVersion::Implicit1_0);
-            let key = attribute.key.as_ref();
-            let resolve = |prefix: &str| reader.resolve_prefix(prefix);
-            (ignorable.name(&value.unwrap_or_default(), resolve))
-                .map_err(|_| refuse(offset, SchemaReason::InvalidValue, key))?;
-        }
-    }
+    ignorable.take(start, reader, offset)?;
     let mut values = Values::default();
-    for attribute in attributes() {
+    // Namespace declarations are not attributes.
+    let attributes = (start.attributes().flatten()).filter(|attribute| {
+        let key = attribute.key.as_ref();
+        key != "xmlns" && !key.starts_with("xmlns:")
+    });
+    for attribute in attributes {
         let (resolved, local) = reader.resolve_attribute(attribute.key);
         let name = attribute.key.as_ref();
         let value = || {
@@ -166,9 +150,7 @@ pub(super) fn attributes(
                 values.code = Some(code);
             }
             (ResolveResult::Unbound, _) if allowed.contains(&name) => {}
-            (ResolveResult::Bound(Namespace(ns)), local)
-                if Ignorable::is_attribute(Some(ns), local) => {}
-            (ResolveResult::Bound(Namespace(ns)), _) if ignorable.contains(ns) => {}
+            (ref resolved, local) if ignorable.passes_over(namespace(resolved), local) => {}
             _ => return Err(refuse(offset, SchemaReason::UnexpectedAttribute, name)),
         }
     }
