@@ -14,6 +14,18 @@ use xlsx_graft_diagnostics::{Diagnostics, Location};
 use xlsx_graft_package::{Limits, Package};
 use xlsx_graft_spool::SpoolFactory;
 
+/// What a sheet name finds in a [`Book`] ([`Book::sheet`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SheetLookup {
+    /// The one sheet of the name, at this index of
+    /// [`sheets`](Book::sheets).
+    Found(usize),
+    /// No sheet has the name.
+    Missing,
+    /// More than one sheet has the name.
+    Duplicate,
+}
+
 /// A workbook read from `R`, to read its sheets' rows from.
 ///
 /// It shares its package, shared strings table and styles with each
@@ -80,18 +92,21 @@ impl<R: Read + Seek> Book<R> {
         self.workbook.date_system()
     }
 
-    /// The index in [`sheets`](Self::sheets) of the sheet named `name`,
-    /// compared as sheet names are, letter case aside. `None` when no sheet
-    /// has the name, or more than one has, which `sheet_name_duplicate`
+    /// The sheet named `name`, compared as sheet names are, letter case
+    /// aside: its index in [`sheets`](Self::sheets), or that no sheet has
+    /// the name, or that more than one has, which `sheet_name_duplicate`
     /// reported: readers would differ on which one it names.
     #[must_use]
-    pub fn sheet(&self, name: &str) -> Option<usize> {
+    pub fn sheet(&self, name: &str) -> SheetLookup {
         let name = fold(name);
         let mut found = (self.sheets().iter().enumerate())
             .filter(|(_, sheet)| fold(sheet.name()) == name)
             .map(|(index, _)| index);
-        let first = found.next()?;
-        found.next().is_none().then_some(first)
+        match (found.next(), found.next()) {
+            (None, _) => SheetLookup::Missing,
+            (Some(index), None) => SheetLookup::Found(index),
+            (Some(_), Some(_)) => SheetLookup::Duplicate,
+        }
     }
 
     /// A reader of the rows of the sheet at `index` of

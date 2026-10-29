@@ -78,6 +78,9 @@ fn a_required_element_left_out_is_refused() {
     // Reported where `workbook` starts.
     let xml = format!(r#"<workbook xmlns="{NS}"><workbookPr/></workbook>"#);
     refused_as(&xml, 0, missing, "sheets");
+    // A child that comes after `sheets` does not stand for it.
+    let xml = format!(r#"<workbook xmlns="{NS}"><calcPr/></workbook>"#);
+    refused_as(&xml, 0, missing, "sheets");
     body_refused_as("<sheets></sheets>", 0, missing, "sheet");
     body_refused_as("<sheets/>", 0, missing, "sheet");
 }

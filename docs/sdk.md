@@ -254,7 +254,7 @@ not (Go). It is never a result.
   | The run | The result |
   | --- | --- |
   | exit 0, stdout a JSON object with what the call reads (`version` a string) | successful, with the value |
-  | exit other than 0, or killed by a signal | failed, diagnostic `exit_status`: the status or the signal, and the start of stderr |
+  | exit other than 0, or killed by a signal (but `read`'s exit 1 with its end line, [below](#reading-rows-read)) | failed, diagnostic `exit_status`: the status or the signal, and the start of stderr |
   | exit 0, stdout not JSON, not an object, or without what the call reads | failed, diagnostic `invalid_output`: the start of stdout, if any |
 
   A diagnostic's message quotes at most 200 characters of the output, cut
@@ -278,3 +278,55 @@ not (Go). It is never a result.
 - **No timeout, no cancelling and no cap on the output yet.** `--version`
   returns at once and prints one line; they come with the first call that
   can take long or print much.
+
+### Reading rows (`read`)
+
+`xlsx-graft read <path> [--sheet <name> | --sheet-index <n>] --format json`
+prints JSON Lines: a line per row as the sheet is read, then one end line.
+The CLI's `read --help` gives the whole contract; an SDK that reads rows
+reads it a line at a time, so it never holds the sheet.
+
+- **A row** is `{"row": 3, "cells": [CELL, ...]}`: its number, from 1, and
+  the value of each column from A to its last cell. Only the rows the sheet
+  writes come. A `CELL` is `{"type": TYPE, "value": VALUE}`:
+
+  | `type` | `value` |
+  | --- | --- |
+  | `empty` | `null` |
+  | `string` | a string |
+  | `number` | a JSON number with a fraction or an exponent (`3.0`, `1e+16`): read it as a float |
+  | `boolean` | `true` or `false` |
+  | `date` | `"YYYY-MM-DD"` |
+  | `time` | `"hh:mm:ss.sss"` |
+  | `datetime` | `"YYYY-MM-DDThh:mm:ss.sss"` |
+  | `elapsed` | an integer: milliseconds, not wrapped at a day |
+  | `error` | the error value as written (`"#N/A"`) |
+
+  A date, time or datetime is the workbook's wall-clock time with no time
+  zone, counted in the workbook's date system and rounded to the
+  millisecond; giving it a time zone is the SDK's to decide.
+- **The end** is the last line, the one without `row`:
+  `{"ok": BOOL, "sheet": {"index": N, "name": NAME} | null, "rows": N,
+  "error": {"code": CODE, "message": TEXT} | null, "diagnostics": [...]}`.
+  `ok` is false when `error` is set (`workbook_unreadable`,
+  `sheet_not_found`, `sheet_ambiguous`, `sheet_not_worksheet`,
+  `sheet_unreadable`) or a diagnostic is an error. `sheet` is null only
+  when there is no sheet to choose (`workbook_unreadable`,
+  `sheet_not_found`, `sheet_ambiguous`). The diagnostics are the engine's
+  own, as every host prints them.
+- **What is a result**, decided in this order:
+  0. the SDK closed stdout itself, its caller having stopped taking rows:
+     not a failure, whatever the status and stdout's tail (below);
+  1. exit 0 or 1 with the end line last: a result (successful when `ok`),
+     with the rows that came;
+  2. else an exit other than 0, or a signal: `exit_status`, whatever
+     stdout holds. Exit 1 with no end line is the host failing (the file
+     would not open or read, a temporary file or the output would not
+     write), and stderr says why; the last line may be cut off;
+  3. exit 0 with a line that is not JSON, or without the end line:
+     `invalid_output`.
+- **Stopping early.** An SDK whose caller stops taking rows closes the
+  CLI's stdout. A CLI still writing stops reading at the next output it
+  flushes and exits 0 without a word or the end line; one that had
+  written everything already exits as `ok` says. Either way the SDK does
+  not read the status as a failure (rule 0).

@@ -7,7 +7,7 @@ use super::super::{NS, rel};
 use super::{
     R, STYLES, Shown, book_of, clean, open, read, read_book, row, shown, workbook, worksheet,
 };
-use crate::{DateSystem, Row, Value};
+use crate::{DateSystem, Row, SheetLookup, Value};
 use xlsx_graft_diagnostics::Diagnostics;
 
 #[test]
@@ -208,10 +208,10 @@ fn a_sheet_is_found_by_its_name_letter_case_aside_unless_two_have_it() {
     let mut diagnostics = Diagnostics::new();
     let book = open(workbook(&sheets, false, "", vec![]), &mut diagnostics);
     assert_eq!(book.sheets().len(), 4);
-    assert_eq!(book.sheet("DATA"), Some(0));
-    assert_eq!(book.sheet("X"), Some(3));
-    assert_eq!(book.sheet("äÖ"), None);
-    assert_eq!(book.sheet("missing"), None);
+    assert_eq!(book.sheet("DATA"), SheetLookup::Found(0));
+    assert_eq!(book.sheet("X"), SheetLookup::Found(3));
+    assert_eq!(book.sheet("äÖ"), SheetLookup::Duplicate);
+    assert_eq!(book.sheet("missing"), SheetLookup::Missing);
 }
 
 #[test]

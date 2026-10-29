@@ -21,6 +21,20 @@ serde_json = { workspace = true }
 # CliError.
 thiserror = { workspace = true }
 xlsx-graft-core = { workspace = true }
+# `read`: the problems found, printed as the JSON every host prints.
+xlsx-graft-diagnostics = { workspace = true }
+# `read`: the package's limits.
+xlsx-graft-package = { workspace = true }
+# `read`: a workbook and its rows.
+xlsx-graft-read = { workspace = true }
+# `read`: a large shared strings table spills to a temporary file.
+xlsx-graft-spool = { workspace = true }
+
+[dev-dependencies]
+# The CRC-32 of each entry of the zips the tests build.
+crc32fast = { workspace = true }
+# A directory of its own for the workbooks each test writes.
+tempfile = { workspace = true }
 
 [lints]
 workspace = true

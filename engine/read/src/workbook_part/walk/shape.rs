@@ -21,9 +21,6 @@ use xlsx_graft_xml::XmlVersion;
 use xlsx_graft_xml::events::BytesStart;
 use xlsx_graft_xml::name::ResolveResult;
 
-/// The stage of `workbook` once `sheets` is read.
-pub(super) const SHEETS: u8 = 6;
-
 /// An element being read, and its stage in its schema sequence.
 #[derive(Debug, Clone, Copy)]
 pub(super) enum Frame {
@@ -33,8 +30,12 @@ pub(super) enum Frame {
     /// `calcPr?`, `oleSize?`, `customWorkbookViews?`, `pivotCaches?`,
     /// `smartTagPr?`, `smartTagTypes?`, `webPublishing?`,
     /// `fileRecoveryPr*`, `webPublishObjects?`, then `extLst?`; `offset`
-    /// is where it starts.
-    Workbook { stage: u8, offset: u64 },
+    /// is where it starts, and `sheets` whether `sheets` was read.
+    Workbook {
+        stage: u8,
+        offset: u64,
+        sheets: bool,
+    },
     /// `workbookPr` (CT_WorkbookPr): nothing.
     WorkbookPr,
     /// `sheets` (CT_Sheets): `sheet+`; `offset` is where it starts.
@@ -72,7 +73,12 @@ pub(super) struct Values {
 /// `parent` on to its stage; `None` when it may not stand there.
 pub(super) fn child(parent: &mut Frame, local: &str, offset: u64) -> Option<Child> {
     let (at, stage, repeats, child) = match (parent, local) {
-        (Frame::Workbook { stage: at, .. }, _) => {
+        (
+            Frame::Workbook {
+                stage: at, sheets, ..
+            },
+            _,
+        ) => {
             let order = [
                 "fileVersion",
                 "fileSharing",
@@ -97,7 +103,10 @@ pub(super) fn child(parent: &mut Frame, local: &str, offset: u64) -> Option<Chil
             let stage = order.iter().position(|&name| name == local)?;
             let child = match local {
                 "workbookPr" => Child::Read(Frame::WorkbookPr),
-                "sheets" => Child::Read(Frame::Sheets { stage: 0, offset }),
+                "sheets" => {
+                    *sheets = true;
+                    Child::Read(Frame::Sheets { stage: 0, offset })
+                }
                 _ => Child::Skip,
             };
             let repeats = local == "fileRecoveryPr";
