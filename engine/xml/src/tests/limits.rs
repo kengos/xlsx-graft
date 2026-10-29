@@ -1,10 +1,10 @@
 //! The limits, each at its largest admitted value and one past it: nesting
 //! depth, attributes on one element, namespace declarations in scope, the
-//! length of one, and bytes read into memory. Where the streaming reader
-//! differs (the depth it reports, and no size of its own), `streaming`
-//! covers it.
+//! length of one, bytes read into memory, and bytes in one event. Where the
+//! streaming reader differs (the depth it reports, and no `max_bytes`),
+//! `streaming` covers it, and how little it holds of an event too large.
 
-use super::{read, read_memory_with, read_with};
+use super::{read, read_memory_with, read_with, utf16};
 use crate::XmlLimits;
 use xlsx_graft_diagnostics::{Diagnostic, Limit};
 
@@ -181,4 +181,160 @@ fn an_offset_after_a_byte_order_mark_counts_from_the_text() {
         limit: Limit::default_of(1_024),
     });
     assert_eq!(read(&bytes), refused);
+}
+
+/// `max_event_bytes` of 64 bytes, with every other limit at its default.
+pub(super) fn event_limits() -> XmlLimits {
+    XmlLimits {
+        max_event_bytes: Limit::default_of(64),
+        ..XmlLimits::default()
+    }
+}
+
+/// `xml_event_too_large` for the event at `offset`, read to one byte past
+/// the limit of [`event_limits`].
+pub(super) fn event_too_large(offset: usize) -> Result<usize, Diagnostic> {
+    Err(Diagnostic::XmlEventTooLarge {
+        offset: u64::try_from(offset).unwrap(),
+        size: 65,
+        limit: Limit::default_of(64),
+    })
+}
+
+/// One event of each kind, as what comes before it, how it opens, how it
+/// closes, what comes after it, the text that pads it to a size, and how
+/// many events the part holds.
+const EVENTS: [(&str, &str, &str, &str, &str, usize); 11] = [
+    ("", r#"<p:r xmlns:p="urn:p" a=""#, r#"">"#, "</p:r>", "x", 2),
+    ("", r#"<r a=""#, r#""/>"#, "", "x", 1),
+    ("<r>", "</r", ">", "", " ", 2),
+    ("<r>", "", "", "</r>", "t", 3),
+    ("<r>", "", "", "&amp;</r>", "t", 4),
+    ("<r/>", "", "", "", " ", 2),
+    ("<r>", "<![CDATA[", "]]>", "</r>", "x", 3),
+    ("<r>", "<!--", "-->", "</r>", "x", 3),
+    ("<r>", "<?p ", "?>", "</r>", "x", 3),
+    ("", r#"<?xml version="1.0""#, "?>", "<r/>", " ", 2),
+    ("<r>", "&#x", "41;", "</r>", "0", 3),
+];
+
+/// The part of `event`, one of [`EVENTS`], with the event `size` bytes long.
+fn part_of(event: (&str, &str, &str, &str, &str, usize), size: usize) -> Vec<u8> {
+    let (before, open, close, after, pad, _) = event;
+    let padding = pad.repeat(size - open.len() - close.len());
+    format!("{before}{open}{padding}{close}{after}").into_bytes()
+}
+
+#[test]
+fn an_event_of_every_kind_at_the_event_limit_reads() {
+    for event in EVENTS {
+        assert_eq!(read_with(&part_of(event, 64), &event_limits()), Ok(event.5));
+    }
+}
+
+#[test]
+fn an_event_of_every_kind_one_byte_past_the_event_limit_is_refused() {
+    for event in EVENTS {
+        let refused = event_too_large(event.0.len());
+        assert_eq!(read_with(&part_of(event, 65), &event_limits()), refused);
+        assert_eq!(read_with(&part_of(event, 5_000), &event_limits()), refused);
+    }
+}
+
+#[test]
+fn an_event_counts_its_bytes_as_utf8_whatever_the_encoding() {
+    let at = format!("<r>t{}</r>", "あ".repeat(21));
+    assert_eq!(read_with(at.as_bytes(), &event_limits()), Ok(3));
+    assert_eq!(read_with(&utf16(&at, false), &event_limits()), Ok(3));
+    // The limit falls inside a character: the size is the bytes read.
+    let past = format!("<r>t{}</r>", "あ".repeat(22));
+    assert_eq!(
+        read_with(past.as_bytes(), &event_limits()),
+        event_too_large(3)
+    );
+    assert_eq!(
+        read_with(&utf16(&past, true), &event_limits()),
+        event_too_large(3)
+    );
+}
+
+#[test]
+fn the_event_size_is_checked_before_the_guard() {
+    let limits = XmlLimits {
+        max_attributes: Limit::default_of(2),
+        ..event_limits()
+    };
+    assert_eq!(
+        read_with(&attributes(3), &limits),
+        Err(Diagnostic::XmlTooManyAttributes {
+            offset: 0,
+            count: 3,
+            limit: Limit::default_of(2),
+        })
+    );
+    assert_eq!(read_with(&attributes(20), &limits), event_too_large(0));
+}
+
+#[test]
+fn a_tag_quick_xml_refuses_past_the_event_limit_is_refused_for_its_size() {
+    // A mismatched end tag and a comment holding `--`, each ended by the
+    // byte past the limit.
+    let end = format!("<r></{}>", "r".repeat(62));
+    let comment = format!("<r><!--{}--></r>", "-".repeat(58));
+    for bytes in [end, comment] {
+        assert_eq!(
+            read_with(bytes.as_bytes(), &event_limits()),
+            event_too_large(3)
+        );
+    }
+}
+
+#[test]
+fn a_character_xml_does_not_allow_comes_first_only_within_the_event_limit() {
+    // A control character as the event's 64th byte, its 65th, one past the
+    // limit, which is never handed out, and its 66th.
+    let at = |size: usize| {
+        let mut bytes = format!("<r>{}", "t".repeat(size - 1)).into_bytes();
+        bytes.push(0x01);
+        bytes.extend("t".repeat(1 << 16).into_bytes());
+        bytes
+    };
+    assert!(matches!(
+        read_with(&at(64), &event_limits()),
+        Err(Diagnostic::XmlMalformed { offset: 66, .. })
+    ));
+    assert!(matches!(
+        read_with(&at(65), &event_limits()),
+        Err(Diagnostic::XmlMalformed { offset: 67, .. })
+    ));
+    assert_eq!(read_with(&at(66), &event_limits()), event_too_large(3));
+}
+
+#[test]
+fn a_doctype_past_the_event_limit_is_refused_for_its_size() {
+    let doctype = |size: usize| format!("<!DOCTYPE r [{}]><r/>", " ".repeat(size - 15));
+    let refused = Err(Diagnostic::XmlDoctype { offset: 0 });
+    assert_eq!(read_with(doctype(64).as_bytes(), &event_limits()), refused);
+    assert_eq!(
+        read_with(doctype(65).as_bytes(), &event_limits()),
+        event_too_large(0)
+    );
+}
+
+#[test]
+fn the_deepest_nesting_is_counted_by_each_event_and_up_to_one_too_large() {
+    let limits = event_limits();
+    assert_eq!(
+        read_memory_with(&nested(300, "text"), &limits),
+        too_deep(300)
+    );
+    let mut bytes = "<a>".repeat(257).into_bytes();
+    bytes.extend(format!("<b>{}<c/></b>", "t".repeat(65)).into_bytes());
+    bytes.extend("</a>".repeat(257).into_bytes());
+    assert_eq!(read_memory_with(&bytes, &limits), too_deep(258));
+    // 65 bytes, ended by the byte past the limit: read whole, then refused.
+    let tag = format!(r#"<c a="{}"/>"#, "x".repeat(56));
+    let mut bytes = "<a>".repeat(257).into_bytes();
+    bytes.extend(format!("<b>{tag}<d><e/></d></b>").into_bytes());
+    assert_eq!(read_memory_with(&bytes, &limits), too_deep(258));
 }

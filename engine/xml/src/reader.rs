@@ -79,7 +79,8 @@ impl<'a> XmlReader<'a> {
     ///
     /// The first problem found, as a diagnostic the caller pushes with the
     /// part it read: `xml_encoding_unsupported`, `xml_malformed`,
-    /// `xml_doctype`, `xml_too_deep` (with the deepest nesting in the part),
+    /// `xml_doctype`, `xml_event_too_large`, `xml_too_deep` (with the
+    /// deepest nesting in the part),
     /// `xml_too_many_attributes`, `xml_too_many_namespaces` or
     /// `xml_namespace_too_long`. Every call after it returns it again.
     pub fn read_event_into<'b>(&mut self, buf: &'b mut Vec<u8>) -> Result<Event<'b>, Diagnostic> {

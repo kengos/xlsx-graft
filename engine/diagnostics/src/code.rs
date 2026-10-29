@@ -127,6 +127,23 @@ diagnostics! {
         decided_by: Some(DecidedBy::limit("maxXmlNamespaceBytes", *limit)),
         fix: Some(Fix::policy(format!("maxXmlNamespaceBytes: {length}")));
 
+    /// One event of a part's XML, a tag, a run of text, a CDATA section, a
+    /// comment, a processing instruction, the declaration, a document type
+    /// declaration or a reference, is longer than the limit. Reading stops one byte past it, so the event's whole length is
+    /// not known.
+    XmlEventTooLarge {
+        /// The byte offset where the event starts, as for `xml_malformed`.
+        offset: u64,
+        /// The bytes of the event read when reading stopped, as UTF-8: the
+        /// event holds at least this many.
+        size: u64,
+        /// The most bytes one event may hold.
+        limit: Limit,
+    } => "xml_event_too_large", Error,
+        message: format!("the XML event at byte {offset} holds at least {size} bytes; the limit is {limit}"),
+        decided_by: Some(DecidedBy::limit("maxXmlEventBytes", *limit)),
+        fix: Some(Fix::policy(format!("maxXmlEventBytes: {size}")));
+
     /// A part's XML is larger than the engine reads into memory.
     XmlTooLarge {
         /// The part's size in bytes: its length when in memory, else the

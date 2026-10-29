@@ -1,6 +1,7 @@
-//! [`XmlStreamReader`]: quick-xml over a [`BufRead`], behind the encoding
-//! and character checks of its [`Source`] and the per-event guard. The
-//! in-memory [`XmlReader`](crate::XmlReader) is this reader over a slice.
+//! [`XmlStreamReader`]: quick-xml over a [`BufRead`], behind the encoding,
+//! character and event size checks of its [`Source`] and the per-event
+//! guard. The in-memory [`XmlReader`](crate::XmlReader) is this reader over
+//! a slice.
 
 use crate::encoding::check_decl;
 use crate::guard::Guard;
@@ -27,8 +28,8 @@ pub use error::XmlStreamError;
 /// Each event is read into a buffer the caller owns, as quick-xml's
 /// `read_event_into` does, so the reader stays free to resolve the
 /// namespaces of the names in it. That buffer holds one event at a time,
-/// and that event whole: one long text can be as large as the part, which
-/// only the zip limits on an entry bound.
+/// and that event whole, so `max_event_bytes` bounds it: reading stops one
+/// byte past the limit.
 ///
 /// A part is read well only once [`Event::Eof`] comes back: what follows
 /// the root element, the end of the encoding, and, through a zip entry, its
@@ -72,7 +73,7 @@ impl<R: BufRead> XmlStreamReader<R> {
     /// `max_bytes` does not apply, since the part is never held whole; the
     /// zip limits on what an entry inflates to bound how much is read.
     pub fn new(reader: R, limits: &XmlLimits) -> Self {
-        let mut reader = NsReader::from_reader(Source::new(reader));
+        let mut reader = NsReader::from_reader(Source::new(reader, limits.max_event_bytes));
         reader.config_mut().check_comments = true;
         // The guard enforces `max_namespaces` with its own diagnostic.
         reader.resolver_mut().set_max_namespace_bindings(usize::MAX);
@@ -93,9 +94,10 @@ impl<R: BufRead> XmlStreamReader<R> {
     /// [`XmlStreamError::Invalid`] with the first problem found, as a
     /// diagnostic the caller pushes with the part it read:
     /// `xml_encoding_unsupported`, `xml_malformed`, `xml_doctype`,
-    /// `xml_too_deep`, `xml_too_many_attributes`, `xml_too_many_namespaces`
-    /// or `xml_namespace_too_long`. [`XmlStreamError::Io`] when `R` fails.
-    /// Every call after either returns it again.
+    /// `xml_event_too_large`, `xml_too_deep`, `xml_too_many_attributes`,
+    /// `xml_too_many_namespaces` or `xml_namespace_too_long`.
+    /// [`XmlStreamError::Io`] when `R` fails. Every call after either
+    /// returns it again.
     pub fn read_event_into<'b>(
         &mut self,
         buf: &'b mut Vec<u8>,
@@ -106,11 +108,17 @@ impl<R: BufRead> XmlStreamReader<R> {
         buf.clear();
         let offset = self.reader.buffer_position();
         self.offset = offset;
+        self.reader.get_mut().begin();
         let error = match self.reader.read_event_into(buf) {
             Err(quick_xml::Error::Io(error)) => {
-                XmlStreamError::from_source(self.reader.get_ref().decoder(), &error)
+                XmlStreamError::from_source(self.reader.get_ref().failed(), &error)
             }
-            Err(error) => malformed(self.reader.error_position(), &error.to_string()).into(),
+            // A tag ended by the byte past the limit is too large before it
+            // is malformed, as it is before the guard sees it.
+            Err(error) => match self.reader.get_ref().too_large() {
+                Some(too_large) => too_large.into(),
+                None => malformed(self.reader.error_position(), &error.to_string()).into(),
+            },
             Ok(event) => match self.check(offset, &event) {
                 Ok(()) => return Ok(event),
                 Err(diagnostic) => diagnostic.into(),
@@ -120,9 +128,12 @@ impl<R: BufRead> XmlStreamReader<R> {
         Err(error)
     }
 
-    /// Checks `event`, which starts at `offset`: its declaration against the
-    /// byte order mark when it is the first, then the guard.
+    /// Checks `event`, which starts at `offset`: its size, its declaration
+    /// against the byte order mark when it is the first, then the guard.
     fn check(&mut self, offset: u64, event: &Event<'_>) -> Result<(), Diagnostic> {
+        if let Some(too_large) = self.reader.get_ref().too_large() {
+            return Err(too_large);
+        }
         if let Event::Decl(decl) = event
             && offset == 0
         {

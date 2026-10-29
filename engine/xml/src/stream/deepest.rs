@@ -8,8 +8,8 @@ use std::io::BufRead;
 impl<R: BufRead> XmlStreamReader<R> {
     /// How deep the part nests, reading on from the element one past
     /// `max_depth` that stopped the reader. Only counts: it stops at the end
-    /// or at the first error, so a malformed rest reports the deepest before
-    /// it.
+    /// or at the first error, an event past `max_event_bytes` included, so a
+    /// malformed rest reports the deepest before it.
     pub(crate) fn deepest(&mut self) -> u64 {
         let mut deepest = self.guard.limits().max_depth.value.saturating_add(1);
         // Past `max_depth` when the element refused is a start tag, left open.
@@ -17,7 +17,12 @@ impl<R: BufRead> XmlStreamReader<R> {
         let mut buf = Vec::new();
         loop {
             buf.clear();
-            match self.reader.read_event_into(&mut buf) {
+            self.reader.get_mut().begin();
+            let event = self.reader.read_event_into(&mut buf);
+            if self.reader.get_ref().too_large().is_some() {
+                return deepest;
+            }
+            match event {
                 Ok(Event::Start(_)) => {
                     depth = depth.saturating_add(1);
                     deepest = deepest.max(depth);

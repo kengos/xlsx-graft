@@ -88,9 +88,9 @@
 //! the zip layer refused reports nothing more.
 //!
 //! A `t` goes to the table as it is read, event by event, and is held to
-//! the limits on the way; but one event of the XML is still held whole, as
-//! the XML reader reads it, so one long run of text is bounded only by the
-//! zip limits on an entry.
+//! the limits on the way. One event of the XML is held whole, as the XML
+//! reader reads it, so one long run of text is bounded by the XML reader's
+//! `maxXmlEventBytes` (`xml_event_too_large`).
 //!
 //! # The styles
 //!

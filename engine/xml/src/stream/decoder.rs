@@ -76,15 +76,6 @@ impl Decoder {
         self.pos = self.pos.saturating_add(amount).min(self.out.len());
     }
 
-    /// Hands out as much pending text as fits in `buf`, returning how much.
-    pub(crate) fn take_into(&mut self, buf: &mut [u8]) -> usize {
-        let pending = &self.out[self.pos..];
-        let taken = pending.len().min(buf.len());
-        buf[..taken].copy_from_slice(&pending[..taken]);
-        self.consume(taken);
-        taken
-    }
-
     /// Decodes `bytes`, the carry and the chunk after it.
     fn decode(&mut self, bytes: Vec<u8>) {
         let Some(found) = self.found else {

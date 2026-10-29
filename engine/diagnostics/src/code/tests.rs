@@ -77,6 +77,14 @@ fn sample(code: Code) -> (Diagnostic, Location) {
             },
             Location::default().with_part("/xl/styles.xml"),
         ),
+        Code::XmlEventTooLarge => (
+            Diagnostic::XmlEventTooLarge {
+                offset: 40,
+                size: 16_777_217,
+                limit: Limit::default_of(16_777_216),
+            },
+            Location::default().with_part("/xl/sharedStrings.xml"),
+        ),
         Code::XmlTooLarge => (
             Diagnostic::XmlTooLarge {
                 size: 16_777_217,
