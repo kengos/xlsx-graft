@@ -4,32 +4,23 @@
 //! The elements read are a stack of frames, each held to the schema shape
 //! (`shape.rs`). A child that is skipped (`extLst`, `rPr`, `rPh`,
 //! `phoneticPr`) is passed over with all it holds, as is an element in a
-//! namespace `mc:Ignorable` names.
+//! namespace `mc:Ignorable` names. The value of each `t` arrives in pieces
+//! ([`Xstring`]).
 
 mod shape;
 
-use super::Halt;
-use super::escape::{LONGEST_ESCAPE, unescape};
+use super::escape::Xstring;
 use super::table::{Builder, StringTable};
+use super::{Halt, rst};
 use crate::ReadLimits;
 use crate::compat::Ignorable;
-use crate::schema::{NAMESPACES, is_blank, namespace};
+use crate::schema::{NAMESPACES, is_blank, namespace, resolve};
 use shape::{Child, Frame, attributes, child, refuse};
 use std::io::BufRead;
 use xlsx_graft_diagnostics::SchemaReason;
 use xlsx_graft_spool::SpoolFactory;
-use xlsx_graft_xml::events::{BytesRef, BytesStart, Event};
+use xlsx_graft_xml::events::{BytesStart, Event};
 use xlsx_graft_xml::{XmlStreamError, XmlStreamReader};
-
-/// The predefined entities (XML 1.0 §4.6), the only ones the XML reader
-/// admits.
-const ENTITIES: [(&str, char); 5] = [
-    ("lt", '<'),
-    ("gt", '>'),
-    ("amp", '&'),
-    ("apos", '\''),
-    ("quot", '"'),
-];
 
 /// Where the walk is.
 struct Walk<'a> {
@@ -41,9 +32,8 @@ struct Walk<'a> {
     ignorable: Ignorable,
     /// How many elements deep the walk is inside a skipped one.
     skipped: u64,
-    /// The end of the `t` read so far that may still start an escape,
-    /// held back until more of it arrives.
-    held: String,
+    /// The value of the `t` being read.
+    value: Xstring,
 }
 
 /// Reads the part from `source` under `limits`, spilling to a spool from
@@ -60,7 +50,7 @@ pub(super) fn read<B: BufRead>(
         frames: Vec::new(),
         ignorable: Ignorable::new(&NAMESPACES),
         skipped: 0,
-        held: String::new(),
+        value: Xstring::default(),
     };
     let mut buf = Vec::new();
     loop {
@@ -132,9 +122,9 @@ impl Walk<'_> {
         self.ignorable.enter();
         attributes(&frame, start, reader, &mut self.ignorable, offset)?;
         match frame {
-            Frame::Si { .. } => self.table.begin()?,
-            Frame::Text => self.held.clear(),
-            Frame::Sst { .. } | Frame::Run { .. } => {}
+            Frame::Rst(rst::Frame::Rst { .. }) => self.table.begin()?,
+            Frame::Rst(rst::Frame::Text) => self.value.begin(),
+            Frame::Sst { .. } | Frame::Rst(rst::Frame::Run { .. }) => {}
         }
         self.frames.push(frame);
         if !opened {
@@ -150,44 +140,17 @@ impl Walk<'_> {
             return Ok(());
         }
         self.ignorable.leave();
+        let table = &mut self.table;
         match self.frames.pop() {
-            Some(Frame::Text) => self.value("", true)?,
-            Some(Frame::Si { .. }) => self.table.end()?,
-            Some(Frame::Run { stage, offset }) if stage < 2 => {
-                return Err(refuse(offset, SchemaReason::MissingElement, "t"));
+            Some(Frame::Rst(rst::Frame::Text)) => self.value.push("", true, |p| table.text(p))?,
+            Some(Frame::Rst(rst::Frame::Rst { .. })) => table.end()?,
+            Some(Frame::Rst(frame)) => {
+                if let Some((offset, name)) = rst::missing(&frame) {
+                    return Err(refuse(offset, SchemaReason::MissingElement, name));
+                }
             }
             _ => {}
         }
-        Ok(())
-    }
-
-    /// Adds `text` to the value of the `t` being read, its escapes undone,
-    /// holding back what may still start one unless it is the `last`.
-    ///
-    /// What was held back is joined to no more of `text` than finishes an
-    /// escape it may start, so `text` is never copied whole.
-    fn value(&mut self, text: &str, last: bool) -> Result<(), Halt> {
-        let table = &mut self.table;
-        let mut text = text;
-        if !self.held.is_empty() {
-            let cut = (text.char_indices().map(|(at, _)| at))
-                .find(|&at| at >= LONGEST_ESCAPE)
-                .unwrap_or(text.len());
-            let (head, tail) = text.split_at(cut);
-            let mut joined = std::mem::take(&mut self.held);
-            let held = joined.len();
-            joined.push_str(head);
-            let read = unescape(&joined, last && tail.is_empty(), |p| table.text(p))?;
-            if tail.is_empty() {
-                self.held.push_str(joined.get(read..).unwrap_or_default());
-                return Ok(());
-            }
-            // With a whole escape's length after it, nothing held is held
-            // again: reading stopped in `head`.
-            text = text.get(read.saturating_sub(held)..).unwrap_or_default();
-        }
-        let read = unescape(text, last, |piece| table.text(piece))?;
-        self.held.push_str(text.get(read..).unwrap_or_default());
         Ok(())
     }
 
@@ -200,25 +163,17 @@ impl Walk<'_> {
         // reader refuses text itself.
         let name = match self.frames.last() {
             _ if self.skipped > 0 => return Ok(()),
-            Some(Frame::Text) => {
-                return self.value(text, false);
+            Some(Frame::Rst(rst::Frame::Text)) => {
+                let table = &mut self.table;
+                return self.value.push(text, false, |piece| table.text(piece));
             }
             Some(Frame::Sst { .. }) => "sst",
-            Some(Frame::Si { .. }) => "si",
-            Some(Frame::Run { .. }) | None => "r",
+            Some(Frame::Rst(rst::Frame::Rst { .. })) => "si",
+            Some(Frame::Rst(rst::Frame::Run { .. })) | None => "r",
         };
         if blank {
             return Ok(());
         }
         Err(refuse(offset, SchemaReason::UnexpectedText, name))
     }
-}
-
-/// The text a reference the XML reader admitted stands for.
-fn resolve(reference: &BytesRef<'_>) -> String {
-    let named = ENTITIES.iter().find(|(name, _)| *name == &**reference);
-    let c = reference.resolve_char_ref().ok().flatten();
-    c.or(named.map(|&(_, c)| c))
-        .map(String::from)
-        .unwrap_or_default()
 }

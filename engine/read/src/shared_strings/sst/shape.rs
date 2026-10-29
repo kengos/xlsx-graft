@@ -1,6 +1,7 @@
 //! The schema shape of the shared strings part: the elements read
 //! ([`Frame`]) and where each may stand ([`child`]), and the attributes
-//! each may have ([`attributes`]).
+//! each may have ([`attributes`]). Each `si` is a rich text string, whose
+//! shape is `rst.rs`'s.
 //!
 //! Each frame knows how far into its schema sequence it is (its stage), so
 //! a child is admitted only in the schema's order and as often as it may
@@ -8,7 +9,7 @@
 
 use crate::compat::Ignorable;
 use crate::schema::{self, namespace};
-use crate::shared_strings::Halt;
+use crate::shared_strings::{Halt, rst};
 use std::io::BufRead;
 use xlsx_graft_diagnostics::SchemaReason;
 use xlsx_graft_xml::XmlStreamReader;
@@ -19,12 +20,8 @@ use xlsx_graft_xml::events::BytesStart;
 pub(super) enum Frame {
     /// `sst` (CT_Sst): `si*`, then `extLst?`.
     Sst { stage: u8 },
-    /// `si` (CT_Rst): `t?`, `r*`, `rPh*`, then `phoneticPr?`.
-    Si { stage: u8 },
-    /// `r` (CT_RElt): `rPr?`, then `t`; `offset` is where it starts.
-    Run { stage: u8, offset: u64 },
-    /// `t` (ST_Xstring).
-    Text,
+    /// `si`, or an element in it.
+    Rst(rst::Frame),
 }
 
 /// What a child element is to its parent.
@@ -38,19 +35,24 @@ pub(super) enum Child {
 /// What the element `local` at `offset` is as a child of `parent`, moving
 /// `parent` on to its stage; `None` when it may not stand there.
 pub(super) fn child(parent: &mut Frame, local: &str, offset: u64) -> Option<Child> {
+    let at = match parent {
+        Frame::Rst(frame) => {
+            return rst::child(frame, local, offset).map(|child| match child {
+                rst::Child::Read(frame) => Child::Read(Frame::Rst(frame)),
+                rst::Child::Skip => Child::Skip,
+            });
+        }
+        Frame::Sst { stage } => stage,
+    };
     // The child's stage in the sequence, whether it may repeat, and what it
     // is.
-    let (at, stage, repeats, child) = match (parent, local) {
-        (Frame::Sst { stage: at }, "si") => (at, 1, true, Child::Read(Frame::Si { stage: 0 })),
-        (Frame::Sst { stage: at }, "extLst") => (at, 2, false, Child::Skip),
-        (Frame::Si { stage: at }, "t") => (at, 1, false, Child::Read(Frame::Text)),
-        (Frame::Si { stage: at }, "r") => {
-            (at, 2, true, Child::Read(Frame::Run { stage: 0, offset }))
-        }
-        (Frame::Si { stage: at }, "rPh") => (at, 3, true, Child::Skip),
-        (Frame::Si { stage: at }, "phoneticPr") => (at, 4, false, Child::Skip),
-        (Frame::Run { stage: at, .. }, "rPr") => (at, 1, false, Child::Skip),
-        (Frame::Run { stage: at, .. }, "t") => (at, 2, false, Child::Read(Frame::Text)),
+    let (stage, repeats, child) = match local {
+        "si" => (
+            1,
+            true,
+            Child::Read(Frame::Rst(rst::Frame::Rst { stage: 0 })),
+        ),
+        "extLst" => (2, false, Child::Skip),
         _ => return None,
     };
     let admitted = stage > *at || (stage == *at && repeats);
@@ -71,8 +73,7 @@ pub(super) fn attributes<B: BufRead>(
 ) -> Result<(), Halt> {
     let allowed: &[&str] = match frame {
         Frame::Sst { .. } => &["count", "uniqueCount"],
-        Frame::Text => &["xml:space"],
-        Frame::Si { .. } | Frame::Run { .. } => &[],
+        Frame::Rst(frame) => rst::allowed(frame),
     };
     ignorable
         .take(start, reader, offset)

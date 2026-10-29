@@ -12,14 +12,64 @@
 //! A value arrives as the XML reader reads it: text, then a reference, then
 //! more text. An escape can run across them, so what may still turn out to
 //! start one is held back until more arrives, never more than one pair of
-//! escapes' length.
+//! escapes' length ([`Xstring`]).
 
 /// The length of one escape, `_xHHHH_`.
 const ESCAPE: usize = 7;
 
 /// The length of the longest escape, a surrogate pair: what may still start
 /// one is shorter.
-pub(super) const LONGEST_ESCAPE: usize = 2 * ESCAPE;
+const LONGEST_ESCAPE: usize = 2 * ESCAPE;
+
+/// The value of one ST_Xstring element as it arrives, piece by piece, its
+/// escapes undone.
+#[derive(Debug, Default)]
+pub(crate) struct Xstring {
+    /// The end of the value read so far that may still start an escape,
+    /// held back until more of it arrives.
+    held: String,
+}
+
+impl Xstring {
+    /// Starts a value.
+    pub(crate) fn begin(&mut self) {
+        self.held.clear();
+    }
+
+    /// Adds `text` to the value, its escapes undone and handed to `out`,
+    /// holding back what may still start one unless it is the `last`.
+    ///
+    /// What was held back is joined to no more of `text` than finishes an
+    /// escape it may start, so `text` is never copied whole.
+    pub(crate) fn push<E>(
+        &mut self,
+        text: &str,
+        last: bool,
+        mut out: impl FnMut(&str) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let mut text = text;
+        if !self.held.is_empty() {
+            let cut = (text.char_indices().map(|(at, _)| at))
+                .find(|&at| at >= LONGEST_ESCAPE)
+                .unwrap_or(text.len());
+            let (head, tail) = text.split_at(cut);
+            let mut joined = std::mem::take(&mut self.held);
+            let held = joined.len();
+            joined.push_str(head);
+            let read = unescape(&joined, last && tail.is_empty(), &mut out)?;
+            if tail.is_empty() {
+                self.held.push_str(joined.get(read..).unwrap_or_default());
+                return Ok(());
+            }
+            // With a whole escape's length after it, nothing held is held
+            // again: reading stopped in `head`.
+            text = text.get(read.saturating_sub(held)..).unwrap_or_default();
+        }
+        let read = unescape(text, last, out)?;
+        self.held.push_str(text.get(read..).unwrap_or_default());
+        Ok(())
+    }
+}
 
 /// Undoes the escapes in `text`, handing the value to `out` piece by piece,
 /// and returns how many bytes of `text` it read. Unless `last`, it stops
