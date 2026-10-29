@@ -131,7 +131,11 @@ impl Walk {
                 let flavor = NAMESPACES.iter().position(|&ns| Some(ns) == namespace);
                 let flavor = flavor.filter(|_| local == "workbook");
                 self.flavor = Some(flavor.ok_or_else(unexpected)?);
-                Child::Read(Frame::Workbook { stage: 0, offset })
+                Child::Read(Frame::Workbook {
+                    stage: 0,
+                    offset,
+                    sheets: false,
+                })
             }
             Some(frame) if ours == namespace => {
                 child(frame, local, offset).ok_or_else(unexpected)?
@@ -188,9 +192,11 @@ impl Walk {
         }
         self.ignorable.leave();
         match self.frames.pop() {
-            Some(Frame::Workbook { stage, offset }) if stage < shape::SHEETS => {
-                Err(refuse(offset, SchemaReason::MissingElement, "sheets"))
-            }
+            Some(Frame::Workbook {
+                offset,
+                sheets: false,
+                ..
+            }) => Err(refuse(offset, SchemaReason::MissingElement, "sheets")),
             Some(Frame::Sheets { stage: 0, offset }) => {
                 Err(refuse(offset, SchemaReason::MissingElement, "sheet"))
             }
