@@ -1,9 +1,10 @@
 //! What only the streaming reader does: it stops at the first level past
 //! the depth limit, does not apply `max_bytes`, reads no further than it
 //! must, holds no more of an event too large than one byte past the limit,
-//! hands a host failure back apart from the diagnostics, and puts characters split
-//! across reads back together. The inputs both readers share are in the
-//! other files, run through both by `read_with`.
+//! hands a host failure back apart from the diagnostics, puts characters
+//! split across reads back together, and gives its reader back read as far
+//! as it read it. The inputs both readers share are in the other files,
+//! run through both by `read_with`.
 
 use super::limits::{event_limits, event_too_large, nested, too_deep};
 use super::{Chunked, chunked, read_stream_with, utf16};
@@ -124,6 +125,23 @@ fn max_bytes_does_not_apply() {
 fn nothing_is_read_before_the_first_event() {
     let reader = reader(b"\0\0\0<", 1);
     assert_eq!(reader.get_ref().get_ref().reads, 0);
+}
+
+#[test]
+fn the_reader_given_back_is_read_as_far_as_the_xml_reader_read_it() {
+    let bytes = b"<a>text</a>";
+    let mut reader = reader(bytes, 4);
+    let mut buf = Vec::new();
+    assert!(matches!(
+        reader.read_event_into(&mut buf),
+        Ok(Event::Start(_))
+    ));
+    // What the XML reader did not read ahead is still there to read.
+    let mut inner = reader.into_inner();
+    let mut rest = Vec::new();
+    io::Read::read_to_end(&mut inner, &mut rest).unwrap();
+    assert!(!rest.is_empty() && rest.len() < bytes.len());
+    assert!(bytes.ends_with(&rest));
 }
 
 #[test]

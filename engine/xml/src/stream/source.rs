@@ -86,6 +86,11 @@ impl<R: BufRead> Source<R> {
     pub(crate) fn get_ref(&self) -> &R {
         &self.inner
     }
+
+    /// The reader the source decodes, as far as it was read.
+    pub(crate) fn into_inner(self) -> R {
+        self.inner
+    }
 }
 
 impl<R: BufRead> Read for Source<R> {

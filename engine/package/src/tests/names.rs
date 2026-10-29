@@ -156,6 +156,11 @@ fn a_package_gives_back_its_parts_and_their_relationships() {
     reader.read_to_end(&mut bytes).unwrap();
     assert_eq!(bytes, b"<a/>");
     assert!(package.open_part(2, &mut diagnostics).unwrap().is_none());
+    let mut stream = package.stream_part(1).unwrap();
+    let mut out = [0; 8];
+    let len = package.read_stream(&mut stream, &mut out, &mut diagnostics);
+    assert_eq!(&out[..len.unwrap()], b"<a/>");
+    assert!(package.stream_part(2).is_none());
     let read = package.read_xml_part(1, Limit::default_of(4), &mut diagnostics);
     assert_eq!(read.unwrap(), Some(b"<a/>".to_vec()));
     assert!(diagnostics.records().is_empty());
