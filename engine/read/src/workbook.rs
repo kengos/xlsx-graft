@@ -55,12 +55,17 @@ impl Workbook {
         let Some(part) = package.parts().get(self.part) else {
             return Presence::Unknown;
         };
-        let name = part.name().as_str();
-        let (folder, file) = name.rsplit_once('/').unwrap_or_default();
-        let rels = format!("{folder}/_rels/{file}.rels");
+        let rels = rels_of(part.name().as_str());
         let known = part.relationships_known();
         single(part.relationships(), known, types, &rels, diagnostics)
     }
+}
+
+/// The name of the Relationships part of the part `name` (ECMA-376-2:2021
+/// §6.5.2.3), which a diagnostic about one of its relationships points to.
+pub(crate) fn rels_of(name: &str) -> String {
+    let (folder, file) = name.rsplit_once('/').unwrap_or_default();
+    format!("{folder}/_rels/{file}.rels")
 }
 
 /// The one part the internal relationships of `types` among

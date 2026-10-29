@@ -1,8 +1,8 @@
 //! What every reader of a SpreadsheetML part checks its shape with: the
 //! namespaces of SpreadsheetML ([`NAMESPACES`]) and the one a name is bound
 //! to ([`namespace`]), the white space that may stand between elements
-//! ([`is_blank`]), and the `xml_schema_invalid` it refuses with
-//! ([`refuse`]).
+//! ([`is_blank`]) and that a value's type collapses ([`is_space`]), and the
+//! `xml_schema_invalid` it refuses with ([`refuse`]).
 
 use xlsx_graft_diagnostics::{Diagnostic, Echo, SchemaReason};
 use xlsx_graft_xml::name::{Namespace, ResolveResult};
@@ -17,6 +17,12 @@ pub(crate) const NAMESPACES: [&str; 2] = [
 pub(crate) fn is_blank(text: &str) -> bool {
     text.bytes()
         .all(|b| matches!(b, b' ' | b'\t' | b'\r' | b'\n'))
+}
+
+/// Whether `c` is XML white space, which a type such as `xsd:unsignedInt`
+/// or `xsd:boolean` collapses.
+pub(crate) fn is_space(c: char) -> bool {
+    matches!(c, ' ' | '\t' | '\r' | '\n')
 }
 
 /// The namespace `resolved` binds, if it binds one.
