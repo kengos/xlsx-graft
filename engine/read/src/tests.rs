@@ -4,11 +4,13 @@
 //! `tests/` covers one aspect; `styles.rs` and the files under
 //! `tests/styles/` cover the styles, and `workbook_part.rs` and those under
 //! `tests/workbook_part/` the workbook part. `values.rs` and those under
-//! `tests/values/` cover the cell values, which take no package.
+//! `tests/values/` cover the cell values, which take no package, and
+//! `rows.rs` and those under `tests/rows/` a `Book` and its sheets' rows.
 
 mod failures;
 mod ignorable;
 mod limits;
+mod rows;
 mod schema;
 mod strings;
 mod styles;

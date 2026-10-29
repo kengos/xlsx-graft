@@ -11,7 +11,7 @@
 //! ignores it in either (MS-OI29500 on §18.2.28, note j).
 
 use crate::compat::Ignorable;
-use crate::schema::{NAMESPACES, is_space, namespace, refuse};
+use crate::schema::{RELATIONSHIPS, boolean, is_space, namespace, refuse};
 use crate::shared_strings::escape::unescape;
 use crate::workbook_part::SheetState;
 use std::convert::Infallible;
@@ -20,22 +20,6 @@ use xlsx_graft_xml::XmlReader;
 use xlsx_graft_xml::XmlVersion;
 use xlsx_graft_xml::events::BytesStart;
 use xlsx_graft_xml::name::ResolveResult;
-
-/// The namespace of `r:id`, Transitional and Strict, in the order of
-/// [`NAMESPACES`]: an `r:id` is in the one of the root's kind.
-const RELATIONSHIPS: [&str; 2] = [
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
-    "http://purl.oclc.org/ooxml/officeDocument/relationships",
-];
-
-/// The namespaces the part is read in: named ignorable, they are still
-/// read.
-pub(super) const UNDERSTOOD: [&str; 4] = [
-    NAMESPACES[0],
-    NAMESPACES[1],
-    RELATIONSHIPS[0],
-    RELATIONSHIPS[1],
-];
 
 /// The stage of `workbook` once `sheets` is read.
 pub(super) const SHEETS: u8 = 6;
@@ -232,14 +216,5 @@ pub(super) fn attributes(
     match required {
         Some(name) => Err(refuse(offset, SchemaReason::MissingAttribute, name)),
         None => Ok(values),
-    }
-}
-
-/// The `xsd:boolean` `value` is, its white space collapsed.
-fn boolean(value: &str) -> Option<bool> {
-    match value.trim_matches(is_space) {
-        "true" | "1" => Some(true),
-        "false" | "0" => Some(false),
-        _ => None,
     }
 }

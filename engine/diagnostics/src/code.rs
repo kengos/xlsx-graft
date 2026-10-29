@@ -693,6 +693,61 @@ diagnostics! {
         message: format!("a sheet's relationship is of type {rel_type}, which is not a sheet's, so the sheet has no part"),
         decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §12.3")),
         fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// A cell of `t="s"` refers to a shared string the shared strings table
+    /// does not hold: its index is past the table's end, or the workbook
+    /// has no table. Reading the sheet stops at the cell.
+    SharedStringMissing {
+        /// The index the cell's value gives.
+        index: u64,
+    } => "shared_string_missing", Error,
+        message: format!("a cell refers to shared string {index}, which the shared strings table does not hold"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.3.1.4, §18.4.8")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// The text of one row of a sheet, its strings and error values and
+    /// the value being read as UTF-8 together, is larger than the limit.
+    /// Reading the sheet stops at the row.
+    RowTooLarge {
+        /// The row's number.
+        row: u64,
+        /// The bytes of text counted when reading stopped: past the limit,
+        /// so the row holds at least this many.
+        size: u64,
+        /// The most bytes allowed.
+        limit: Limit,
+    } => "row_too_large", Error,
+        message: format!("row {row} holds at least {size} bytes of text; the limit is {limit}"),
+        decided_by: Some(DecidedBy::limit("maxRowBytes", *limit)),
+        fix: Some(Fix::policy(format!("maxRowBytes: {size}")));
+
+    /// A row's or a cell's place in the sheet is not one it may have: a row
+    /// number of 0 or past 1,048,576, a cell's `r` that is not the A1
+    /// reference of one cell up to XFD1048576 or names another row than its
+    /// row's, or a row or cell without `r` that would come after the last
+    /// row or column. Reading the sheet stops there.
+    CellReferenceInvalid {
+        /// The row number or the cell reference as written; a cell's that
+        /// names another row as it reads, its letters in capitals and its
+        /// row without leading zeros; without `r`, as it would be.
+        reference: Echo,
+    } => "cell_reference_invalid", Error,
+        message: format!("{reference} is not a place in the sheet a row or cell of it may have"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.3.1.4, §18.17.5.1; MS-OI29500 on §18.3.1.73, note a")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// A row comes at or before the row before it, or a cell at or before
+    /// the cell before it in its row: readers would differ on what the
+    /// sheet holds there. Reading the sheet stops there.
+    CellOrderInvalid {
+        /// The row number or the cell reference.
+        reference: Echo,
+        /// The row or cell before it.
+        previous: Echo,
+    } => "cell_order_invalid", Error,
+        message: format!("{reference} comes after {previous}; rows go down the sheet and a row's cells go across it"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.3.1.4, §18.3.1.73; MS-OI29500 on §18.3.1.73, note a")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
 }
 
 #[cfg(test)]
