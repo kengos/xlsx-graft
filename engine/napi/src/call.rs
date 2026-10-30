@@ -6,6 +6,7 @@
 //! JavaScript.
 
 mod book;
+mod handle;
 mod rows;
 
 pub use book::{Book, Sheet, Sheets};

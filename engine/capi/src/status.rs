@@ -29,3 +29,6 @@ pub const XLSX_GRAFT_ERR_SHEET_NOT_WORKSHEET: i32 = 8;
 /// The sheet's part is not known or cannot be read; the book's diagnostics
 /// say why.
 pub const XLSX_GRAFT_ERR_SHEET_UNREADABLE: i32 = 9;
+/// The rows handle's book was closed, which closed its rows: the handle
+/// reads no more, and only its close is left to call.
+pub const XLSX_GRAFT_ERR_CLOSED: i32 = 10;

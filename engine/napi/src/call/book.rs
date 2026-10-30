@@ -6,27 +6,30 @@
 //! as it does for a book closed. So a JavaScript object closed twice, or
 //! used after its close, is refused rather than undefined behaviour.
 //!
-//! `XLSX_GRAFT_ERR_PANIC` is passed through like any status. What the
-//! header asks after one, closing the book and every rows handle of it, is
-//! the JS SDK's to do, as it is every other SDK's.
+//! `XLSX_GRAFT_ERR_PANIC` is passed through like any status; the C ABI
+//! refuses every call but the closes after one. The handle is shared with
+//! the rows ([`BookHandle`]), which keep it open while they read.
 
+use super::handle::BookHandle;
 use super::rows::Rows;
 use super::{Outcome, message, owned, read};
+use std::rc::Rc;
 use xlsx_graft_capi::{
     XLSX_GRAFT_OK, XLSX_GRAFT_SHEET_CHARTSHEET, XLSX_GRAFT_SHEET_DIALOGSHEET,
     XLSX_GRAFT_SHEET_MACROSHEET, XLSX_GRAFT_SHEET_WORKSHEET, XLSX_GRAFT_STATE_HIDDEN,
     XLSX_GRAFT_STATE_VERY_HIDDEN, XLSX_GRAFT_STATE_VISIBLE, XlsxGraftBook, XlsxGraftSheet,
-    xlsx_graft_book_close, xlsx_graft_book_diagnostics, xlsx_graft_book_open_bytes,
-    xlsx_graft_book_open_path, xlsx_graft_book_sheets,
+    xlsx_graft_book_diagnostics, xlsx_graft_book_open_bytes, xlsx_graft_book_open_path,
+    xlsx_graft_book_sheets,
 };
 
-/// A workbook opened through the C ABI, closed when dropped.
+/// A workbook opened through the C ABI, closed by [`close`](Self::close),
+/// or once it and every [`Rows`] opened from it are dropped.
 ///
 /// Not [`Send`]: the handle is used on the thread JavaScript runs on, and
 /// dropped there too, when the garbage collector finalizes its object.
 #[derive(Debug)]
 pub struct Book {
-    handle: *mut XlsxGraftBook,
+    handle: Rc<BookHandle>,
     /// The open's status.
     pub status: i32,
     /// Why the host failed, when `status` is `XLSX_GRAFT_ERR_IO`.
@@ -82,7 +85,7 @@ impl Book {
     /// out-parameter, so it is never closed.
     fn opened(status: i32, handle: *mut XlsxGraftBook) -> Self {
         Self {
-            handle: owned(status, handle),
+            handle: BookHandle::new(owned(status, handle)),
             status,
             message: message(status),
         }
@@ -94,7 +97,8 @@ impl Book {
         let (mut sheets, mut len) = (std::ptr::null(), 0);
         // SAFETY: the handle is live or null; the out pointers are
         // writable slots.
-        let status = unsafe { xlsx_graft_book_sheets(self.handle, &raw mut sheets, &raw mut len) };
+        let status =
+            unsafe { xlsx_graft_book_sheets(self.handle.get(), &raw mut sheets, &raw mut len) };
         // No sheets lend no pointer to read.
         if status != XLSX_GRAFT_OK || len == 0 {
             return Sheets {
@@ -118,13 +122,13 @@ impl Book {
     /// The rows of the sheet at `index`.
     #[must_use]
     pub fn rows(&self, index: usize) -> Rows {
-        Rows::open_index(self.handle, index)
+        Rows::open_index(&self.handle, index)
     }
 
     /// The rows of the sheet named `name`, letter case aside.
     #[must_use]
     pub fn rows_named(&self, name: &str) -> Rows {
-        Rows::open_name(self.handle, name)
+        Rows::open_name(&self.handle, name)
     }
 
     /// The diagnostics' JSON, copied out.
@@ -134,25 +138,17 @@ impl Book {
         // SAFETY: the handle is live or null; the out pointers are
         // writable slots.
         let status =
-            unsafe { xlsx_graft_book_diagnostics(self.handle, &raw mut ptr, &raw mut len) };
+            unsafe { xlsx_graft_book_diagnostics(self.handle.get(), &raw mut ptr, &raw mut len) };
         // SAFETY: on OK the library lent `len` UTF-8 bytes, alive until the
         // next call on the book.
         unsafe { read(status, ptr, len) }
     }
 
-    /// Closes the book; every call after is refused as a null handle's.
+    /// Closes the book, and with it the rows opened from it, which answer
+    /// `XLSX_GRAFT_ERR_CLOSED` after; every call on the book after is
+    /// refused as a null handle's.
     pub fn close(&mut self) {
-        let handle = std::mem::replace(&mut self.handle, std::ptr::null_mut());
-        // SAFETY: the handle is live or null, and nulled above so it is
-        // closed once. A close cannot fail but by a panic, after which the
-        // book is closed as far as it will be.
-        unsafe { xlsx_graft_book_close(handle) };
-    }
-}
-
-impl Drop for Book {
-    fn drop(&mut self) {
-        self.close();
+        self.handle.close();
     }
 }
 
