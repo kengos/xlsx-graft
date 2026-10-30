@@ -13,6 +13,9 @@
 //! [`SheetLookup`]), and
 //! [`Book::rows`] reads a worksheet's rows: a [`SheetRows`] the caller
 //! pulls one [`Row`] at a time from, into a buffer it hands back each time.
+//! A host chooses the sheet with [`Book::choose`] ([`SheetChoice`]) and
+//! opens it with [`Book::open_rows`], each saying why not as a
+//! [`Refusal`], so every host refuses alike.
 //!
 //! What a worksheet is read to and refused for is [`SheetRows`]'s to
 //! say. Reading stops at the first problem, with its one diagnostic: the
@@ -261,7 +264,7 @@ mod value;
 mod workbook;
 mod workbook_part;
 
-pub use book::{Book, SheetLookup};
+pub use book::{Book, Refusal, SheetChoice, SheetLookup};
 pub use error::ReadError;
 pub use limits::ReadLimits;
 pub use reference::CellRef;

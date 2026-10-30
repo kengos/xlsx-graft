@@ -59,7 +59,7 @@ impl Sink for Text<'_> {
             let _ = writeln!(self.err, "xlsx-graft: {}", Problem(record));
         }
         if let Some(error) = &end.error {
-            let _ = writeln!(self.err, "xlsx-graft: {error}");
+            let _ = writeln!(self.err, "xlsx-graft: {}", error.0);
         }
         Ok(())
     }

@@ -3,13 +3,13 @@
 //! `tests/bin/read`.
 
 use super::json::Cell;
-use super::select::Refusal;
+use super::select::Refused;
 use super::text::{Problem, Text, write_value};
 use super::{End, Sink};
 use crate::CliError;
 use std::io::{self, Write};
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Limit, Location};
-use xlsx_graft_read::{DateSystem, FormatKind, SheetKind, Value};
+use xlsx_graft_read::{DateSystem, FormatKind, Refusal, Value};
 
 /// `value` as `read --format json` prints a cell of it.
 fn json(value: Value<'_>) -> String {
@@ -162,68 +162,12 @@ fn a_diagnostic_in_text_says_its_severity_code_place_and_message() {
 }
 
 #[test]
-fn each_refusal_has_its_code_and_says_why() {
-    let named = |name: &str| name.to_owned();
-    let refusals = [
-        (
-            Refusal::WorkbookUnreadable,
-            "workbook_unreadable",
-            "the workbook cannot be read; the diagnostics say why",
-        ),
-        (
-            Refusal::NoSuchName(named("X")),
-            "sheet_not_found",
-            "no sheet is named \"X\"",
-        ),
-        (
-            Refusal::NoSuchIndex { index: 3, count: 2 },
-            "sheet_not_found",
-            "there is no sheet at index 3: the workbook has 2, from index 0",
-        ),
-        (
-            Refusal::Duplicate(named("A")),
-            "sheet_ambiguous",
-            "more than one sheet is named \"A\", letter case aside",
-        ),
-        (
-            Refusal::NotWorksheet {
-                name: named("C"),
-                kind: SheetKind::Chartsheet,
-            },
-            "sheet_not_worksheet",
-            "sheet \"C\" is a chartsheet, which holds no cells",
-        ),
-        (
-            Refusal::NotWorksheet {
-                name: named("D"),
-                kind: SheetKind::Dialogsheet,
-            },
-            "sheet_not_worksheet",
-            "sheet \"D\" is a dialog sheet, which holds no cells",
-        ),
-        (
-            Refusal::NotWorksheet {
-                name: named("M"),
-                kind: SheetKind::Macrosheet,
-            },
-            "sheet_not_worksheet",
-            "sheet \"M\" is a macro sheet, whose cells are not read",
-        ),
-        (
-            Refusal::SheetUnreadable(named("S")),
-            "sheet_unreadable",
-            "sheet \"S\" cannot be read; the diagnostics say why",
-        ),
-    ];
-    for (refusal, code, message) in refusals {
-        assert_eq!(refusal.code(), code);
-        assert_eq!(refusal.to_string(), message);
-        let json = serde_json::to_value(&refusal).unwrap();
-        assert_eq!(
-            json,
-            serde_json::json!({ "code": code, "message": message })
-        );
-    }
+fn a_refusal_prints_as_its_code_and_message() {
+    let refused = Refused(Refusal::NoSuchName("X".to_owned()));
+    let json = serde_json::to_value(&refused).unwrap();
+    let expected =
+        serde_json::json!({ "code": "sheet_not_found", "message": "no sheet is named \"X\"" });
+    assert_eq!(json, expected);
 }
 
 #[test]
@@ -232,7 +176,7 @@ fn text_flushes_the_rows_before_the_problems_and_passes_a_closed_stderr_over() {
     let missing = Diagnostic::SharedStringMissing { index: 7 };
     diagnostics.push(missing, Location::default());
     let end = End {
-        error: Some(Refusal::WorkbookUnreadable),
+        error: Some(Refused(Refusal::WorkbookUnreadable)),
         diagnostics: diagnostics.finish(),
         ..End::default()
     };

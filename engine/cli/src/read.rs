@@ -15,14 +15,14 @@ mod text;
 use crate::{CliError, Format, Outcome};
 use clap::Args;
 pub(crate) use help::{AFTER_LONG_HELP, LONG_ABOUT};
-use select::Refusal;
+use select::Refused;
 use serde::Serialize;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::PathBuf;
 use xlsx_graft_diagnostics::{Diagnostics, Record};
 use xlsx_graft_package::Limits;
-use xlsx_graft_read::{Book, ReadLimits, Row};
+use xlsx_graft_read::{Book, ReadLimits, Refusal, Row};
 use xlsx_graft_spool::TempFiles;
 
 /// The arguments of `read`.
@@ -58,7 +58,7 @@ struct End {
     /// How many rows were printed.
     rows: u64,
     /// Why no sheet was read to its end, when none was.
-    error: Option<Refusal>,
+    error: Option<Refused>,
     /// Every problem found in the workbook.
     diagnostics: Vec<Record>,
 }
@@ -106,7 +106,7 @@ pub(crate) fn run(
     let mut end = End::default();
     match book {
         Some(book) => read(&book, args, sink, &mut end, &mut diagnostics)?,
-        None => end.error = Some(Refusal::WorkbookUnreadable),
+        None => end.error = Some(Refused(Refusal::WorkbookUnreadable)),
     }
     end.ok = end.error.is_none() && !diagnostics.has_errors();
     end.diagnostics = diagnostics.finish();
@@ -128,22 +128,21 @@ fn read(
     end: &mut End,
     diagnostics: &mut Diagnostics,
 ) -> Result<(), CliError> {
-    let (index, sheet) = match select::sheet(book, args.sheet.as_deref(), args.sheet_index) {
+    let (index, sheet) = match book.choose(select::choice(args)) {
         Ok(chosen) => chosen,
         Err(refusal) => {
-            end.error = Some(refusal);
+            end.error = Some(Refused(refusal));
             return Ok(());
         }
     };
     let name = sheet.name().to_owned();
     end.sheet = Some(Chosen { index, name });
-    if let Err(refusal) = select::worksheet(sheet) {
-        end.error = Some(refusal);
-        return Ok(());
-    }
-    let Some(mut rows) = book.rows(index) else {
-        end.error = Some(Refusal::SheetUnreadable(sheet.name().to_owned()));
-        return Ok(());
+    let mut rows = match book.open_rows(index) {
+        Ok(rows) => rows,
+        Err(refusal) => {
+            end.error = Some(Refused(refusal));
+            return Ok(());
+        }
     };
     let mut row = Row::new();
     while rows.next_row(&mut row, diagnostics)? {

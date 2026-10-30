@@ -2,6 +2,10 @@
 //! says: its package, its workbook part, shared strings table and styles,
 //! each read once, and a [`SheetRows`] for a worksheet's rows.
 
+mod choice;
+
+pub use choice::{Refusal, SheetChoice};
+
 use crate::schema::fold;
 use crate::{
     DateSystem, ReadError, ReadLimits, SharedStrings, Sheet, SheetKind, SheetRows, Styles,
