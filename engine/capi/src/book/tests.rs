@@ -1,7 +1,7 @@
 //! Unit tests for the book: what opening finds, which sheet a choice
 //! opens or why none, and the diagnostics' JSON.
 
-use super::{Choice, Reader, XlsxGraftBook};
+use super::{Reader, XlsxGraftBook};
 use crate::message::lent;
 use crate::sheet::*;
 use crate::status::*;
@@ -10,6 +10,7 @@ use crate::tests::workbook::{
 };
 use serde_json::Value;
 use std::io::{self, Cursor, Read, Seek, SeekFrom};
+use xlsx_graft_read::SheetChoice;
 
 /// The book of the workbook of `sheets`.
 fn open(sheets: &[Sheet<'_>]) -> XlsxGraftBook {
@@ -23,7 +24,7 @@ fn diagnostics(book: &mut XlsxGraftBook) -> Value {
 
 /// The status `choice` opens the rows of `book` with: `OK` when it opens
 /// them.
-fn status(book: &XlsxGraftBook, choice: Choice<'_>) -> i32 {
+fn status(book: &XlsxGraftBook, choice: SheetChoice<'_>) -> i32 {
     book.rows(choice)
         .map_or_else(|status| status, |_| XLSX_GRAFT_OK)
 }
@@ -82,7 +83,11 @@ fn the_sheets_are_listed_with_their_names_kinds_and_states() {
 #[test]
 fn a_sheet_is_opened_by_index_or_by_name_letter_case_aside() {
     let book = open(&[worksheet("Data", ""), worksheet("Más", "")]);
-    for choice in [Choice::Index(1), Choice::Name("MÁS"), Choice::Name("Data")] {
+    for choice in [
+        SheetChoice::Index(1),
+        SheetChoice::Name("MÁS"),
+        SheetChoice::Name("Data"),
+    ] {
         assert_eq!(status(&book, choice), XLSX_GRAFT_OK, "{choice:?}");
     }
 }
@@ -97,13 +102,16 @@ fn each_sheet_that_cannot_be_opened_says_why() {
         macrosheet("Macro"),
     ]);
     let cases = [
-        (Choice::Index(5), XLSX_GRAFT_ERR_SHEET_NOT_FOUND),
-        (Choice::Index(4), XLSX_GRAFT_ERR_SHEET_NOT_WORKSHEET),
-        (Choice::Name("Nope"), XLSX_GRAFT_ERR_SHEET_NOT_FOUND),
-        (Choice::Name("DATA"), XLSX_GRAFT_ERR_SHEET_AMBIGUOUS),
-        (Choice::Name("chart"), XLSX_GRAFT_ERR_SHEET_NOT_WORKSHEET),
-        (Choice::Index(3), XLSX_GRAFT_ERR_SHEET_UNREADABLE),
-        (Choice::Index(0), XLSX_GRAFT_OK),
+        (SheetChoice::Index(5), XLSX_GRAFT_ERR_SHEET_NOT_FOUND),
+        (SheetChoice::Index(4), XLSX_GRAFT_ERR_SHEET_NOT_WORKSHEET),
+        (SheetChoice::Name("Nope"), XLSX_GRAFT_ERR_SHEET_NOT_FOUND),
+        (SheetChoice::Name("DATA"), XLSX_GRAFT_ERR_SHEET_AMBIGUOUS),
+        (
+            SheetChoice::Name("chart"),
+            XLSX_GRAFT_ERR_SHEET_NOT_WORKSHEET,
+        ),
+        (SheetChoice::Index(3), XLSX_GRAFT_ERR_SHEET_UNREADABLE),
+        (SheetChoice::Index(0), XLSX_GRAFT_OK),
     ];
     for (choice, expected) in cases {
         assert_eq!(status(&book, choice), expected, "{choice:?}");
@@ -111,13 +119,31 @@ fn each_sheet_that_cannot_be_opened_says_why() {
 }
 
 #[test]
+fn the_first_sheet_refused_is_the_books_error_as_read_says_it() {
+    let mut book = open(&[worksheet("Data", ""), chartsheet("Chart")]);
+    assert_eq!(diagnostics(&mut book)["error"], Value::Null);
+    status(&book, SheetChoice::Index(7));
+    status(&book, SheetChoice::Name("chart"));
+    let expected = serde_json::json!({
+        "code": "sheet_not_found",
+        "message": "there is no sheet at index 7: the workbook has 2, from index 0",
+    });
+    assert_eq!(diagnostics(&mut book)["error"], expected);
+}
+
+#[test]
 fn a_workbook_that_cannot_be_read_still_opens_and_says_why() {
     let mut book = XlsxGraftBook::open(Box::new(Cursor::new(b"not a zip".to_vec()))).unwrap();
+    assert_eq!(
+        diagnostics(&mut book)["error"]["code"],
+        "workbook_unreadable"
+    );
     assert_eq!(book.sheets(), Err(XLSX_GRAFT_ERR_WORKBOOK_UNREADABLE));
-    let status = status(&book, Choice::Index(0));
+    let status = status(&book, SheetChoice::Index(0));
     assert_eq!(status, XLSX_GRAFT_ERR_WORKBOOK_UNREADABLE);
     let report = diagnostics(&mut book);
     assert_eq!(report["has_errors"], true);
+    assert_eq!(report["error"]["code"], "workbook_unreadable");
     assert!(!report["diagnostics"].as_array().unwrap().is_empty());
 }
 
@@ -127,7 +153,7 @@ fn a_clean_workbook_has_no_diagnostics() {
     let report = diagnostics(&mut book);
     assert_eq!(
         report,
-        serde_json::json!({"has_errors": false, "diagnostics": []})
+        serde_json::json!({"has_errors": false, "error": null, "diagnostics": []})
     );
 }
 

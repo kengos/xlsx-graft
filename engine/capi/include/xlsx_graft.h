@@ -40,23 +40,38 @@
  *    its close, closing it twice included, is undefined behaviour. A null
  *    handle is refused with XLSX_GRAFT_ERR_NULL_ARG, and closing a null
  *    handle does nothing and returns XLSX_GRAFT_OK, so a binding that sets
- *    its copy to NULL as it closes it can never use it closed.
+ *    its copy to NULL as it closes it can never use it closed. (A rows
+ *    handle whose book was closed is not closed: see HANDLES.)
  *
  * HANDLES
  *
  *    A book (XlsxGraftBook) is a workbook opened to read its sheets' rows;
  *    a rows handle (XlsxGraftRows) reads one sheet's rows, one row a call.
- *    A rows handle needs no book to read on: the two may be closed in
- *    either order, and one book may have several rows handles open, read
- *    in turns.
+ *    One book may have several rows handles open, read in turns.
  *
- *    After XLSX_GRAFT_ERR_PANIC on a handle, close it, the book it came
- *    from and every other rows handle of that book, and use none of them
- *    again: they share what the panic may have left half-changed.
+ *    Closing the book closes the rows of every rows handle opened from it,
+ *    and the file they read: such a handle then answers
+ *    xlsx_graft_rows_next with XLSX_GRAFT_ERR_CLOSED, and its own close is
+ *    still to be called, to free what is left of it. So a binding need not
+ *    track its rows handles to close the file: closing the book does. The
+ *    other way round, a binding's rows object holds its book object, so
+ *    that a garbage collector does not finalize the book, and with it the
+ *    rows, while they are read.
  *
- *    The diagnostics live in the book. Close the book after reading the
- *    rows you want and xlsx_graft_book_diagnostics: what a rows handle
- *    finds after its book is closed is in no diagnostics left to read.
+ *    The book keeps what went wrong, for xlsx_graft_book_diagnostics to
+ *    say: the diagnostics, and the first failure (a sheet refused, the host
+ *    failing while reading rows) as `xlsx-graft read` says it in its end
+ *    line's `error`. Read them before closing the book. A sheet refused
+ *    stays the book's error, even when another is read after: to look
+ *    for a sheet, list them (xlsx_graft_book_sheets) rather than try to
+ *    open one.
+ *
+ *    After XLSX_GRAFT_ERR_PANIC on a handle, its close included, the book
+ *    and every rows handle of it answer every call but their closes with
+ *    XLSX_GRAFT_ERR_PANIC, touching nothing: they share what the panic may
+ *    have left half-changed. Close them; no diagnostics are left to read.
+ *    A close that returns XLSX_GRAFT_ERR_PANIC has closed its handle all
+ *    the same: never close it again.
  *
  * THREADING
  *
@@ -121,6 +136,9 @@ extern "C" {
 /* The sheet's part is not known or cannot be read; the book's diagnostics
  * say why. */
 #define XLSX_GRAFT_ERR_SHEET_UNREADABLE 9
+/* The rows handle's book was closed, which closed its rows: the handle
+ * reads no more, and only its close is left to call. */
+#define XLSX_GRAFT_ERR_CLOSED 10
 
 /* ---- values ---------------------------------------------------------- */
 
@@ -217,8 +235,9 @@ int32_t xlsx_graft_error_message(const uint8_t **out_ptr, size_t *out_len);
 /*
  * Opens the workbook at path (path_len bytes of UTF-8, NOT NUL-terminated)
  * and writes a book handle to *out_book; close it with
- * xlsx_graft_book_close. The file stays open until the book and every rows
- * handle opened from it are closed.
+ * xlsx_graft_book_close. The file stays open until the book is closed,
+ * which closes the rows of every rows handle opened from it too (see
+ * HANDLES).
  *
  * XLSX_GRAFT_OK whenever the engine read the file, even when it found no
  * workbook in it: the book then refuses its sheets with
@@ -250,19 +269,24 @@ int32_t xlsx_graft_book_sheets(XlsxGraftBook *book,
 
 /*
  * Every problem found so far, in the book and in the rows read from it, as
- * UTF-8 JSON (NOT NUL-terminated): {"has_errors": B, "diagnostics": [...]},
- * each diagnostic the object every host prints, as `xlsx-graft read` does
- * in its end line. Call it after reading the rows you want, for what they
- * found. The bytes belong to the book and live until the next call of this
- * function on it, or its close.
+ * UTF-8 JSON (NOT NUL-terminated):
+ * {"has_errors": B, "error": E, "diagnostics": [...]}, as `xlsx-graft read`
+ * says them in its end line: has_errors whether a diagnostic is an error;
+ * error null, or the first failure, {"code": C, "message": M}, C a code of
+ * `read`'s `error` (workbook_unreadable, sheet_not_found, sheet_ambiguous,
+ * sheet_not_worksheet, sheet_unreadable; workbook_unreadable from the
+ * open on) or "io" (the host failed while reading rows); each diagnostic the object every host prints. A read that
+ * a problem stopped has an error diagnostic, and no `error`. Call it after
+ * reading the rows you want, for what they found. The bytes belong to the
+ * book and live until the next call of this function on it, or its close.
  */
 int32_t xlsx_graft_book_diagnostics(XlsxGraftBook *book,
                                     const uint8_t **out_ptr, size_t *out_len);
 
 /*
- * Closes the book. What it lent is gone; the rows handles opened from it
- * read on, but what they find after is in no diagnostics left to read.
- * NULL does nothing. Always XLSX_GRAFT_OK (or XLSX_GRAFT_ERR_PANIC).
+ * Closes the book, and the rows of every rows handle opened from it, which
+ * answer XLSX_GRAFT_ERR_CLOSED after: what they all lent is gone. NULL does
+ * nothing. Always XLSX_GRAFT_OK (or XLSX_GRAFT_ERR_PANIC).
  */
 int32_t xlsx_graft_book_close(XlsxGraftBook *book);
 
@@ -271,7 +295,10 @@ int32_t xlsx_graft_book_close(XlsxGraftBook *book);
  * hidden sheets and chartsheets counted) and writes a rows handle to
  * *out_rows; close it with xlsx_graft_rows_close. Refuses, writing nothing,
  * with XLSX_GRAFT_ERR_WORKBOOK_UNREADABLE, XLSX_GRAFT_ERR_SHEET_NOT_FOUND,
- * XLSX_GRAFT_ERR_SHEET_NOT_WORKSHEET or XLSX_GRAFT_ERR_SHEET_UNREADABLE.
+ * XLSX_GRAFT_ERR_SHEET_NOT_WORKSHEET or XLSX_GRAFT_ERR_SHEET_UNREADABLE,
+ * which the book keeps as its error, its message naming the sheet asked
+ * for. xlsx_graft_book_sheets refusing an unreadable workbook keeps
+ * workbook_unreadable so too.
  */
 int32_t xlsx_graft_rows_open(XlsxGraftBook *book, size_t index,
                              XlsxGraftRows **out_rows);
@@ -299,15 +326,16 @@ int32_t xlsx_graft_rows_open_name(XlsxGraftBook *book, const uint8_t *name,
  * so on every call after. Tell the end by *out_number == 0, never by
  * *out_len: a row the sheet writes empty has its number and a length of
  * 0, and its *out_values is then not to be read. XLSX_GRAFT_ERR_IO when the host fails, writing
- * nothing; no row comes after it either.
+ * nothing, and the book keeps it as its error; no row comes after it
+ * either. XLSX_GRAFT_ERR_CLOSED when the book was closed.
  */
 int32_t xlsx_graft_rows_next(XlsxGraftRows *rows, uint32_t *out_number,
                              const XlsxGraftValue **out_values,
                              size_t *out_len);
 
 /*
- * Closes the rows handle. The values it lent are gone. NULL does nothing.
- * Always XLSX_GRAFT_OK (or XLSX_GRAFT_ERR_PANIC).
+ * Closes the rows handle, its book closed or not. The values it lent are
+ * gone. NULL does nothing. Always XLSX_GRAFT_OK (or XLSX_GRAFT_ERR_PANIC).
  */
 int32_t xlsx_graft_rows_close(XlsxGraftRows *rows);
 

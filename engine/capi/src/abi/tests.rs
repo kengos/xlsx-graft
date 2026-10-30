@@ -1,10 +1,15 @@
 //! Unit tests for what the entry points share: the guard around a body,
-//! the UTF-8 check, and `xlsx_graft_error_message`.
+//! the poisoning of a book after a panic, the UTF-8 check, and
+//! `xlsx_graft_error_message`.
 
-use super::{run, text, xlsx_graft_error_message};
+use super::{run, run_on, text, xlsx_graft_error_message};
 use crate::message::failed;
+use crate::shared::Shared;
 use crate::status::*;
+use std::cell::Cell;
 use std::ptr;
+use std::rc::Rc;
+use xlsx_graft_diagnostics::Diagnostics;
 
 #[test]
 fn a_body_is_its_status_or_ok() {
@@ -14,6 +19,26 @@ fn a_body_is_its_status_or_ok() {
         XLSX_GRAFT_ERR_SHEET_NOT_FOUND
     );
     assert_eq!(run(|| panic!("boom")), XLSX_GRAFT_ERR_PANIC);
+}
+
+#[test]
+fn a_panic_on_a_handle_refuses_every_later_call_on_its_book() {
+    let shared = Rc::new(Shared::new(Diagnostics::new()));
+    let ran = Cell::new(0);
+    let call = |body: fn() -> Result<(), i32>| {
+        run_on(Some(Rc::clone(&shared)), || {
+            ran.set(ran.get() + 1);
+            body()
+        })
+    };
+    assert_eq!(call(|| Ok(())), XLSX_GRAFT_OK);
+    assert_eq!(call(|| panic!("boom")), XLSX_GRAFT_ERR_PANIC);
+    assert_eq!(call(|| Ok(())), XLSX_GRAFT_ERR_PANIC);
+    assert_eq!(ran.get(), 2);
+    // A null handle has nothing to poison, and its body refuses it.
+    let null = run_on(None, || Err(XLSX_GRAFT_ERR_NULL_ARG));
+    assert_eq!(null, XLSX_GRAFT_ERR_NULL_ARG);
+    assert_eq!(run_on(None, || panic!("boom")), XLSX_GRAFT_ERR_PANIC);
 }
 
 #[test]

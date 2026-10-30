@@ -1,10 +1,13 @@
 //! The rows handle's entry points: open a sheet's rows by index or name,
 //! read the next row, close it.
 
-use super::{missing, refuse_null, run, text};
-use crate::book::{Choice, XlsxGraftBook};
+use super::book::shared;
+use super::{missing, poisoning, refuse_null, run, run_on, text};
+use crate::book::XlsxGraftBook;
 use crate::rows::XlsxGraftRows;
 use crate::value::XlsxGraftValue;
+use std::rc::Rc;
+use xlsx_graft_read::SheetChoice;
 
 /// Opens the rows of the sheet at `index` of the book's list (0 is the
 /// first, hidden sheets and chartsheets counted) and writes the rows
@@ -25,10 +28,12 @@ pub unsafe extern "C" fn xlsx_graft_rows_open(
     index: usize,
     out_rows: *mut *mut XlsxGraftRows,
 ) -> i32 {
-    run(|| {
+    // SAFETY: `book` is null or a live handle by contract.
+    let shared = unsafe { shared(book) };
+    run_on(shared, || {
         refuse_null(book.is_null() || out_rows.is_null())?;
         // SAFETY: `book` is non-null, and a live handle by contract.
-        let rows = unsafe { &*book }.rows(Choice::Index(index))?;
+        let rows = unsafe { &*book }.rows(SheetChoice::Index(index))?;
         // SAFETY: `out_rows` is non-null, and a writable slot by contract.
         unsafe { out_rows.write(Box::into_raw(Box::new(rows))) };
         Ok(())
@@ -56,13 +61,15 @@ pub unsafe extern "C" fn xlsx_graft_rows_open_name(
     name_len: usize,
     out_rows: *mut *mut XlsxGraftRows,
 ) -> i32 {
-    run(|| {
+    // SAFETY: `book` is null or a live handle by contract.
+    let shared = unsafe { shared(book) };
+    run_on(shared, || {
         refuse_null(book.is_null() || missing(name, name_len) || out_rows.is_null())?;
         // SAFETY: `name` is not missing, and the caller's contract gives it
         // `name_len` bytes for the call.
         let name = unsafe { text(name, name_len) }?;
         // SAFETY: `book` is non-null, and a live handle by contract.
-        let rows = unsafe { &*book }.rows(Choice::Name(name))?;
+        let rows = unsafe { &*book }.rows(SheetChoice::Name(name))?;
         // SAFETY: `out_rows` is non-null, and a writable slot by contract.
         unsafe { out_rows.write(Box::into_raw(Box::new(rows))) };
         Ok(())
@@ -79,7 +86,10 @@ pub unsafe extern "C" fn xlsx_graft_rows_open_name(
 /// diagnostics say which), it writes 0, null and 0, and does so on every
 /// call after. The end is the number 0: a row the sheet writes empty has
 /// its number and no values. [`XLSX_GRAFT_ERR_IO`](crate::XLSX_GRAFT_ERR_IO) when the
-/// host fails, writing nothing; no row comes after it either.
+/// host fails, writing nothing, the book keeping it as its error; no row
+/// comes after it either.
+/// [`XLSX_GRAFT_ERR_CLOSED`](crate::XLSX_GRAFT_ERR_CLOSED) when the book
+/// was closed.
 ///
 /// # Safety
 ///
@@ -92,7 +102,9 @@ pub unsafe extern "C" fn xlsx_graft_rows_next(
     out_values: *mut *const XlsxGraftValue,
     out_len: *mut usize,
 ) -> i32 {
-    run(|| {
+    // SAFETY: `rows` is null or a live handle by contract.
+    let shared = (!rows.is_null()).then(|| Rc::clone(unsafe { &*rows }.shared()));
+    run_on(shared, || {
         let null = out_number.is_null() || out_values.is_null() || out_len.is_null();
         refuse_null(rows.is_null() || null)?;
         // SAFETY: `rows` is non-null, and a live handle by contract.
@@ -119,14 +131,17 @@ pub unsafe extern "C" fn xlsx_graft_rows_next(
 /// the call.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn xlsx_graft_rows_close(rows: *mut XlsxGraftRows) -> i32 {
-    run(|| {
+    // SAFETY: `rows` is null or a live handle by contract.
+    let shared = (!rows.is_null()).then(|| Rc::clone(unsafe { &*rows }.shared()));
+    let status = run(|| {
         if !rows.is_null() {
             // SAFETY: a live handle is a `Box` the library leaked, and the
             // caller gives it back only once.
             drop(unsafe { Box::from_raw(rows) });
         }
         Ok(())
-    })
+    });
+    poisoning(shared, status)
 }
 
 #[cfg(test)]

@@ -1,12 +1,14 @@
 //! The book handle's entry points: open a workbook from a path or bytes,
 //! list its sheets, lend its diagnostics, close it.
 
-use super::{bytes, missing, refuse_null, run, text};
+use super::{bytes, missing, poisoning, refuse_null, run, run_on, text};
 use crate::book::XlsxGraftBook;
 use crate::message::failed;
+use crate::shared::Shared;
 use crate::sheet::XlsxGraftSheet;
 use std::fs::File;
 use std::io::{BufReader, Cursor};
+use std::rc::Rc;
 
 /// Opens the workbook at the UTF-8 path `path` (`path_len` bytes, not
 /// NUL-terminated) and writes its book handle into `*out_book`.
@@ -89,7 +91,9 @@ pub unsafe extern "C" fn xlsx_graft_book_sheets(
     out_sheets: *mut *const XlsxGraftSheet,
     out_len: *mut usize,
 ) -> i32 {
-    run(|| {
+    // SAFETY: `book` is null or a live handle by contract.
+    let shared = unsafe { shared(book) };
+    run_on(shared, || {
         refuse_null(book.is_null() || out_sheets.is_null() || out_len.is_null())?;
         // SAFETY: `book` is non-null, and a live handle by contract.
         let sheets = unsafe { &*book }.sheets()?;
@@ -117,7 +121,9 @@ pub unsafe extern "C" fn xlsx_graft_book_diagnostics(
     out_ptr: *mut *const u8,
     out_len: *mut usize,
 ) -> i32 {
-    run(|| {
+    // SAFETY: `book` is null or a live handle by contract.
+    let shared = unsafe { shared(book) };
+    run_on(shared, || {
         refuse_null(book.is_null() || out_ptr.is_null() || out_len.is_null())?;
         // SAFETY: `book` is non-null, and a live handle by contract.
         let json = unsafe { &mut *book }.diagnostics()?;
@@ -130,10 +136,10 @@ pub unsafe extern "C" fn xlsx_graft_book_diagnostics(
     })
 }
 
-/// Closes the book: everything it lent is gone. The rows handles opened
-/// from it read on, but what they find after is in no diagnostics left to
-/// read. A null `book` does nothing; either way the call
-/// returns [`XLSX_GRAFT_OK`](crate::XLSX_GRAFT_OK).
+/// Closes the book, and the rows of every rows handle opened from it,
+/// which answer [`XLSX_GRAFT_ERR_CLOSED`](crate::XLSX_GRAFT_ERR_CLOSED)
+/// after: everything they lent is gone. A null `book` does nothing; either
+/// way the call returns [`XLSX_GRAFT_OK`](crate::XLSX_GRAFT_OK).
 ///
 /// # Safety
 ///
@@ -141,14 +147,27 @@ pub unsafe extern "C" fn xlsx_graft_book_diagnostics(
 /// the call.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn xlsx_graft_book_close(book: *mut XlsxGraftBook) -> i32 {
-    run(|| {
+    // SAFETY: `book` is null or a live handle by contract.
+    let shared = unsafe { shared(book) };
+    let status = run(|| {
         if !book.is_null() {
             // SAFETY: a live handle is a `Box` the library leaked, and the
             // caller gives it back only once.
             drop(unsafe { Box::from_raw(book) });
         }
         Ok(())
-    })
+    });
+    poisoning(shared, status)
+}
+
+/// What `book` shares with its rows, or `None` for a null `book`.
+///
+/// # Safety
+///
+/// `book` must be null or a book handle not yet closed.
+pub(super) unsafe fn shared(book: *mut XlsxGraftBook) -> Option<Rc<Shared>> {
+    // SAFETY: the caller's contract.
+    (!book.is_null()).then(|| Rc::clone(unsafe { &*book }.shared()))
 }
 
 #[cfg(test)]

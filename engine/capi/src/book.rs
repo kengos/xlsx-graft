@@ -6,11 +6,15 @@
 //! diagnostics that say why, and refuses its sheets with
 //! [`XLSX_GRAFT_ERR_WORKBOOK_UNREADABLE`]. Only the host failing makes none.
 //!
-//! The diagnostics are shared with every rows handle the book opens, so
-//! they hold what reading those rows found too, as `read`'s end line does.
+//! The diagnostics are shared with every rows handle the book opens
+//! ([`Shared`]), so they hold what reading those rows found too, as
+//! `read`'s end line does, and so does the first failure: a sheet refused
+//! as `read` refuses it, or the host failing. Closing the book closes those
+//! rows handles' rows.
 
 use crate::message::failed;
 use crate::rows::XlsxGraftRows;
+use crate::shared::{Failure, Shared};
 use crate::sheet::XlsxGraftSheet;
 use crate::status::{
     XLSX_GRAFT_ERR_SHEET_AMBIGUOUS, XLSX_GRAFT_ERR_SHEET_NOT_FOUND,
@@ -18,12 +22,11 @@ use crate::status::{
     XLSX_GRAFT_ERR_WORKBOOK_UNREADABLE,
 };
 use serde::Serialize;
-use std::cell::RefCell;
 use std::io::{Read, Seek};
 use std::rc::Rc;
 use xlsx_graft_diagnostics::{Diagnostics, Record};
 use xlsx_graft_package::Limits;
-use xlsx_graft_read::{Book, ReadLimits, SheetKind, SheetLookup};
+use xlsx_graft_read::{Book, ReadLimits, Refusal, SheetChoice};
 use xlsx_graft_spool::TempFiles;
 
 /// What a book reads from: a file or a copy of the caller's bytes.
@@ -40,18 +43,9 @@ pub struct XlsxGraftBook {
     book: Option<Book<Reader>>,
     /// The sheets, their names lent from `book`.
     sheets: Vec<XlsxGraftSheet>,
-    diagnostics: Rc<RefCell<Diagnostics>>,
+    shared: Rc<Shared>,
     /// The diagnostics as JSON, as last lent out.
     json: String,
-}
-
-/// Which sheet to open the rows of.
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum Choice<'a> {
-    /// The sheet at this index of the list, hidden ones included.
-    Index(usize),
-    /// The sheet of this name, letter case aside.
-    Name(&'a str),
 }
 
 /// `xlsx_graft_book_diagnostics`'s JSON.
@@ -59,6 +53,8 @@ pub(crate) enum Choice<'a> {
 struct Report<'a> {
     /// Whether any diagnostic is an error.
     has_errors: bool,
+    /// Why the book or its rows stopped short, first.
+    error: Option<Failure>,
     diagnostics: &'a [Record],
 }
 
@@ -77,69 +73,89 @@ impl XlsxGraftBook {
         let book = Book::open(reader, &limits, &read_limits, &mut spools, &mut diagnostics);
         let book = book.map_err(failed)?;
         let sheets = book.iter().flat_map(Book::sheets);
-        Ok(Self {
+        let opened = Self {
             sheets: sheets.map(XlsxGraftSheet::of).collect(),
             book,
-            diagnostics: Rc::new(RefCell::new(diagnostics)),
+            shared: Rc::new(Shared::new(diagnostics)),
             json: String::new(),
-        })
+        };
+        // A workbook that cannot be read is the book's error from the
+        // start, as `read`'s end line says it.
+        if opened.book.is_none() {
+            opened.refuse(&Refusal::WorkbookUnreadable);
+        }
+        Ok(opened)
+    }
+
+    /// What the book shares with its rows.
+    pub(crate) fn shared(&self) -> &Rc<Shared> {
+        &self.shared
     }
 
     /// The sheets, in the order the workbook lists them.
     pub(crate) fn sheets(&self) -> Result<&[XlsxGraftSheet], i32> {
-        self.book
-            .as_ref()
-            .ok_or(XLSX_GRAFT_ERR_WORKBOOK_UNREADABLE)?;
+        self.readable()?;
         Ok(&self.sheets)
     }
 
     /// A reader of the rows of the sheet `choice` names, or the status
-    /// saying why there is none.
-    pub(crate) fn rows(&self, choice: Choice<'_>) -> Result<XlsxGraftRows, i32> {
-        let book = self
-            .book
-            .as_ref()
-            .ok_or(XLSX_GRAFT_ERR_WORKBOOK_UNREADABLE)?;
-        let index = match choice {
-            Choice::Index(index) => index,
-            Choice::Name(name) => match book.sheet(name) {
-                SheetLookup::Found(index) => index,
-                SheetLookup::Missing => return Err(XLSX_GRAFT_ERR_SHEET_NOT_FOUND),
-                SheetLookup::Duplicate => return Err(XLSX_GRAFT_ERR_SHEET_AMBIGUOUS),
-            },
-        };
-        let sheet = book
-            .sheets()
-            .get(index)
-            .ok_or(XLSX_GRAFT_ERR_SHEET_NOT_FOUND)?;
-        match sheet.part().map(|part| part.kind()) {
-            Some(SheetKind::Worksheet) | None => {}
-            Some(_) => return Err(XLSX_GRAFT_ERR_SHEET_NOT_WORKSHEET),
-        }
-        let rows = book.rows(index).ok_or(XLSX_GRAFT_ERR_SHEET_UNREADABLE)?;
-        Ok(XlsxGraftRows::new(rows, Rc::clone(&self.diagnostics)))
+    /// saying why there is none, kept as the book's failure.
+    pub(crate) fn rows(&self, choice: SheetChoice<'_>) -> Result<XlsxGraftRows, i32> {
+        let book = self.readable()?;
+        let rows = book
+            .choose(choice)
+            .and_then(|(index, _)| book.open_rows(index))
+            .map_err(|refusal| self.refuse(&refusal))?;
+        XlsxGraftRows::new(rows, Rc::clone(&self.shared))
     }
 
     /// Every problem found so far, in the book and in the rows read from
-    /// it, as JSON: `{"has_errors": B, "diagnostics": [...]}`, each
-    /// diagnostic as every host prints it.
+    /// it, as JSON: `{"has_errors": B, "error": E, "diagnostics": [...]}`,
+    /// `error` the first failure or null, each diagnostic as every host
+    /// prints it.
     ///
     /// # Errors
     ///
     /// [`XLSX_GRAFT_ERR_IO`](crate::XLSX_GRAFT_ERR_IO) if the JSON cannot
     /// be written, its message kept.
     pub(crate) fn diagnostics(&mut self) -> Result<&str, i32> {
-        // As in `XlsxGraftRows::next`, nothing else borrows them now.
-        let diagnostics = self.diagnostics.try_borrow().map_err(failed)?;
+        // Nothing else borrows them while a call lasts: a handle is used
+        // from one thread at a time, and no call re-enters another.
+        let diagnostics = self.shared.diagnostics.try_borrow().map_err(failed)?;
         let has_errors = diagnostics.has_errors();
         let records = diagnostics.clone().finish();
         drop(diagnostics);
         let report = Report {
             has_errors,
+            error: self.shared.failure(),
             diagnostics: &records,
         };
         self.json = serde_json::to_string(&report).map_err(failed)?;
         Ok(&self.json)
+    }
+
+    /// The workbook, or [`XLSX_GRAFT_ERR_WORKBOOK_UNREADABLE`], kept.
+    fn readable(&self) -> Result<&Book<Reader>, i32> {
+        (self.book.as_ref()).ok_or_else(|| self.refuse(&Refusal::WorkbookUnreadable))
+    }
+
+    /// Keeps `refusal` as the book's failure, and returns its status.
+    fn refuse(&self, refusal: &Refusal) -> i32 {
+        self.shared.fail(refusal.code(), refusal.to_string());
+        match refusal {
+            Refusal::WorkbookUnreadable => XLSX_GRAFT_ERR_WORKBOOK_UNREADABLE,
+            Refusal::NoSuchName(_) | Refusal::NoSuchIndex { .. } => XLSX_GRAFT_ERR_SHEET_NOT_FOUND,
+            Refusal::Duplicate(_) => XLSX_GRAFT_ERR_SHEET_AMBIGUOUS,
+            Refusal::NotWorksheet { .. } => XLSX_GRAFT_ERR_SHEET_NOT_WORKSHEET,
+            Refusal::SheetUnreadable(_) => XLSX_GRAFT_ERR_SHEET_UNREADABLE,
+        }
+    }
+}
+
+/// Closing the book closes the rows opened from it.
+impl Drop for XlsxGraftBook {
+    fn drop(&mut self) {
+        self.shared.close_rows();
     }
 }
 

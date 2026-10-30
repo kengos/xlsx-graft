@@ -233,7 +233,13 @@ The header gives the whole contract; this is the shape an SDK builds on.
   for one sheet, and `xlsx_graft_rows_next` reads a row a call until it
   writes row number 0 (an empty row has its number and no values). Each
   handle has its close, which an SDK calls however its caller's block
-  ends; the two may close in either order, but the diagnostics are the
+  ends. Closing the book closes the rows of every rows handle opened
+  from it, and the file: such a handle answers
+  `XLSX_GRAFT_ERR_CLOSED`, and only its own close, which frees what is
+  left of it, is still to call. So an SDK need not track its rows
+  handles to close the file; it closes the book. The other way round, an
+  SDK's rows object holds its book object, so that a garbage collector
+  does not finalize the book, and with it the rows, while they are read. The diagnostics are the
   book's, so read them before closing it.
 - **Null a handle as you close it.** Using a closed handle is undefined
   behaviour, but a null one is refused with `XLSX_GRAFT_ERR_NULL_ARG` and
@@ -241,8 +247,10 @@ The header gives the whole contract; this is the shape an SDK builds on.
 - **One thread at a time** for a book and its rows together, closes
   included: they share state the library does not lock. A finalizer that
   runs on a thread of its own closes only under the program's lock for
-  that book, or not at all. After `XLSX_GRAFT_ERR_PANIC` close the book
-  and all its rows.
+  that book, or not at all. After `XLSX_GRAFT_ERR_PANIC` the book and
+  its rows answer every call but their closes with it, touching nothing:
+  close them, and read no diagnostics. A close that returns it has
+  closed its handle all the same.
 - **An empty input may be null.** A null pointer with a length of 0 is
   read as no bytes, so an empty array an FFI passes as null needs no
   special case. A path that is not UTF-8 is refused; read that file and
@@ -254,9 +262,15 @@ The header gives the whole contract; this is the shape an SDK builds on.
   values, and the text they point at, live until then.
 - **What is a result.** Opening returns `XLSX_GRAFT_OK` for any file the
   engine could read, a workbook or not; the book's diagnostics
-  (`xlsx_graft_book_diagnostics`, the JSON every host prints, read after
-  the rows) say what it found. A status refusing a sheet maps to the code
-  `read` puts in its end line's `error`:
+  (`xlsx_graft_book_diagnostics`, read after the rows) say what it found:
+  `{"has_errors": B, "error": E, "diagnostics": [...]}`, as `read`'s end
+  line says them. `error` is the book's first failure, `{"code", "message"}`
+  in `read`'s words, or null: a sheet refused (an unreadable workbook
+  from the open on), or `io` when the host failed while reading rows. A
+  refused sheet stays the error when another is read after, so an SDK
+  looks a sheet up in the list rather than by trying to open it. A read that a problem in the sheet stopped has no `error`, and an
+  error diagnostic. A status refusing a sheet maps to the code `read`
+  puts in its end line's `error`, the one the JSON then holds:
 
   | Status | `error.code` |
   | --- | --- |

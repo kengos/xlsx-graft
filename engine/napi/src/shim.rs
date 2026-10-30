@@ -48,8 +48,12 @@ pub fn version() -> JsOutcome {
 /// `Book.openBytes(buffer)`, then `status` before anything else.
 ///
 /// When any call on it or on its rows returns `XLSX_GRAFT_ERR_PANIC` (2),
-/// close it and every `Rows` opened from it, and use none of them again,
-/// as the C ABI's header says.
+/// every later call on them but `close` returns it too, as the C ABI's
+/// header says: close them.
+///
+/// Closing it closes every `Rows` opened from it, whose `nextRow()` then
+/// returns `XLSX_GRAFT_ERR_CLOSED` (10). A `Rows` holds its book open, so
+/// the garbage collector finalizing the book alone closes nothing.
 #[napi]
 pub struct Book {
     inner: call::Book,
@@ -121,8 +125,7 @@ impl Book {
 }
 
 /// The rows of one sheet: `status` first, then `nextRow()` until its `row` is
-/// absent. After `XLSX_GRAFT_ERR_PANIC`, close it with its book and the
-/// book's other rows, as [`Book`] says.
+/// absent. They live no longer than their book, as [`Book`] says.
 #[napi]
 pub struct Rows {
     inner: call::Rows,

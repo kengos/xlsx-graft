@@ -6,20 +6,25 @@
 //! JavaScript type it becomes, and in which time zone, is the JS SDK's to
 //! decide.
 
+use super::handle::BookHandle;
 use super::{message, owned};
+use std::rc::Rc;
 use xlsx_graft_capi::{
     XLSX_GRAFT_OK, XLSX_GRAFT_VALUE_BOOLEAN, XLSX_GRAFT_VALUE_DATE, XLSX_GRAFT_VALUE_DATETIME,
     XLSX_GRAFT_VALUE_ELAPSED, XLSX_GRAFT_VALUE_EMPTY, XLSX_GRAFT_VALUE_ERROR,
-    XLSX_GRAFT_VALUE_NUMBER, XLSX_GRAFT_VALUE_STRING, XLSX_GRAFT_VALUE_TIME, XlsxGraftBook,
-    XlsxGraftRows, XlsxGraftValue, xlsx_graft_rows_close, xlsx_graft_rows_next,
-    xlsx_graft_rows_open, xlsx_graft_rows_open_name,
+    XLSX_GRAFT_VALUE_NUMBER, XLSX_GRAFT_VALUE_STRING, XLSX_GRAFT_VALUE_TIME, XlsxGraftRows,
+    XlsxGraftValue, xlsx_graft_rows_close, xlsx_graft_rows_next, xlsx_graft_rows_open,
+    xlsx_graft_rows_open_name,
 };
 
 /// The rows of one sheet, opened through the C ABI, closed when dropped.
-/// Not [`Send`], as [`Book`](super::Book).
+/// They hold their book open: closing a book closes its rows. Not
+/// [`Send`], as [`Book`](super::Book).
 #[derive(Debug)]
 pub struct Rows {
     handle: *mut XlsxGraftRows,
+    /// Held, never read: it keeps the book open while the rows are.
+    _book: Rc<BookHandle>,
     /// The open's status.
     pub status: i32,
 }
@@ -70,25 +75,28 @@ pub struct Cell {
 
 impl Rows {
     /// Opens the rows of the sheet at `index` of `book`.
-    pub(super) fn open_index(book: *mut XlsxGraftBook, index: usize) -> Self {
+    pub(super) fn open_index(book: &Rc<BookHandle>, index: usize) -> Self {
         let mut handle = std::ptr::null_mut();
         // SAFETY: `book` is a live handle or null; `handle` a writable slot.
-        let status = unsafe { xlsx_graft_rows_open(book, index, &raw mut handle) };
-        Self {
-            handle: owned(status, handle),
-            status,
-        }
+        let status = unsafe { xlsx_graft_rows_open(book.get(), index, &raw mut handle) };
+        Self::opened(book, status, handle)
     }
 
     /// Opens the rows of the sheet of `book` named `name`.
-    pub(super) fn open_name(book: *mut XlsxGraftBook, name: &str) -> Self {
+    pub(super) fn open_name(book: &Rc<BookHandle>, name: &str) -> Self {
         let mut handle = std::ptr::null_mut();
+        let (name, len) = (name.as_ptr(), name.len());
         // SAFETY: `book` is a live handle or null, `name` alive for the
         // call, `handle` a writable slot.
-        let status =
-            unsafe { xlsx_graft_rows_open_name(book, name.as_ptr(), name.len(), &raw mut handle) };
+        let status = unsafe { xlsx_graft_rows_open_name(book.get(), name, len, &raw mut handle) };
+        Self::opened(book, status, handle)
+    }
+
+    /// The rows an open returned, holding `book`.
+    fn opened(book: &Rc<BookHandle>, status: i32, handle: *mut XlsxGraftRows) -> Self {
         Self {
             handle: owned(status, handle),
+            _book: Rc::clone(book),
             status,
         }
     }

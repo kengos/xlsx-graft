@@ -73,7 +73,10 @@ fn a_workbook_is_read_from_its_path_by_index_and_by_name() {
     assert_eq!(status, XLSX_GRAFT_OK);
     // SAFETY: on OK the JSON is `len` bytes of the live book.
     let json = unsafe { text(json, len) };
-    assert_eq!(json, r#"{"has_errors":false,"diagnostics":[]}"#);
+    assert_eq!(
+        json,
+        r#"{"has_errors":false,"error":null,"diagnostics":[]}"#
+    );
 
     // SAFETY: each handle is live, and closed once; the nulls do nothing.
     let statuses = unsafe {
@@ -118,4 +121,26 @@ fn a_file_that_will_not_open_says_why_on_the_same_thread() {
     assert_eq!(status, XLSX_GRAFT_OK);
     // SAFETY: on OK the message is `len` bytes, alive until the next failure.
     assert!(!unsafe { text(message, len) }.is_empty());
+}
+
+#[test]
+fn closing_the_book_closes_the_rows_opened_from_it() {
+    let bytes = xlsx(&[worksheet("Data", r#"<row r="1"/>"#)]);
+    let mut book = ptr::null_mut();
+    // SAFETY: the bytes are alive for the call, `book` a writable slot.
+    let status = unsafe { xlsx_graft_book_open_bytes(bytes.as_ptr(), bytes.len(), &raw mut book) };
+    assert_eq!(status, XLSX_GRAFT_OK);
+    let mut rows = ptr::null_mut();
+    // SAFETY: `book` is live, `rows` a writable slot.
+    let status = unsafe { xlsx_graft_rows_open(book, 0, &raw mut rows) };
+    assert_eq!(status, XLSX_GRAFT_OK);
+    // SAFETY: `book` is live, and closed once.
+    assert_eq!(unsafe { xlsx_graft_book_close(book) }, XLSX_GRAFT_OK);
+    let (mut number, mut values, mut len) = (7, ptr::null(), 7);
+    // SAFETY: `rows` is live; the out pointers are writable slots.
+    let status =
+        unsafe { xlsx_graft_rows_next(rows, &raw mut number, &raw mut values, &raw mut len) };
+    assert_eq!((status, number, len), (XLSX_GRAFT_ERR_CLOSED, 7, 7));
+    // SAFETY: `rows` is live, and closed once.
+    assert_eq!(unsafe { xlsx_graft_rows_close(rows) }, XLSX_GRAFT_OK);
 }

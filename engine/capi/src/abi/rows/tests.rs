@@ -1,6 +1,6 @@
 //! Unit tests for the rows handle's entry points, driven as a binding
-//! drives them: opening by index and by name, reading to the end, closing
-//! in either order, and what each refuses.
+//! drives them: opening by index and by name, reading to the end, the
+//! book's close closing its rows, and what each refuses.
 
 use super::*;
 use crate::abi::book::{xlsx_graft_book_close, xlsx_graft_book_open_bytes};
@@ -82,13 +82,17 @@ fn the_rows_are_read_to_the_end_then_say_so_again() {
 }
 
 #[test]
-fn the_book_may_be_closed_before_its_rows() {
+fn the_books_close_closes_its_rows_and_leaves_their_close() {
     let book = book();
     let (status, rows) = open_name(book, "DATA".as_bytes());
     assert_eq!(status, XLSX_GRAFT_OK);
     // SAFETY: `book` is a live handle, closed once.
     assert_eq!(unsafe { xlsx_graft_book_close(book) }, XLSX_GRAFT_OK);
-    assert_eq!(next(rows).0, 2);
+    let (mut number, mut values, mut len) = (u32::MAX, ptr::dangling(), usize::MAX);
+    // SAFETY: `rows` is a live handle; the out pointers are writable slots.
+    let status =
+        unsafe { xlsx_graft_rows_next(rows, &raw mut number, &raw mut values, &raw mut len) };
+    assert_eq!((status, number), (XLSX_GRAFT_ERR_CLOSED, u32::MAX));
     close(rows);
 }
 

@@ -5,8 +5,9 @@ use super::Cell;
 use crate::call::Book;
 use crate::workbook::{chartsheet, worksheet, xlsx};
 use xlsx_graft_capi::{
-    XLSX_GRAFT_ERR_NULL_ARG, XLSX_GRAFT_ERR_SHEET_AMBIGUOUS, XLSX_GRAFT_ERR_SHEET_NOT_FOUND,
-    XLSX_GRAFT_ERR_SHEET_NOT_WORKSHEET, XLSX_GRAFT_OK, XlsxGraftValue,
+    XLSX_GRAFT_ERR_CLOSED, XLSX_GRAFT_ERR_NULL_ARG, XLSX_GRAFT_ERR_SHEET_AMBIGUOUS,
+    XLSX_GRAFT_ERR_SHEET_NOT_FOUND, XLSX_GRAFT_ERR_SHEET_NOT_WORKSHEET, XLSX_GRAFT_OK,
+    XlsxGraftValue,
 };
 
 /// A value of `kind` and nothing else.
@@ -100,6 +101,8 @@ fn the_rows_are_copied_out_to_the_end() {
     let book = Book::open_bytes(&xlsx(&[worksheet("Data", rows)]));
     let mut rows = book.rows_named("data");
     assert_eq!(rows.status, XLSX_GRAFT_OK);
+    // Dropping the book, as the garbage collector would, leaves it open
+    // for its rows.
     drop(book);
     let first = rows.next_row().row.unwrap();
     let kinds: Vec<_> = first.cells.iter().map(|cell| cell.kind).collect();
@@ -144,4 +147,13 @@ fn a_sheet_is_opened_by_index_or_refused_with_its_status() {
             XLSX_GRAFT_ERR_SHEET_NOT_FOUND
         ]
     );
+}
+
+#[test]
+fn closing_the_book_closes_its_rows() {
+    let mut book = Book::open_bytes(&xlsx(&[worksheet("Data", r#"<row r="1"/>"#)]));
+    let mut rows = book.rows(0);
+    book.close();
+    let next = rows.next_row();
+    assert_eq!((next.status, next.row), (XLSX_GRAFT_ERR_CLOSED, None));
 }

@@ -101,7 +101,10 @@ fn the_diagnostics_are_lent_as_json() {
     assert_eq!(status, XLSX_GRAFT_OK);
     // SAFETY: on OK the JSON is `len` bytes, alive until the next call.
     let json = unsafe { std::slice::from_raw_parts(json, len) };
-    assert_eq!(json, br#"{"has_errors":false,"diagnostics":[]}"#);
+    assert_eq!(
+        json,
+        br#"{"has_errors":false,"error":null,"diagnostics":[]}"#
+    );
     close(book);
 }
 
