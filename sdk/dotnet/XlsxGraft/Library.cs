@@ -90,6 +90,7 @@ internal sealed class Library
         $"{reason}.\n\n"
         + "This package never downloads the engine. Point it at one of these ways:\n"
         + $"  * set {EnvVar} to the path of a libxlsx_graft_capi library\n"
-        + "  * pass Engine.Version(library: \"/path/to/libxlsx_graft_capi.so\")\n"
+        + "  * pass Engine.Version(library: \"/path/to/libxlsx_graft_capi.so\"),\n"
+        + "    or XlsxReader.Open(path, library: ...)\n"
         + "  * put the library in native/ beside the application";
 }

@@ -15,7 +15,8 @@ public sealed class VersionCallTests
         Assert.False(result.Success);
         Assert.True(result.Failed);
         Assert.Null(result.Value);
-        Assert.Equal([new Diagnostic("panic", "the engine panicked; the call did not complete")], result.Diagnostics);
+        Assert.Null(result.Error);
+        Assert.Equal([new Diagnostic("panic", "error", "the engine panicked; the call did not complete")], result.Diagnostics);
     }
 
     [Fact]
@@ -27,10 +28,10 @@ public sealed class VersionCallTests
     [Fact]
     public void A_status_this_package_does_not_know_returns_a_failure_naming_it()
     {
-        var diagnostic = Assert.Single(CallReturning(7).Diagnostics);
+        var diagnostic = Assert.Single(CallReturning(42).Diagnostics);
 
         Assert.Equal("unknown_status", diagnostic.Code);
-        Assert.Contains("status 7", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Contains("status 42", diagnostic.Message, StringComparison.Ordinal);
     }
 
     // A stand-in for xlsx_graft_version that returns `status` with a length

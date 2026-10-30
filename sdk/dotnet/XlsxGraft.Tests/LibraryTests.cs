@@ -45,6 +45,7 @@ public sealed class LibraryTests : IDisposable
         Assert.StartsWith("no engine library was found.", error.Message, StringComparison.Ordinal);
         Assert.Contains("set XLSX_GRAFT_LIBRARY", error.Message, StringComparison.Ordinal);
         Assert.Contains("Engine.Version(library:", error.Message, StringComparison.Ordinal);
+        Assert.Contains("XlsxReader.Open(path, library:", error.Message, StringComparison.Ordinal);
         Assert.Contains("native/", error.Message, StringComparison.Ordinal);
     }
 

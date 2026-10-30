@@ -423,9 +423,9 @@ later SDK takes the same shape in its own language's idiom.
 - **The call returns a result.** On success its value is what the
   caller's block returned; a failed result has none, so a caller that
   wants the rows read before a stop keeps them outside the block. Where
-  the scope has no value (Python's `with`), the book holds the result,
-  read after the scope, and its value is none; a file that cannot be
-  opened then still runs the block, with no sheets. It is
+  the scope has no value (Python's `with`, .NET's `using`), the book
+  holds the result, read after the scope, and its value is none; a file
+  that cannot be opened then still runs the block, with no sheets. It is
   successful exactly when `read`'s `ok` would be true: no `error`, and no
   diagnostic of severity `error`. A problem the engine finds in a sheet
   leaves such a diagnostic (the rows before it have come), and where it
@@ -487,7 +487,10 @@ later SDK takes the same shape in its own language's idiom.
   off (`Thread.handle_interrupt`) in the open, every locked call and the
   close. A language that cannot (Python's `KeyboardInterrupt` comes at any
   line, though never inside a call into the library) keeps three rules
-  instead:
+  instead. .NET has no `Thread.Abort`: between two plain lines comes
+  none (a `ThreadInterruptedException` comes only while waiting, as for
+  the lock, before any call), and it keeps the same rules against an
+  exception of the SDK's own:
   - A handle's slot exists before the call that fills it, and a handle
     leaves the SDK's list before the call that frees it: an exception
     between two lines then leaks a handle at worst, never frees one twice.
@@ -499,6 +502,8 @@ later SDK takes the same shape in its own language's idiom.
   - A rows handle is freed by its read's end, its rows object's close, or
     the book's close. Python also frees it in the generator's `finally`,
     which CPython runs on the thread that dropped the generator (or that
-    collected it), under the book's lock, reentrant for that reason. A
-    runtime whose finalizers run on a thread of their own (the JVM's
+    collected it), under the book's lock, reentrant for that reason.
+    .NET frees it in the enumerator's `finally`, which runs on the
+    caller's thread as the enumeration ends or is disposed (a `foreach`
+    does). A runtime whose finalizers run on a thread of their own (the JVM's
     Cleaner, .NET's finalizer) frees nothing there.
