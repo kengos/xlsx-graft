@@ -422,7 +422,10 @@ later SDK takes the same shape in its own language's idiom.
   [Finding the engine library](#finding-the-engine-library) says.
 - **The call returns a result.** On success its value is what the
   caller's block returned; a failed result has none, so a caller that
-  wants the rows read before a stop keeps them outside the block. It is
+  wants the rows read before a stop keeps them outside the block. Where
+  the scope has no value (Python's `with`), the book holds the result,
+  read after the scope, and its value is none; a file that cannot be
+  opened then still runs the block, with no sheets. It is
   successful exactly when `read`'s `ok` would be true: no `error`, and no
   diagnostic of severity `error`. A problem the engine finds in a sheet
   leaves such a diagnostic (the rows before it have come), and where it
@@ -439,8 +442,9 @@ later SDK takes the same shape in its own language's idiom.
   `panic`,
   `null_arg`, `unknown_status`, `unknown_value` (a value of a kind newer
   than the SDK), `datetime_unrepresentable` (a date-time the caller's
-  timezone cannot place, as one its daylight saving skips or has twice)
-  and `diagnostics_unreadable` (JSON the SDK cannot read). A sheet refused
+  timezone cannot place, as one its daylight saving skips or has twice),
+  `diagnostics_unreadable` (JSON the SDK cannot read) and `interrupted`
+  (a close an exception cut short, below). A sheet refused
   stays the error even when another is read after: to look for a sheet,
   look in the list.
 - **`diagnostics`** are the engine's, every field of the JSON every host
@@ -479,3 +483,22 @@ later SDK takes the same shape in its own language's idiom.
   rows handles, to free what the book's close leaves of them; and the
   failures the engine keeps none of. It closes in the scope rather than
   in a finalizer. A rows object holds its book object.
+- **An exception between two lines.** Ruby holds asynchronous exceptions
+  off (`Thread.handle_interrupt`) in the open, every locked call and the
+  close. A language that cannot (Python's `KeyboardInterrupt` comes at any
+  line, though never inside a call into the library) keeps three rules
+  instead:
+  - A handle's slot exists before the call that fills it, and a handle
+    leaves the SDK's list before the call that frees it: an exception
+    between two lines then leaks a handle at worst, never frees one twice.
+  - The result is the product of a close that ran whole. A close an
+    exception cut short leaves none: reading it then gives a failure whose
+    `error` is `interrupted`, never a success and never a raise. Anywhere
+    else the exception itself is the caller's signal, and the result is
+    the engine's view of what was read before it.
+  - A rows handle is freed by its read's end, its rows object's close, or
+    the book's close. Python also frees it in the generator's `finally`,
+    which CPython runs on the thread that dropped the generator (or that
+    collected it), under the book's lock, reentrant for that reason. A
+    runtime whose finalizers run on a thread of their own (the JVM's
+    Cleaner, .NET's finalizer) frees nothing there.
