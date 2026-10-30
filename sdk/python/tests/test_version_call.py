@@ -28,7 +28,9 @@ def test_a_panic_status_returns_a_failure_carrying_the_panic_diagnostic(
     assert result == Result(
         success=False,
         value=None,
-        diagnostics=(Diagnostic("panic", "the engine panicked; the call did not complete"),),
+        diagnostics=(
+            Diagnostic("panic", "error", "the engine panicked; the call did not complete"),
+        ),
     )
     assert result.failed
 
@@ -43,7 +45,7 @@ def test_a_null_arg_status_returns_a_failure_carrying_the_null_arg_diagnostic(
 def test_a_status_this_package_does_not_know_returns_a_failure_naming_it(
     library: Library, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(library, "function", returning(7))
+    monkeypatch.setattr(library, "function", returning(42))
     (diagnostic,) = version_call.call(library).diagnostics
     assert diagnostic.code == "unknown_status"
-    assert "status 7" in diagnostic.message
+    assert "status 42" in diagnostic.message
