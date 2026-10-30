@@ -28,11 +28,11 @@ RSpec.describe XlsxGraft::VersionCall do
     end
 
     context "when the engine returns a status this gem does not know" do
-      let(:status) { 7 }
+      let(:status) { 42 }
 
       it "returns a failure naming the status" do
         expect(described_class.call(library).diagnostics).to contain_exactly(
-          have_attributes(code: "unknown_status", message: include("status 7"))
+          have_attributes(code: "unknown_status", message: include("status 42"))
         )
       end
     end

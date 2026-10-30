@@ -25,3 +25,17 @@ Metrics/BlockLength:
 # assertion, which would make the same FFI call again for each.
 RSpec/MultipleExpectations:
   Max: 5
+
+# For the same reason, an example reads a workbook and checks what came of it
+# in one, which takes more than the default five lines.
+RSpec/ExampleLength:
+  Max: 12
+
+# The zip the specs build is a byte layout written out field by field.
+Metrics/AbcSize:
+  Exclude:
+    - "spec/support/**/*"
+
+Metrics/MethodLength:
+  Exclude:
+    - "spec/support/**/*"
