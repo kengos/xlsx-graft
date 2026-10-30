@@ -15,6 +15,9 @@ require_relative "xlsx_graft/cell_values"
 require_relative "xlsx_graft/engine_diagnostics"
 require_relative "xlsx_graft/row"
 require_relative "xlsx_graft/sheet_info"
+require_relative "xlsx_graft/sheet"
+require_relative "xlsx_graft/book"
+require_relative "xlsx_graft/xlsx_reader"
 
 # Ruby bindings for xlsx-graft, an engine that reads, verifies, creates and
 # edits xlsx workbooks.
@@ -26,6 +29,11 @@ require_relative "xlsx_graft/sheet_info"
 # @example
 #   result = XlsxGraft.version
 #   puts result.value if result.success?
+#
+# @example Reading a sheet's rows ({XlsxReader})
+#   XlsxGraft::XlsxReader.open("book.xlsx") do |book|
+#     book.sheet("Data").each_row { |row| p row.values }
+#   end
 module XlsxGraft
   class << self
     # The engine's version.

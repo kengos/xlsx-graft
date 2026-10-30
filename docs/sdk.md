@@ -392,3 +392,90 @@ reads it a line at a time, so it never holds the sheet.
   flushes and exits 0 without a word or the end line; one that had
   written everything already exits as `ok` says. Either way the SDK does
   not read the status as a failure (rule 0).
+
+## Reading rows in an SDK
+
+How an SDK hands a sheet's rows to its caller, whichever way it reaches the
+engine ([the C ABI](#reading-rows-through-the-c-abi), the addon, or
+[`read`](#reading-rows-read)). Ruby's `XlsxGraft::XlsxReader` set it; a
+later SDK takes the same shape in its own language's idiom.
+
+- **A book in a scope.** The caller opens a workbook from a path or from
+  bytes and gets a book for the length of a block (a context manager, a
+  `using`, a try-with-resources). The book lists its sheets (name, kind and
+  state, named as the addon names them: `worksheet`, `chartsheet`,
+  `dialogsheet`, `macrosheet`, `unknown`; `visible`, `hidden`,
+  `veryHidden`), and picks one by name (letter case aside) or by index
+  (from 0, every sheet counted), the first when given neither. Its rows
+  come one at a time, each with its number from 1 and its values from
+  column A, nothing held but the row given. When the scope ends, however
+  it ends, the SDK reads the diagnostics and closes the book, which closes
+  its rows; reading from it after raises.
+- **Nothing leaves the caller's block early.** A sheet refused reads no
+  rows, an unreadable workbook lists no sheets, and a problem in a sheet
+  or the host failing ends that sheet's rows; the block goes on, and the
+  result says what happened. A panic in the engine ends every sheet of
+  the book: no sheet reads a row after it, and the book lists none. An exception the
+  caller's block raises is the caller's: it propagates, the book closed
+  first, as `File.open`, `with` and `using` do. A setup mistake (no engine
+  library, an argument of the wrong kind) raises as
+  [Finding the engine library](#finding-the-engine-library) says.
+- **The call returns a result.** On success its value is what the
+  caller's block returned; a failed result has none, so a caller that
+  wants the rows read before a stop keeps them outside the block. It is
+  successful exactly when `read`'s `ok` would be true: no `error`, and no
+  diagnostic of severity `error`. A problem the engine finds in a sheet
+  leaves such a diagnostic (the rows before it have come), and where it
+  stopped is its `location`; a stop of the SDK's own leaves `error`
+  alone, naming the row in its message.
+- **`error`** is the first thing that stopped the call short, in the
+  engine's words when the engine kept it too. The book's diagnostics JSON
+  keeps the engine's: the five codes of `read`'s `error`
+  (`workbook_unreadable`, `sheet_not_found`, `sheet_ambiguous`,
+  `sheet_not_worksheet`, `sheet_unreadable`, in `read`'s words, naming
+  the sheet asked for) and `io`. The SDK adds what the engine keeps none
+  of: an open that failed (`io`, with `xlsx_graft_error_message`'s
+  reason), `invalid_arg` (a path or a sheet name that is not UTF-8),
+  `panic`,
+  `null_arg`, `unknown_status`, `unknown_value` (a value of a kind newer
+  than the SDK), `datetime_unrepresentable` (a date-time the caller's
+  timezone cannot place, as one its daylight saving skips or has twice)
+  and `diagnostics_unreadable` (JSON the SDK cannot read). A sheet refused
+  stays the error even when another is read after: to look for a sheet,
+  look in the list.
+- **`diagnostics`** are the engine's, every field of the JSON every host
+  prints but `origin` (outside the contract). The SDK adds none to them:
+  what it finds is `error`, a diagnostic of severity `error` with no
+  `args` or `location`.
+- **Values** take the language's own types where it has one:
+
+  | Cell | Ruby | A language with wall-clock types |
+  | --- | --- | --- |
+  | empty | `nil` | its null |
+  | string | `String` | its string |
+  | number | `Float`, `3.0` included | its double |
+  | boolean | `true` / `false` | its boolean |
+  | date | `Date` | its date |
+  | time | `XlsxGraft::TimeOfDay` (hour, minute, second, millisecond) | its time of day |
+  | datetime | `Time` in `timezone:`, UTC by default | its date-time with no zone |
+  | elapsed | `Float` of seconds | its duration, else seconds |
+  | error | `XlsxGraft::CellError` (the text, `"#N/A"`) | a type of the SDK's |
+
+  A date-time is the workbook's wall-clock time with no zone. A language
+  whose date-time type carries one (Ruby's `Time`, JavaScript's `Date`,
+  Go's `time.Time`, PHP's `DateTimeImmutable`) takes the zone from the
+  caller, UTC unless told; one with a type that carries none (Python's
+  naive `datetime`, Java's `LocalDateTime`, .NET's `DateTime` of
+  `Kind = Unspecified`) returns that. A time of day keeps its parts when
+  the language has no type for one, rather than becoming a date-time on a
+  date the workbook never gave, or seconds an elapsed time would be
+  mistaken for. An error value is never a string, which a cell holding
+  the text `#N/A` would be too.
+- **What an SDK over the C ABI keeps.** A lock of the book's, taken for
+  every call into it and its rows, closes included, as the header asks,
+  what a call lends copied out before letting it go; every input passed
+  as a copy of its own (an FFI that lets go of the interpreter's lock
+  during a call would otherwise let another thread change it); the open
+  rows handles, to free what the book's close leaves of them; and the
+  failures the engine keeps none of. It closes in the scope rather than
+  in a finalizer. A rows object holds its book object.
