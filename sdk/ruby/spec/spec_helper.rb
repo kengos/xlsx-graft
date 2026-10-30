@@ -8,6 +8,7 @@ SimpleCov.start
 require "xlsx_graft"
 require "fileutils"
 require "tmpdir"
+require_relative "support/workbook"
 
 # The engine library `make engine:capi-lib` built; the gate points
 # XLSX_GRAFT_LIBRARY at it.

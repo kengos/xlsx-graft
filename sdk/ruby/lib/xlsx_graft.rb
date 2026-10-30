@@ -7,6 +7,14 @@ require_relative "xlsx_graft/result"
 require_relative "xlsx_graft/status_diagnostic"
 require_relative "xlsx_graft/library"
 require_relative "xlsx_graft/version_call"
+require_relative "xlsx_graft/capi"
+require_relative "xlsx_graft/capi/input"
+require_relative "xlsx_graft/time_of_day"
+require_relative "xlsx_graft/cell_error"
+require_relative "xlsx_graft/cell_values"
+require_relative "xlsx_graft/engine_diagnostics"
+require_relative "xlsx_graft/row"
+require_relative "xlsx_graft/sheet_info"
 
 # Ruby bindings for xlsx-graft, an engine that reads, verifies, creates and
 # edits xlsx workbooks.
