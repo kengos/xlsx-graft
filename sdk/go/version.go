@@ -1,6 +1,7 @@
 package xlsxgraft
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"unicode/utf8"
@@ -16,7 +17,7 @@ func Version(opts ...Option) (Result[string], error) {
 	if err != nil {
 		return Result[string]{}, err
 	}
-	r, err := runCLI(cli, "--version", "--format", "json")
+	r, err := runCLI(context.Background(), cli, "--version", "--format", "json")
 	if err != nil {
 		return Result[string]{}, err
 	}

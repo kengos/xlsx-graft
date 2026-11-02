@@ -56,7 +56,7 @@ func versionOf(t *testing.T, body string) Result[string] {
 func TestVersionOfANonZeroExitIsAFailedResult(t *testing.T) {
 	got := versionOf(t, `echo "xlsx-graft: broken" >&2; exit 4`)
 
-	want := failure[string](Diagnostic{Code: "exit_status", Message: "the CLI exited with status 4: xlsx-graft: broken"})
+	want := failure[string](problem("exit_status", "the CLI exited with status 4: xlsx-graft: broken"))
 	if !reflect.DeepEqual(got, want) || !got.Failed() {
 		t.Errorf("Version = %+v, want %+v", got, want)
 	}
@@ -65,7 +65,7 @@ func TestVersionOfANonZeroExitIsAFailedResult(t *testing.T) {
 func TestVersionOfACLIKilledByASignalIsAFailedResult(t *testing.T) {
 	got := versionOf(t, "kill -9 $$")
 
-	want := failure[string](Diagnostic{Code: "exit_status", Message: "the CLI was killed by signal 9"})
+	want := failure[string](problem("exit_status", "the CLI was killed by signal 9"))
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Version = %+v, want %+v", got, want)
 	}
@@ -74,7 +74,7 @@ func TestVersionOfACLIKilledByASignalIsAFailedResult(t *testing.T) {
 func TestVersionOfNoOutputIsAFailedResult(t *testing.T) {
 	got := versionOf(t, "exit 0")
 
-	want := failure[string](Diagnostic{Code: "invalid_output", Message: `the CLI printed no JSON object with a string "version"`})
+	want := failure[string](problem("invalid_output", `the CLI printed no JSON object with a string "version"`))
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Version = %+v, want %+v", got, want)
 	}
@@ -83,7 +83,7 @@ func TestVersionOfNoOutputIsAFailedResult(t *testing.T) {
 func TestVersionOfOutputThatIsNotUTF8IsAFailedResult(t *testing.T) {
 	got := versionOf(t, `printf '{"version":"\377"}'`)
 
-	want := failure[string](Diagnostic{Code: "invalid_output", Message: `the CLI printed no JSON object with a string "version": {"version":" "}`})
+	want := failure[string](problem("invalid_output", `the CLI printed no JSON object with a string "version": {"version":" "}`))
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Version = %+v, want %+v", got, want)
 	}
@@ -96,7 +96,7 @@ func TestVersionOfOutputWithNoStringVersionIsAFailedResult(t *testing.T) {
 	} {
 		got := versionOf(t, "printf '%s' '"+stdout+"'")
 
-		want := failure[string](Diagnostic{Code: "invalid_output", Message: `the CLI printed no JSON object with a string "version": ` + stdout})
+		want := failure[string](problem("invalid_output", `the CLI printed no JSON object with a string "version": `+stdout))
 		if !reflect.DeepEqual(got, want) {
 			t.Errorf("%s: Version = %+v, want %+v", stdout, got, want)
 		}

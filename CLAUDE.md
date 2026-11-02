@@ -37,7 +37,7 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   The fix-applying targets (`engine:format` / `lock` / `update`,
   `sdk:lock:ruby` / `sdk:lock:python` / `sdk:lock:dotnet` / `sdk:lock:jvm` /
   `sdk:lock:js` / `sdk:lock:php` / `sdk:lock:go`, `sdk:format:jvm` /
-  `sdk:format:js` / `sdk:format:php`) print their raw output.
+  `sdk:format:js` / `sdk:format:php` / `sdk:format:go`) print their raw output.
 - **Never wrap a gate** in a pipe (`| tail`), in `; echo $?`, or in `make -n`.
   The first two report the wrong exit code; the Makefile refuses the third.
 - GNU Make 4 or newer. The Makefile refuses 3.81 (macOS's) and names the fix.

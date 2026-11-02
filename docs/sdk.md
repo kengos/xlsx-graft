@@ -339,16 +339,25 @@ not (Go). It is never a result.
   the wait status). An end the SDK cannot read at all (Go's, when the
   application ignores SIGCHLD and the system reaps the CLI first) is an
   `exit_status` too, saying why.
-- **No timeout and no cap on the output.** `--version` returns at once and
-  prints one line. A read can take long, and its caller cancels it by
-  taking no more rows, which closes stdout (below); the CLI stops at the
-  next output it flushes, which the SDK waits for, rather than killing a
-  CLI that may have temporary files to remove. PHP adds no timeout of its own: it is synchronous,
-  waiting on a pipe with one would take `stream_select`, which does not
-  wait on a pipe on Windows, and `max_execution_time` does not count the
-  time spent waiting for the CLI but on Windows. Neither PHP nor Go caps
-  the output: a line is a row, which every SDK holds whole, and the
-  engine's limits bound it as they bound the row any host gives.
+- **No timeout of the SDK's own, and no cap on the output.** `--version`
+  returns at once and prints one line. A read can take long, and its
+  caller stops it by taking no more rows, which closes stdout (below); the
+  CLI stops at the next output it flushes, which the SDK waits for. PHP
+  adds no timeout of its own: it is synchronous, waiting on a pipe with
+  one would take `stream_select`, which does not wait on a pipe on
+  Windows, and `max_execution_time` does not count the time spent waiting
+  for the CLI but on Windows. Go takes the caller's `context.Context`
+  instead, a deadline or a cancel: once it is done, the CLI running is
+  killed at once, which leaves nothing behind (the engine spools to
+  unnamed temporary files, which the system removes however the CLI
+  ends), and the call returns the context's error, as Go's own calls do.
+  A CLI started through a script that does not `exec` it is the script
+  killed: the SDK stops reading stdout then, and lets the engine hold the
+  pipes a second at most.
+  Neither PHP nor Go caps the output: a line is a row, which every SDK
+  holds whole, and the engine's limits bound it as they bound the row any
+  host gives (Go reads a line whole, rather than through a
+  `bufio.Scanner`, whose 64 KiB a row of long strings passes).
 
 ### Listing sheets (`sheets`)
 
@@ -483,7 +492,8 @@ later SDK takes the same shape in its own language's idiom.
   status to name: it adds `exit_status` and `invalid_output`
   ([Running the CLI](#running-the-cli)) for a run that failed, and
   `invalid_arg` for a sheet name that is not UTF-8 or a path or name
-  holding a NUL, which no command line can carry. A sheet refused
+  holding a NUL, which no command line can carry. Go's `datetime_unrepresentable`
+  is also an elapsed time beyond a `time.Duration`'s 292 years. A sheet refused
   stays the error even when another is read after: to look for a sheet,
   look in the list.
 - **`diagnostics`** are the engine's, every field of the JSON every host
@@ -590,3 +600,16 @@ later SDK takes the same shape in its own language's idiom.
   to stop at worst. Its rows are a generator, which stops its run in its
   `finally` (a `foreach` that ends or breaks, or the generator dropped,
   runs it) or at the book's close.
+
+  Go needs none of them either: nothing comes between two lines of a
+  goroutine but a panic of its own, and a run is a subprocess no second
+  stop can harm. Its book is the function's argument, so it raises as Go
+  does: `Open` returns the error the function returned, or else the first
+  error the book gave it (a CLI that cannot be started, the context done,
+  a negative index, which comes at the first row asked for, so that
+  `book.SheetAt(i).Rows()` chains), even one the function let pass, with
+  the zero result; a panic propagates, the book closed first by a `defer`. Its rows
+  are pulled as a `bufio.Scanner`'s lines are (`Next`, `Row`, `Err`),
+  their run stopped by their end, their `Close` or the book's close. A
+  book takes a lock of its own, so its goroutines may share it; each rows
+  object is one goroutine's at a time.
