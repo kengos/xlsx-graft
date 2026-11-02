@@ -476,8 +476,11 @@ later SDK takes the same shape in its own language's idiom.
   `Kind = Unspecified`) returns that. A time of day keeps its parts when
   the language has no type for one, rather than becoming a date-time on a
   date the workbook never gave, or seconds an elapsed time would be
-  mistaken for. An error value is never a string, which a cell holding
-  the text `#N/A` would be too.
+  mistaken for; so does a date alone (JavaScript's `CalendarDate` and
+  `TimeOfDay`, `Date` being an instant). An elapsed time where the
+  language has no duration is seconds, or milliseconds where the
+  language counts time in them (JavaScript). An error value is never a
+  string, which a cell holding the text `#N/A` would be too.
 - **What an SDK over the C ABI keeps.** A lock of the book's, taken for
   every call into it and its rows, closes included, as the header asks,
   what a call lends copied out before letting it go; every input passed
@@ -485,7 +488,10 @@ later SDK takes the same shape in its own language's idiom.
   during a call would otherwise let another thread change it); the open
   rows handles, to free what the book's close leaves of them; and the
   failures the engine keeps none of. It closes in the scope rather than
-  in a finalizer. A rows object holds its book object.
+  in a finalizer. A rows object holds its book object. The JS SDK reaches
+  the C ABI through the addon, whose objects own the handles and do all of
+  this on JavaScript's one thread; the SDK keeps the failures and the rows
+  open, to close them with the book.
 - **An exception between two lines.** Ruby holds asynchronous exceptions
   off (`Thread.handle_interrupt`) in the open, every locked call and the
   close. A language that cannot (Python's `KeyboardInterrupt` comes at any
@@ -515,3 +521,12 @@ later SDK takes the same shape in its own language's idiom.
     and rows neither read to the end nor closed wait for the book's
     close. A runtime whose finalizers run on a thread of their own (the
     JVM's Cleaner, .NET's finalizer) frees nothing there.
+
+  JavaScript needs none of the three: it runs the caller's code and the
+  SDK's on one thread, raises nothing between two lines but running out
+  of stack or memory, and the addon's objects own the handles, so one the
+  SDK drops is freed once, as the garbage collector finalizes it on that
+  thread. Its book is the callback's argument, so a close cut short
+  throws out of `open` and leaves no result to read. Its rows are a
+  generator, freed in its `finally` (a `for...of` that ends or breaks
+  runs it) or by the book's close.

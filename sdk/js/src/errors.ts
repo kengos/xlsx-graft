@@ -19,3 +19,12 @@ export class XlsxGraftError extends Error {
 export class LibraryNotFoundError extends XlsxGraftError {
   override name = 'LibraryNotFoundError';
 }
+
+/**
+ * A book used after its callback returned, when it is closed.
+ *
+ * A mistake in the caller's code, not a failed call, so it is thrown.
+ */
+export class ClosedError extends XlsxGraftError {
+  override name = 'ClosedError';
+}

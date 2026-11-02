@@ -94,9 +94,9 @@ it only adds `V=1` for the raw output.
 `engine:test`, `sdk:lint`, `sdk:test:ruby`, `sdk:test:python`,
 `sdk:test:dotnet`, `sdk:test:jvm`, `sdk:test:js`, `sdk:test:php`,
 `sdk:test:go`, …) and the commands that fix things (`engine:format`,
-`sdk:format:jvm`, `engine:lock`, `sdk:lock:ruby`, `sdk:lock:python`,
-`sdk:lock:dotnet`, `sdk:lock:jvm`, `sdk:lock:js`, `sdk:lock:php`,
-`sdk:lock:go`).
+`sdk:format:jvm`, `sdk:format:js`, `engine:lock`, `sdk:lock:ruby`,
+`sdk:lock:python`, `sdk:lock:dotnet`, `sdk:lock:jvm`, `sdk:lock:js`,
+`sdk:lock:php`, `sdk:lock:go`).
 
 The first run pulls the toolchain image (about 1 GB), which already holds
 Rust, rustfmt, clippy and `cargo-llvm-cov`, and downloads the crates into the
