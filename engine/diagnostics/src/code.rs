@@ -12,8 +12,8 @@
 
 use crate::table::diagnostics;
 use crate::{
-    DecidedBy, Echo, EncodingReason, Fix, InflateReason, Limit, PartKind, PartNameReason,
-    SchemaReason, ZipDirectoryReason, ZipHeaderField,
+    DecidedBy, Echo, EncodingReason, Fix, FormulaMalformedReason, FunctionDenial, InflateReason,
+    Limit, PartKind, PartNameReason, SchemaReason, ZipDirectoryReason, ZipHeaderField,
 };
 
 diagnostics! {
@@ -772,6 +772,103 @@ diagnostics! {
         reason: Echo,
     } => "part_forbidden", Error,
         message: format!("the part, or a relationship it declares, holds {kind} content, which the host's policy forbids: {reason}"),
+        decided_by: Some(DecidedBy::Policy {}),
+        fix: None;
+
+    /// A formula could not be read, so it is refused whole: past where the
+    /// formula reader stopped, what the formula states is a guess. The
+    /// formula codes from here on are one diagnostic per part, defined name
+    /// reached through (or none) and finding, located at the first place it
+    /// was found, counting every time the part's formulas show it, or, for
+    /// one found through a defined name, every time that name's formula
+    /// does.
+    FormulaMalformed {
+        /// Where the formula reader stopped trusting it, first.
+        reason: FormulaMalformedReason,
+        /// How many times it was found.
+        count: u64,
+    } => "formula_malformed", Error,
+        message: format!("a formula could not be read ({reason}), so it is refused: past that, what it states is a guess; {count} time(s), the first here"),
+        decided_by: Some(match reason {
+            FormulaMalformedReason::UndecodableEscape => DecidedBy::standard("ECMA-376-1:2016 §22.9.2.19"),
+            FormulaMalformedReason::UpperCaseEscape | FormulaMalformedReason::BracketsTooDeep => DecidedBy::Default {},
+            _ => DecidedBy::standard("ECMA-376-1:2016 §18.17.2"),
+        }),
+        fix: Some(match reason {
+            FormulaMalformedReason::BracketsTooDeep => Fix::workbook("nest the formula's brackets less deeply"),
+            _ => Fix::workbook("save the workbook again from Excel"),
+        });
+
+    /// A formula holds content of a kind the engine denies by default, and
+    /// the template does not allow: a DDE link (`dde`) or a reference to
+    /// another workbook (`external_link`).
+    FormulaDenied {
+        /// The kind of content.
+        kind: PartKind,
+        /// How many times it was found.
+        count: u64,
+    } => "formula_denied", Error,
+        message: format!("a formula holds {kind} content, which is denied unless the template allows it; {count} time(s), the first here"),
+        decided_by: Some(DecidedBy::Default {}),
+        fix: Some(Fix::template("parts.allow", kind.to_string()));
+
+    /// A formula holds content of a kind the host's policy forbids, whether
+    /// or not the template allows it.
+    FormulaForbidden {
+        /// The kind of content.
+        kind: PartKind,
+        /// Why the policy forbids it, in the policy's own words.
+        reason: Echo,
+        /// How many times it was found.
+        count: u64,
+    } => "formula_forbidden", Error,
+        message: format!("a formula holds {kind} content, which the host's policy forbids: {reason}; {count} time(s), the first here"),
+        decided_by: Some(DecidedBy::Policy {}),
+        fix: None;
+
+    /// A formula calls, or may call, a function the engine's table does not
+    /// mark reviewed safe and has not found dangerous, and the template
+    /// does not allow.
+    FunctionDenied {
+        /// The function, upper-cased, `_XLUDF.` before a user-defined one.
+        name: Echo,
+        /// Why the engine denies it.
+        denial: FunctionDenial,
+        /// How many times it was found.
+        count: u64,
+    } => "function_denied", Error,
+        message: format!("a formula calls, or may call, {name}, which the engine {}, so it is denied unless the template allows it; {count} time(s), the first here", match denial {
+            FunctionDenial::Unreviewed => "has not reviewed yet",
+            FunctionDenial::Unknown => "does not know",
+        }),
+        decided_by: Some(DecidedBy::Default {}),
+        fix: Some(Fix::template("functions.allow", name.to_string()));
+
+    /// A formula calls, or may call, a function the engine's table finds
+    /// dangerous, and the template does not allow.
+    FunctionDangerous {
+        /// The function, upper-cased.
+        name: Echo,
+        /// Why the engine finds it dangerous.
+        reason: Echo,
+        /// How many times it was found.
+        count: u64,
+    } => "function_dangerous", Error,
+        message: format!("a formula calls, or may call, {name}, which the engine finds dangerous ({reason}), so it is denied unless the template allows it; {count} time(s), the first here"),
+        decided_by: Some(DecidedBy::Default {}),
+        fix: Some(Fix::template("functions.allow", name.to_string()));
+
+    /// A formula calls, or may call, a function the host's policy forbids,
+    /// whether or not the template allows it.
+    FunctionForbidden {
+        /// The function, upper-cased.
+        name: Echo,
+        /// Why the policy forbids it, in the policy's own words.
+        reason: Echo,
+        /// How many times it was found.
+        count: u64,
+    } => "function_forbidden", Error,
+        message: format!("a formula calls, or may call, {name}, which the host's policy forbids: {reason}; {count} time(s), the first here"),
         decided_by: Some(DecidedBy::Policy {}),
         fix: None;
 }

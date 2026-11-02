@@ -18,10 +18,12 @@ fn every_key_serializes_in_camel_case() {
         .with_entry("xl/_rels/workbook.xml.rels")
         .with_part("/xl/workbook.xml")
         .with_relationship_id("rId1")
-        .with_rels_part("/xl/_rels/workbook.xml.rels");
+        .with_rels_part("/xl/_rels/workbook.xml.rels")
+        .with_place("B2")
+        .with_defined_name("MyFn");
     assert_eq!(
         json(&location),
-        r#"{"entry":"xl/_rels/workbook.xml.rels","part":"/xl/workbook.xml","relationshipId":"rId1","relsPart":"/xl/_rels/workbook.xml.rels"}"#
+        r#"{"entry":"xl/_rels/workbook.xml.rels","part":"/xl/workbook.xml","relationshipId":"rId1","relsPart":"/xl/_rels/workbook.xml.rels","place":"B2","definedName":"MyFn"}"#
     );
 }
 

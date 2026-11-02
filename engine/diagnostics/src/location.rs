@@ -4,8 +4,9 @@ use crate::Echo;
 use serde::Serialize;
 
 /// Where in the package a diagnostic points: the zip entry, the part, the
-/// relationship and the relationships part it was found in, each only when
-/// the diagnostic has one.
+/// relationship and the relationships part it was found in, the place in
+/// the part a formula stands and the defined name it reached the problem
+/// through, each only when the diagnostic has one.
 ///
 /// Serialized with camelCase keys, leaving out the ones it does not have; a
 /// diagnostic about the package as a whole serializes as `{}`. Every value is
@@ -30,6 +31,14 @@ pub struct Location {
     /// The relationships part the relationship is declared in.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rels_part: Option<Echo>,
+    /// Where in the part the formula stands, as the part says it: a cell
+    /// (`B2`), or what holds the formula (`definedName MyFn`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub place: Option<Echo>,
+    /// The defined name whose formula holds the problem, reached from the
+    /// formula at [`Location::place`] through the names it names.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub defined_name: Option<Echo>,
 }
 
 impl Location {
@@ -66,6 +75,20 @@ impl Location {
     #[must_use]
     pub fn with_rels_part(mut self, name: &str) -> Self {
         self.rels_part = Some(Echo::new(name));
+        self
+    }
+
+    /// This location, at the place `place` in the part.
+    #[must_use]
+    pub fn with_place(mut self, place: &str) -> Self {
+        self.place = Some(Echo::new(place));
+        self
+    }
+
+    /// This location, through the defined name `name`.
+    #[must_use]
+    pub fn with_defined_name(mut self, name: &str) -> Self {
+        self.defined_name = Some(Echo::new(name));
         self
     }
 }

@@ -20,6 +20,12 @@ pub enum FunctionClass<'a> {
 /// is denied, as is one it does not classify
 /// [`ReviewedSafe`](FunctionClass::ReviewedSafe), unless the template
 /// allows it.
+///
+/// The table lists every function, by its name without its prefixes,
+/// reviewed or not ([`Unreviewed`](FunctionClass::Unreviewed)): a
+/// workbook may define a name or a table of a function's name, and a word
+/// naming it is judged as that function only when the rules or the table
+/// know one.
 pub trait FunctionTable {
     /// How the table classifies the function `name`, upper-cased as the
     /// formula check looks it up; `None` for a function it does not know.

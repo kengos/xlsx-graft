@@ -194,6 +194,37 @@ reasons! {
         /// to a location of its own.
         WebPublish => "web_publish",
     }
+
+    /// Why a formula could not be read: the first place the formula
+    /// reader stopped trusting it.
+    FormulaMalformedReason {
+        /// An `_xHHHH_` escape that names a surrogate, which no character
+        /// is.
+        UndecodableEscape => "undecodable_escape",
+        /// An escape written `_XHHHH_`, which ECMA-376 does not say is one.
+        UpperCaseEscape => "upper_case_escape",
+        /// A string with no closing `"`.
+        UnclosedString => "unclosed_string",
+        /// A quoted sheet name with no closing `'`.
+        UnclosedSheetName => "unclosed_sheet_name",
+        /// Brackets with no closing `]`.
+        UnclosedBracket => "unclosed_bracket",
+        /// Brackets nested deeper than the formula reader follows.
+        BracketsTooDeep => "brackets_too_deep",
+        /// A character no part of a formula starts with.
+        UnknownCharacter => "unknown_character",
+        /// A quoted sheet name with no `!` or `|` after it.
+        StraySheetName => "stray_sheet_name",
+    }
+
+    /// Why the engine denies a function it has not found dangerous.
+    FunctionDenial {
+        /// The engine knows the function but has not reviewed it yet.
+        Unreviewed => "unreviewed",
+        /// The engine does not know the function: a user-defined one, one
+        /// newer than the engine, or a name that is no function at all.
+        Unknown => "unknown",
+    }
 }
 
 #[cfg(test)]
