@@ -2,8 +2,8 @@
 # language's file sets and what `sdk_lang` makes of them)
 
 .PHONY: _sdk-image-go _sdk-lint-go _sdk-lint-go-line _sdk-test-go _sdk-test-go-line \
-        _sdk-verify-go _sdk-verify-go-line sdk\:lint\:go sdk\:lock\:go sdk\:test\:go \
-        sdk\:verify\:go
+        _sdk-verify-go _sdk-verify-go-line sdk\:format\:go sdk\:lint\:go sdk\:lock\:go \
+        sdk\:test\:go sdk\:verify\:go
 
 # The floor first and the latest stable line last: LATEST=1 takes the last and
 # sdk:lock:go the first. Go supports its two latest lines, so the older one is
@@ -47,6 +47,13 @@ sdk\:lock\:go: ## Re-resolve sdk/go's go.mod files and tools/go.sum after a go.m
 		for f in go.mod go.sum tools/go.mod tools/go.sum; do \
 			if [ -f "$$f" ]; then cp "$$f" "/repo/sdk/go/$$f"; fi; \
 		done'
+
+# Writes gofmt's rewrites into the mounted checkout's sources, as
+# engine:format does, and does NOT go through `quiet`. It runs on the floor,
+# so it writes no syntax the floor lacks.
+sdk\:format\:go: override GO_VER = $(firstword $(GO_LINES))
+sdk\:format\:go: _sdk-image-go ## Apply gofmt to sdk/go's sources (then: git diff)
+	$(GO_IN_DOCKER) 'gofmt -w .'
 
 _sdk-image-go:
 	@echo "== sdk go image (Go $(GO_PATCH)) =="

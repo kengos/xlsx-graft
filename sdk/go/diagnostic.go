@@ -24,13 +24,13 @@ func exitStatus(r run) Diagnostic {
 	case r.signal != 0:
 		reason = fmt.Sprintf("the CLI was killed by signal %d", r.signal)
 	}
-	return Diagnostic{Code: "exit_status", Message: quoting(reason, r.stderr)}
+	return problem("exit_status", quoting(reason, r.stderr))
 }
 
 // invalidOutput is the CLI exiting with 0, but printing no JSON object with
 // expected, what the call reads from it (`a string "version"`).
 func invalidOutput(expected, stdout string) Diagnostic {
-	return Diagnostic{Code: "invalid_output", Message: quoting("the CLI printed no JSON object with "+expected, stdout)}
+	return problem("invalid_output", quoting("the CLI printed no JSON object with "+expected, stdout))
 }
 
 // quoting is reason, followed by the start of output when there is any.

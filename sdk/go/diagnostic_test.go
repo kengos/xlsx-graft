@@ -2,6 +2,7 @@ package xlsxgraft
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -16,7 +17,7 @@ func TestExitStatusQuotesStderr(t *testing.T) {
 		{run{status: -1, signal: 9}, "the CLI was killed by signal 9"},
 		{run{status: -1, lost: errors.New("wait: no child processes"), stderr: "oops"}, "the CLI's end could not be read (wait: no child processes): oops"},
 	} {
-		if got := exitStatus(c.run); got != (Diagnostic{Code: "exit_status", Message: c.want}) {
+		if got := exitStatus(c.run); !reflect.DeepEqual(got, problem("exit_status", c.want)) {
 			t.Errorf("exitStatus(%+v) = %+v, want %q", c.run, got, c.want)
 		}
 	}
@@ -27,7 +28,7 @@ func TestInvalidOutputQuotesStdout(t *testing.T) {
 		"0.0.0\n": `the CLI printed no JSON object with a string "version": 0.0.0`,
 		"":        `the CLI printed no JSON object with a string "version"`,
 	} {
-		if got := invalidOutput(`a string "version"`, stdout); got != (Diagnostic{Code: "invalid_output", Message: want}) {
+		if got := invalidOutput(`a string "version"`, stdout); !reflect.DeepEqual(got, problem("invalid_output", want)) {
 			t.Errorf("invalidOutput(%q) = %+v, want %q", stdout, got, want)
 		}
 	}

@@ -1,14 +1,18 @@
 // Command check-installed-module is run by `make sdk:verify:go` after it
 // builds this module, copied out of the checkout, against the SDK's copy at
 // /tmp/build: it checks that the SDK came from there, alone, and that it
-// reaches the engine on the gated line's Go.
+// reaches the engine on the gated line's Go, its version and a sheet's rows.
 //
 //	check-installed-module <the SDK's copy> <engine/Cargo.toml> <Go release>
 package main
 
 import (
+	"archive/zip"
+	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"runtime/debug"
@@ -51,5 +55,51 @@ func main() {
 	check(result.Success, "Version failed: %+v", result.Diagnostics)
 	check(result.Value == engine, "Version() is %s, the engine is %s", result.Value, engine)
 
-	fmt.Printf("%s from %s runs engine %s on %s\n", sdk, copied, result.Value, runtime.Version())
+	opened, err := xlsxgraft.Open(context.Background(), workbook(), func(book *xlsxgraft.Book) ([]any, error) {
+		sheets, err := book.Sheets()
+		if err != nil || len(sheets) != 1 {
+			return nil, fmt.Errorf("sheets %+v, %w", sheets, err)
+		}
+		rows := book.SheetAt(0).Rows()
+		defer rows.Close()
+		var values []any
+		for rows.Next() {
+			values = append(values, rows.Row().Values...)
+		}
+		return append([]any{sheets[0].Name}, values...), rows.Err()
+	})
+	check(err == nil && opened.Success && reflect.DeepEqual(opened.Value, []any{"Data", "x"}), "Open read %+v, %v", opened, err)
+
+	fmt.Printf("%s from %s runs engine %s and reads a sheet on %s\n", sdk, copied, result.Value, runtime.Version())
+}
+
+// workbook writes a workbook of one sheet, Data, whose one cell is the
+// string "x", and returns its path.
+func workbook() string {
+	const ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+	const relationships = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+	rels := func(id, kind, target string) string {
+		return `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="` +
+			id + `" Type="` + relationships + "/" + kind + `" Target="` + target + `"/></Relationships>`
+	}
+	dir, err := os.MkdirTemp("", "check-installed-module-")
+	check(err == nil, "%v", err)
+	path := filepath.Join(dir, "book.xlsx")
+	file, err := os.Create(path)
+	check(err == nil, "%v", err)
+	archive := zip.NewWriter(file)
+	for _, entry := range [][2]string{
+		{"[Content_Types].xml", `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/></Types>`},
+		{"_rels/.rels", rels("rId1", "officeDocument", "xl/workbook.xml")},
+		{"xl/workbook.xml", `<workbook xmlns="` + ns + `" xmlns:r="` + relationships + `"><sheets><sheet name="Data" sheetId="1" r:id="rId1"/></sheets></workbook>`},
+		{"xl/_rels/workbook.xml.rels", rels("rId1", "worksheet", "sheet1.xml")},
+		{"xl/sheet1.xml", `<worksheet xmlns="` + ns + `"><sheetData><row><c t="inlineStr"><is><t>x</t></is></c></row></sheetData></worksheet>`},
+	} {
+		w, err := archive.Create(entry[0])
+		check(err == nil, "%v", err)
+		_, err = w.Write([]byte(entry[1]))
+		check(err == nil, "%v", err)
+	}
+	check(archive.Close() == nil && file.Close() == nil, "%s cannot be written", path)
+	return path
 }
