@@ -3,7 +3,7 @@
 
 use crate::{
     Code, DecidedBy, Diagnostic, Diagnostics, Echo, EncodingReason, InflateReason, Limit, Location,
-    PartNameReason, SchemaReason, Severity, ZipDirectoryReason, ZipHeaderField,
+    PartKind, PartNameReason, SchemaReason, Severity, ZipDirectoryReason, ZipHeaderField,
 };
 
 /// Every wire string a code once had and no longer has. A removed code's
@@ -404,6 +404,21 @@ fn sample(code: Code) -> (Diagnostic, Location) {
                 previous: Echo::new("C3"),
             },
             Location::default().with_part("/xl/worksheets/sheet1.xml"),
+        ),
+        Code::PartDenied => (
+            Diagnostic::PartDenied {
+                kind: PartKind::Macro,
+            },
+            Location::default().with_part("/xl/vbaProject.bin"),
+        ),
+        Code::PartForbidden => (
+            Diagnostic::PartForbidden {
+                kind: PartKind::ExternalLink,
+                reason: Echo::new("no workbook may reach outside the host"),
+            },
+            Location::default()
+                .with_rels_part("/xl/worksheets/_rels/sheet1.xml.rels")
+                .with_relationship_id("rId1"),
         ),
     }
 }

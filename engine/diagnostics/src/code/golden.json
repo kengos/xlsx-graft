@@ -1303,5 +1303,43 @@
       "text": "save the workbook again from Excel"
     },
     "origin": "<origin>"
+  },
+  {
+    "code": "part_denied",
+    "severity": "error",
+    "message": "the part, or a relationship it declares, holds macro content, which is denied unless the template allows it",
+    "args": {
+      "kind": "macro"
+    },
+    "location": {
+      "part": "/xl/vbaProject.bin"
+    },
+    "decidedBy": {
+      "kind": "default"
+    },
+    "fix": {
+      "in": "template",
+      "list": "parts.allow",
+      "add": "macro"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "part_forbidden",
+    "severity": "error",
+    "message": "the part, or a relationship it declares, holds external_link content, which the host's policy forbids: no workbook may reach outside the host",
+    "args": {
+      "kind": "external_link",
+      "reason": "no workbook may reach outside the host"
+    },
+    "location": {
+      "relationshipId": "rId1",
+      "relsPart": "/xl/worksheets/_rels/sheet1.xml.rels"
+    },
+    "decidedBy": {
+      "kind": "policy"
+    },
+    "fix": null,
+    "origin": "<origin>"
   }
 ]

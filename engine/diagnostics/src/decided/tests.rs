@@ -41,3 +41,24 @@ fn a_policy_fix_serializes_with_its_line() {
         r#"{"in":"policy","line":"maxEntries: 12000"}"#
     );
 }
+
+#[test]
+fn the_rules_of_what_is_denied_serialize_as_their_kind_alone() {
+    let decided = [
+        DecidedBy::Default {},
+        DecidedBy::Template {},
+        DecidedBy::Policy {},
+    ];
+    assert_eq!(
+        json(&decided),
+        r#"[{"kind":"default"},{"kind":"template"},{"kind":"policy"}]"#
+    );
+}
+
+#[test]
+fn a_template_fix_serializes_with_its_list_and_value() {
+    assert_eq!(
+        json(&Fix::template("parts.allow", "macro")),
+        r#"{"in":"template","list":"parts.allow","add":"macro"}"#
+    );
+}

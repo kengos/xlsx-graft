@@ -94,8 +94,11 @@ impl PartName {
         is_rels.then(|| Source::Part(format!("{parent}/{source}")))
     }
 
-    /// Whether this is a Relationships part's name.
-    pub(crate) fn is_relationships(&self) -> bool {
+    /// Whether this is a Relationships part's name (§6.2.2.2): `/_rels/.rels`,
+    /// or a final segment ending in `.rels` after a `_rels` segment, letter
+    /// case aside. The package reads such a part, whatever its media type.
+    #[must_use]
+    pub fn is_relationships(&self) -> bool {
         self.relationships_source().is_some()
     }
 }

@@ -12,8 +12,8 @@
 
 use crate::table::diagnostics;
 use crate::{
-    DecidedBy, Echo, EncodingReason, Fix, InflateReason, Limit, PartNameReason, SchemaReason,
-    ZipDirectoryReason, ZipHeaderField,
+    DecidedBy, Echo, EncodingReason, Fix, InflateReason, Limit, PartKind, PartNameReason,
+    SchemaReason, ZipDirectoryReason, ZipHeaderField,
 };
 
 diagnostics! {
@@ -748,6 +748,32 @@ diagnostics! {
         message: format!("{reference} comes after {previous}; rows go down the sheet and a row's cells go across it"),
         decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.3.1.4, §18.3.1.73; MS-OI29500 on §18.3.1.73, note a")),
         fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// A part holds content of a kind the engine denies by default, and the
+    /// template does not allow: the part itself (a VBA project, an external
+    /// link, an OLE object), or, at a relationship, a link it makes outside
+    /// the package; the package's own relationships count as the package's. One diagnostic per part and kind, however many times
+    /// the part shows it.
+    PartDenied {
+        /// The kind of content.
+        kind: PartKind,
+    } => "part_denied", Error,
+        message: format!("the part, or a relationship it declares, holds {kind} content, which is denied unless the template allows it"),
+        decided_by: Some(DecidedBy::Default {}),
+        fix: Some(Fix::template("parts.allow", kind.to_string()));
+
+    /// A part holds content of a kind the host's policy forbids, whether or
+    /// not the template allows it. One diagnostic per part and kind, as
+    /// for `part_denied`.
+    PartForbidden {
+        /// The kind of content.
+        kind: PartKind,
+        /// Why the policy forbids it, in the policy's own words.
+        reason: Echo,
+    } => "part_forbidden", Error,
+        message: format!("the part, or a relationship it declares, holds {kind} content, which the host's policy forbids: {reason}"),
+        decided_by: Some(DecidedBy::Policy {}),
+        fix: None;
 }
 
 #[cfg(test)]

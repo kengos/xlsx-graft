@@ -46,7 +46,8 @@ pub use echo::{Echo, MAX_ECHO};
 pub use limit::{Limit, LimitSource};
 pub use location::Location;
 pub use reason::{
-    EncodingReason, InflateReason, PartNameReason, SchemaReason, ZipDirectoryReason, ZipHeaderField,
+    EncodingReason, InflateReason, PartKind, PartNameReason, SchemaReason, ZipDirectoryReason,
+    ZipHeaderField,
 };
 pub use record::Record;
 
