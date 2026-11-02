@@ -57,13 +57,19 @@
 //! admits those in a formula too; their function side for a function) and
 //! a [`FunctionTable`].
 //!
-//! [`verify`] finds the formulas as it reads the parts: those of cells,
-//! defined names, data validations, conditional formats, table columns,
-//! pivot caches, charts, revisions, linked objects, controls and drawings
-//! (the macros they name included), with the defined names and tables.
-//! It does not hand them to the judge yet, so a DDE link or an external
-//! reference written in a formula (`=cmd|' /C calc'!A0`,
-//! `'C:\x\[b.xlsx]S'!A1`) is not refused by [`verify`] yet.
+//! [`verify`] finds the formulas as it reads the parts and judges each
+//! at its place: those of cells, defined names, data validations,
+//! conditional formats, table columns, pivot caches, charts, revisions,
+//! linked objects, controls and drawings (the macros they name included),
+//! their names resolved against the workbook part's defined names and the
+//! table parts' tables, read first. A DDE link or an external reference
+//! written in a formula (`=cmd|' /C calc'!A0`, `'C:\x\[b.xlsx]S'!A1`) is
+//! refused as that kind of content, and a function as the rules and the
+//! table say. A formula longer than `max_formula_bytes`
+//! (`formula_too_long`), or with an element inside it
+//! (`formula_malformed`), is refused unread, and a workbook part that
+//! defines more names than `max_defined_names` is refused
+//! (`defined_names_too_many`).
 //!
 //! # Not yet
 //!
@@ -76,9 +82,11 @@
 //! admits whatever it embeds, links a compound file keeps inside it
 //! included.
 
+mod book;
 mod collect;
 mod formulas;
 mod functions;
+mod judging;
 mod parts;
 mod rules;
 
@@ -87,7 +95,9 @@ pub use functions::{FunctionClass, FunctionTable};
 pub use rules::{Rules, Ruling};
 pub use xlsx_graft_diagnostics::PartKind;
 
-use collect::{Discard, FormulaSink};
+use book::Book;
+use collect::FormulaSink;
+use judging::Judging;
 use std::io::{Read, Seek};
 use thiserror::Error;
 use xlsx_graft_diagnostics::{Diagnostics, Limit};
@@ -102,6 +112,10 @@ pub struct Limits {
     /// The most bytes of one formula kept, as UTF-8: a longer one is
     /// counted, not kept. Policy name `maxFormulaBytes`.
     pub max_formula_bytes: Limit,
+    /// The most defined names of the workbook part read: past it, the
+    /// workbook is refused, and the names past it are no names a formula
+    /// is judged by. Policy name `maxDefinedNames`.
+    pub max_defined_names: Limit,
 }
 
 impl Limits {
@@ -109,6 +123,10 @@ impl Limits {
     /// 8,192 characters, at most 24 KiB as UTF-8, and under 56 KiB with
     /// every character written as an `_xHHHH_` escape.
     pub const DEFAULT_MAX_FORMULA_BYTES: u64 = 64 * 1024;
+
+    /// The default `max_defined_names`, 65,536: each name kept costs a few
+    /// hundred bytes beside its text.
+    pub const DEFAULT_MAX_DEFINED_NAMES: u64 = 65_536;
 }
 
 impl Default for Limits {
@@ -116,6 +134,7 @@ impl Default for Limits {
         Self {
             package: xlsx_graft_package::Limits::default(),
             max_formula_bytes: Limit::default_of(Self::DEFAULT_MAX_FORMULA_BYTES),
+            max_defined_names: Limit::default_of(Self::DEFAULT_MAX_DEFINED_NAMES),
         }
     }
 }
@@ -131,35 +150,40 @@ pub enum VerifyError {
 /// Verifies the workbook `reader` holds, pushing a diagnostic for each
 /// problem into `diagnostics`.
 ///
-/// `functions` classifies the functions the formulas call, for when the
-/// formulas are found in the parts, which is not here yet.
+/// `functions` classifies the functions the formulas call.
 ///
 /// # Errors
 ///
-/// [`VerifyError::Package`] when reading or seeking `reader` fails.
+/// [`VerifyError::Package`] when reading or seeking `reader` fails;
+/// `diagnostics` then holds what was found up to there.
 pub fn verify<R: Read + Seek>(
     reader: R,
     limits: &Limits,
     rules: &Rules,
-    _functions: &dyn FunctionTable,
-    diagnostics: &mut Diagnostics,
-) -> Result<(), VerifyError> {
-    read(reader, limits, rules, &mut Discard, diagnostics)
-}
-
-/// [`verify`], handing the formulas the parts hold to `formulas`.
-fn read<R: Read + Seek>(
-    reader: R,
-    limits: &Limits,
-    rules: &Rules,
-    formulas: &mut dyn FormulaSink,
+    functions: &dyn FunctionTable,
     diagnostics: &mut Diagnostics,
 ) -> Result<(), VerifyError> {
     let Some(mut package) = Package::open(reader, &limits.package, diagnostics)? else {
         return Ok(());
     };
+    let book = Book::read(&mut package, limits, diagnostics)?;
+    let mut judging = Judging::new(rules, functions, &book, limits.max_formula_bytes);
+    read_parts(&mut package, limits, rules, &mut judging, diagnostics)?;
+    judging.finish(diagnostics);
+    Ok(())
+}
+
+/// Checks the parts of `package`, handing the formulas they hold to
+/// `formulas`.
+fn read_parts<R: Read + Seek>(
+    package: &mut Package<R>,
+    limits: &Limits,
+    rules: &Rules,
+    formulas: &mut dyn FormulaSink,
+    diagnostics: &mut Diagnostics,
+) -> Result<(), VerifyError> {
     let (xml, max) = (&limits.package.xml, limits.max_formula_bytes.value);
-    parts::check(&mut package, xml, rules, max, formulas, diagnostics)?;
+    parts::check(package, xml, rules, max, formulas, diagnostics)?;
     Ok(())
 }
 

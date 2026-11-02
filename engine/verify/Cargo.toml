@@ -15,6 +15,9 @@ xlsx-graft-diagnostics = { workspace = true }
 xlsx-graft-formula = { workspace = true }
 # The package the parts, their media types and relationships are read from.
 xlsx-graft-package = { workspace = true }
+# The workbook part's sheets, in order, which a defined name's
+# `localSheetId` counts.
+xlsx-graft-read = { workspace = true }
 # Reads each XML part as a stream, looking for the elements that carry a
 # denied kind of content.
 xlsx-graft-xml = { workspace = true }

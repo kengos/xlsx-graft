@@ -133,8 +133,9 @@ fn every_formula_malformed_reason_prints_as_its_wire_string() {
             FormulaMalformedReason::BracketsTooDeep,
             FormulaMalformedReason::UnknownCharacter,
             FormulaMalformedReason::StraySheetName,
+            FormulaMalformedReason::Markup,
         ],
-        r#"["undecodable_escape","upper_case_escape","unclosed_string","unclosed_sheet_name","unclosed_bracket","brackets_too_deep","unknown_character","stray_sheet_name"]"#,
+        r#"["undecodable_escape","upper_case_escape","unclosed_string","unclosed_sheet_name","unclosed_bracket","brackets_too_deep","unknown_character","stray_sheet_name","markup"]"#,
     );
 }
 

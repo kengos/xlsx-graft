@@ -195,7 +195,7 @@ fn walk<R: BufRead>(
 
 /// The text a reference the XML reader admitted stands for: one of the
 /// five predefined entities or a character reference.
-fn resolve(reference: &BytesRef<'_>) -> String {
+pub(crate) fn resolve(reference: &BytesRef<'_>) -> String {
     const ENTITIES: [(&str, char); 5] = [
         ("lt", '<'),
         ("gt", '>'),

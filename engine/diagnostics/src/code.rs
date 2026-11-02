@@ -791,13 +791,41 @@ diagnostics! {
         message: format!("a formula could not be read ({reason}), so it is refused: past that, what it states is a guess; {count} time(s), the first here"),
         decided_by: Some(match reason {
             FormulaMalformedReason::UndecodableEscape => DecidedBy::standard("ECMA-376-1:2016 §22.9.2.19"),
-            FormulaMalformedReason::UpperCaseEscape | FormulaMalformedReason::BracketsTooDeep => DecidedBy::Default {},
+            FormulaMalformedReason::UpperCaseEscape
+            | FormulaMalformedReason::BracketsTooDeep
+            | FormulaMalformedReason::Markup => DecidedBy::Default {},
             _ => DecidedBy::standard("ECMA-376-1:2016 §18.17.2"),
         }),
         fix: Some(match reason {
             FormulaMalformedReason::BracketsTooDeep => Fix::workbook("nest the formula's brackets less deeply"),
             _ => Fix::workbook("save the workbook again from Excel"),
         });
+
+    /// A formula is longer than the limit, so its text was not kept: it is
+    /// refused unread.
+    FormulaTooLong {
+        /// The size in bytes, as UTF-8, of the longest found.
+        size: u64,
+        /// The most bytes of one formula kept.
+        limit: Limit,
+        /// How many times it was found.
+        count: u64,
+    } => "formula_too_long", Error,
+        message: format!("a formula is longer than the limit, so it is refused unread: {size} bytes at the longest, the limit {limit}; {count} time(s), the first here"),
+        decided_by: Some(DecidedBy::limit("maxFormulaBytes", *limit)),
+        fix: Some(Fix::policy(format!("maxFormulaBytes: {size}")));
+
+    /// The workbook part defines more names than the limit: those past it
+    /// are no names a formula is judged by, so the workbook is refused.
+    DefinedNamesTooMany {
+        /// How many it defines.
+        count: u64,
+        /// The most defined names read.
+        limit: Limit,
+    } => "defined_names_too_many", Error,
+        message: format!("the workbook part defines {count} names; the limit is {limit}"),
+        decided_by: Some(DecidedBy::limit("maxDefinedNames", *limit)),
+        fix: Some(Fix::policy(format!("maxDefinedNames: {count}")));
 
     /// A formula holds content of a kind the engine denies by default, and
     /// the template does not allow: a DDE link (`dde`) or a reference to

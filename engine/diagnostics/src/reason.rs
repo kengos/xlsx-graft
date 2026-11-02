@@ -215,6 +215,9 @@ reasons! {
         UnknownCharacter => "unknown_character",
         /// A quoted sheet name with no `!` or `|` after it.
         StraySheetName => "stray_sheet_name",
+        /// An element inside the formula's element, which a formula is
+        /// not: which of its text Excel reads is not known.
+        Markup => "markup",
     }
 
     /// Why the engine denies a function it has not found dangerous.

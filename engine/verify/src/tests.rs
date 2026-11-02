@@ -2,17 +2,18 @@
 //! build (`zip.rs`) with a [`Book`]. `parts.rs` covers the kinds of
 //! content a part holds and how the rules judge them, `links.rs` the
 //! relationships that point outside the package, `opening.rs` what
-//! opening and reading the package refuses on the way, and `formulas.rs`
-//! the formulas found as the parts are read.
+//! opening and reading the package refuses on the way, `formulas.rs`
+//! the formulas found as the parts are read, and `judging.rs` how they are
+//! judged.
 
 mod formulas;
+mod judging;
 mod links;
 mod opening;
 mod parts;
 mod zip;
 
 use crate::{FunctionClass, FunctionTable, Limits, Rules, VerifyError, verify};
-use std::cell::Cell;
 use std::io::{self, Cursor, Read, Seek, SeekFrom};
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Location, PartKind};
 use zip::Item;
@@ -51,17 +52,20 @@ impl Seek for Reader {
     }
 }
 
-/// A table that knows `SUM`, and only it, reviewed safe; `verify` does
-/// not ask it yet.
-struct Table {
-    /// How often it was asked.
-    asked: Cell<u32>,
-}
+/// A table that knows `SUM` and `LAMBDA` reviewed safe, `WEBSERVICE`
+/// dangerous and `RTD` unreviewed, and nothing else.
+struct Table;
 
 impl FunctionTable for Table {
     fn classify(&self, name: &str) -> Option<FunctionClass<'_>> {
-        self.asked.set(self.asked.get() + 1);
-        (name == "SUM").then_some(FunctionClass::ReviewedSafe)
+        match name {
+            "SUM" | "LAMBDA" => Some(FunctionClass::ReviewedSafe),
+            "WEBSERVICE" => Some(FunctionClass::Dangerous {
+                reason: "reaches the network",
+            }),
+            "RTD" => Some(FunctionClass::Unreviewed),
+            _ => None,
+        }
     }
 }
 
@@ -207,12 +211,8 @@ fn run(
         inner: Cursor::new(zip),
         poisoned,
     };
-    let table = Table {
-        asked: Cell::new(0),
-    };
     let mut diagnostics = Diagnostics::new();
-    verify(reader, limits, rules, &table, &mut diagnostics)?;
-    assert_eq!(table.asked.get(), 0);
+    verify(reader, limits, rules, &Table, &mut diagnostics)?;
     Ok(seen(diagnostics))
 }
 
@@ -250,9 +250,7 @@ fn denied(kind: PartKind, place: &str) -> (Diagnostic, String) {
 
 #[test]
 fn the_table_classifies_only_what_it_knows() {
-    let table = Table {
-        asked: Cell::new(0),
-    };
-    assert_eq!(table.classify("SUM"), Some(FunctionClass::ReviewedSafe));
-    assert_eq!(table.classify("WEBSERVICE"), None);
+    assert_eq!(Table.classify("SUM"), Some(FunctionClass::ReviewedSafe));
+    assert_eq!(Table.classify("RTD"), Some(FunctionClass::Unreviewed));
+    assert_eq!(Table.classify("INDIRECT"), None);
 }

@@ -430,6 +430,23 @@ fn sample(code: Code) -> (Diagnostic, Location) {
                 .with_part("/xl/worksheets/sheet1.xml")
                 .with_place("A1"),
         ),
+        Code::FormulaTooLong => (
+            Diagnostic::FormulaTooLong {
+                size: 70_000,
+                limit: Limit::default_of(65_536),
+                count: 2,
+            },
+            Location::default()
+                .with_part("/xl/worksheets/sheet1.xml")
+                .with_place("C3"),
+        ),
+        Code::DefinedNamesTooMany => (
+            Diagnostic::DefinedNamesTooMany {
+                count: 70_000,
+                limit: Limit::default_of(65_536),
+            },
+            Location::default().with_part("/xl/workbook.xml"),
+        ),
         Code::FormulaDenied => (
             Diagnostic::FormulaDenied {
                 kind: PartKind::Dde,
@@ -648,6 +665,11 @@ fn a_malformed_formula_cites_what_decides_its_reason() {
         (
             FormulaMalformedReason::StraySheetName,
             standard("ECMA-376-1:2016 §18.17.2"),
+            &again,
+        ),
+        (
+            FormulaMalformedReason::Markup,
+            Some(DecidedBy::Default {}),
             &again,
         ),
     ];

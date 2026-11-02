@@ -4,13 +4,12 @@
 //!
 //! Nothing is kept here: each formula is handed over as it is read, so a
 //! large worksheet costs no more memory than a small one. Nothing
-//! is judged here either: [`verify`](crate::verify) hands them to
-//! [`Discard`] until the judge ([`FormulaJudge`](crate::FormulaJudge))
-//! takes them.
+//! is judged here either: [`verify`](crate::verify) hands them to the
+//! judge (`judging.rs`).
 
 mod collector;
 
-pub(crate) use collector::Collector;
+pub(crate) use collector::{Collector, attribute};
 
 /// What takes the formulas of the parts, and the names they may use, as
 /// they are read. Every method is told the part it was found in, by its
@@ -43,22 +42,7 @@ pub(crate) trait FormulaSink {
     /// this alone does not know those.
     fn defined_name(&mut self, part: &str, at: &str, name: &str, sheet: Option<&str>, text: &str);
 
-    /// A table's name or display name, as written.
-    fn table(&mut self, part: &str, name: &str);
-}
-
-/// A sink that drops whatever it is handed.
-#[derive(Debug, Default)]
-pub(crate) struct Discard;
-
-impl FormulaSink for Discard {
-    fn formula(&mut self, _part: &str, _at: &str, _text: &str) {}
-
-    fn too_long(&mut self, _part: &str, _at: &str, _size: u64) {}
-
-    fn markup(&mut self, _part: &str, _at: &str) {}
-
-    fn defined_name(&mut self, _: &str, _: &str, _: &str, _: Option<&str>, _: &str) {}
-
-    fn table(&mut self, _part: &str, _name: &str) {}
+    /// A table's name and display name, those it has, as written: once
+    /// for each `table` element.
+    fn table(&mut self, part: &str, names: &[String]);
 }

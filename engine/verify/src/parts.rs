@@ -23,6 +23,7 @@ mod scan;
 use crate::collect::{Collector, FormulaSink};
 use crate::{Rules, Ruling};
 use scan::Shown;
+pub(crate) use scan::resolve;
 use std::collections::BTreeSet;
 use std::io::{Read, Seek};
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Echo, Location, PartKind};
@@ -82,6 +83,25 @@ pub(crate) fn check<R: Read + Seek>(
     }
     findings.judge(rules, diagnostics);
     Ok(())
+}
+
+/// Hands the formulas, defined names and tables of the part at `index`
+/// of `package` to `formulas`, reading it as [`check`] does, what stops
+/// reading it pushed into `diagnostics`.
+pub(crate) fn collect<R: Read + Seek>(
+    package: &mut Package<R>,
+    index: usize,
+    limits: &XmlLimits,
+    max_formula_bytes: u64,
+    formulas: &mut dyn FormulaSink,
+    diagnostics: &mut Diagnostics,
+) -> Result<(), PackageError> {
+    let name =
+        (package.parts().get(index)).map_or_else(String::new, |p| p.name().as_str().to_owned());
+    let mut collector = Collector::new(formulas, &name, max_formula_bytes);
+    let (links, found) = (BTreeSet::new(), &mut collector);
+    let read = scan::read(package, index, true, &links, limits, found, diagnostics);
+    read.map(drop)
 }
 
 /// The kinds of content each part of `package` is the target of a
