@@ -5,7 +5,7 @@ import { Result } from './result.js';
 import * as statusDiagnostic from './statusDiagnostic.js';
 
 /** The version string, such as `"0.0.0"`, on success. */
-export function call(addon: Addon): Result<string> {
+export function call(addon: Pick<Addon, 'version'>): Result<string> {
   const outcome = addon.version();
   if (outcome.status !== statusDiagnostic.OK) {
     return Result.failure([statusDiagnostic.call(outcome.status)]);

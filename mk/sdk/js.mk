@@ -2,8 +2,8 @@
 # language's file sets and what `sdk_lang` makes of them)
 
 .PHONY: _sdk-image-js _sdk-lint-js _sdk-lint-js-line _sdk-test-js _sdk-test-js-line \
-        _sdk-verify-js _sdk-verify-js-line sdk\:lint\:js sdk\:lock\:js sdk\:test\:js \
-        sdk\:verify\:js
+        _sdk-verify-js _sdk-verify-js-line sdk\:format\:js sdk\:lint\:js sdk\:lock\:js \
+        sdk\:test\:js sdk\:verify\:js
 
 # The floor first and the latest stable line last: LATEST=1 takes the last and
 # sdk:lock:js the first. Each line is pinned to a Node.js release. The base
@@ -39,6 +39,14 @@ sdk\:lock\:js: ## Re-resolve sdk/js/pnpm-lock.yaml after a package.json edit (th
 		cd /tmp/lock; \
 		pnpm install --lockfile-only; \
 		cp pnpm-lock.yaml /repo/sdk/js/pnpm-lock.yaml'
+
+# Writes Biome's fixes (the format, the import order) into the mounted
+# checkout's sources, as engine:format does, and does NOT go through `quiet`.
+# Biome is the image's, on PATH, and needs no node_modules in the checkout;
+# the latest line names the image.
+sdk\:format\:js: override JS_VER = $(lastword $(JS_LINES))
+sdk\:format\:js: _sdk-image-js ## Apply Biome's format and safe fixes to sdk/js's sources (then: git diff)
+	$(JS_IN_DOCKER) 'biome check --write .'
 
 _sdk-image-js:
 	@echo "== sdk js image (Node.js $(JS_PATCH)) =="

@@ -35,11 +35,52 @@ export const PACKAGED = fileURLToPath(new URL('../native/xlsx_graft.node', impor
 export interface Outcome {
   status: number;
   value?: string;
+  /** Why the host failed, set only when `status` is `XLSX_GRAFT_ERR_IO`. */
+  message?: string;
+}
+
+/**
+ * A workbook the addon opened (`Book` in engine/napi/src/shim.rs): `status`
+ * first, and every handle call's status as the C ABI's header gives it.
+ */
+export interface AddonBook {
+  readonly status: number;
+  readonly message?: string | null;
+  sheets(): { status: number; sheets: { name: string; kind: string; state: string }[] };
+  rows(index: number): AddonRows;
+  rowsNamed(name: string): AddonRows;
+  diagnostics(): Outcome;
+  close(): void;
+}
+
+/** The rows of one sheet (`Rows` in engine/napi/src/shim.rs). */
+export interface AddonRows {
+  readonly status: number;
+  nextRow(): { status: number; message?: string; row?: { number: number; cells: AddonCell[] } };
+  close(): void;
+}
+
+/**
+ * One cell (`JsCell` in engine/napi/src/shim.rs): its type, as
+ * `read --format json` names it or `unknown`, and the fields that type sets.
+ */
+export interface AddonCell {
+  type: string;
+  text?: string;
+  number?: number;
+  boolean?: boolean;
+  date?: number[];
+  time?: number[];
+  milliseconds?: number;
 }
 
 /** The addon's exports, as this package calls them. Written by hand. */
 export interface Addon {
   version(): Outcome;
+  Book: {
+    openPath(path: string): AddonBook;
+    openBytes(data: Buffer): AddonBook;
+  };
 }
 
 /** One loaded engine addon. */

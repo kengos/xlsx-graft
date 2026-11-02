@@ -3,7 +3,7 @@ import type { Addon, Outcome } from '../src/addon.js';
 import { Diagnostic, Result } from '../src/index.js';
 import * as versionCall from '../src/versionCall.js';
 
-function returning(outcome: Outcome): Addon {
+function returning(outcome: Outcome): Pick<Addon, 'version'> {
   return { version: () => outcome };
 }
 
@@ -15,7 +15,13 @@ describe('versionCall.call', () => {
   it('returns a failure carrying the panic diagnostic on a panic status', () => {
     const result = versionCall.call(returning({ status: 2 }));
     expect(result).toEqual(
-      Result.failure([new Diagnostic('panic', 'the engine panicked; the call did not complete')]),
+      Result.failure([
+        new Diagnostic({
+          code: 'panic',
+          severity: 'error',
+          message: 'the engine panicked; the call did not complete',
+        }),
+      ]),
     );
     expect(result.failed).toBe(true);
     expect(result.value).toBeNull();
@@ -27,8 +33,8 @@ describe('versionCall.call', () => {
   });
 
   it('returns a failure naming a status this package does not know', () => {
-    const [diagnostic] = versionCall.call(returning({ status: 7 })).diagnostics;
+    const [diagnostic] = versionCall.call(returning({ status: 42 })).diagnostics;
     expect(diagnostic?.code).toBe('unknown_status');
-    expect(diagnostic?.message).toContain('status 7');
+    expect(diagnostic?.message).toContain('status 42');
   });
 });
