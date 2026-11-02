@@ -71,7 +71,7 @@ pub(super) fn value(start: &BytesStart<'_>, name: &str) -> Option<String> {
 
 /// The value of the unprefixed attribute `name` of `start`, whole, if it
 /// has one that reads.
-fn attribute(start: &BytesStart<'_>, name: &str) -> Option<String> {
+pub(crate) fn attribute(start: &BytesStart<'_>, name: &str) -> Option<String> {
     (start.attributes().flatten())
         .find(|attribute| attribute.key.as_ref() == name)
         .and_then(|attribute| {

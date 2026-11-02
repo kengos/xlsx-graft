@@ -2,11 +2,12 @@
 //! one, with where it is, how its text is joined, the formula limit, and
 //! the defined names and tables found with them.
 
-use super::{Book, Reader, Seen, WORKSHEET, check};
+use super::{Book, Reader, WORKSHEET};
 use crate::collect::FormulaSink;
-use crate::{Limits, Rules, read};
+use crate::{Limits, Rules, read_parts};
 use std::io::Cursor;
 use xlsx_graft_diagnostics::{Diagnostics, Limit, PartKind};
+use xlsx_graft_package::Package;
 
 /// The SpreadsheetML namespace.
 const MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -36,8 +37,10 @@ impl FormulaSink for Record {
             .push(format!("{part} {at}: {name} in {sheet} = {text}"));
     }
 
-    fn table(&mut self, part: &str, name: &str) {
-        self.0.push(format!("{part} table {name}"));
+    fn table(&mut self, part: &str, names: &[String]) {
+        for name in names {
+            self.0.push(format!("{part} table {name}"));
+        }
     }
 }
 
@@ -55,7 +58,10 @@ fn found_under(book: Book, limits: &Limits, rules: &Rules) -> Vec<String> {
     };
     let mut record = Record::default();
     let mut diagnostics = Diagnostics::new();
-    read(reader, limits, rules, &mut record, &mut diagnostics).unwrap();
+    let mut package = Package::open(reader, &limits.package, &mut diagnostics)
+        .unwrap()
+        .unwrap();
+    read_parts(&mut package, limits, rules, &mut record, &mut diagnostics).unwrap();
     assert!(diagnostics.finish().is_empty());
     record.0
 }
@@ -256,18 +262,6 @@ fn a_formula_is_kept_up_to_the_limit_and_counted_past_it() {
     );
     let past = found_with(book(), &limits(7));
     assert_eq!(past[0], format!("{SHEET} A1: 8 bytes, too long"));
-}
-
-#[test]
-fn verify_reads_the_formulas_and_judges_none_yet() {
-    let workbook = format!(
-        r#"<workbook xmlns="{MAIN}"><sheets><sheet name="S"/></sheets><definedNames><definedName name="N">1</definedName></definedNames></workbook>"#
-    );
-    let long = "1+".repeat(40_000);
-    let book = with_cells(&[("A1", r#"WEBSERVICE("x")"#), ("A2", &long), ("A3", "1<x/>")])
-        .main("application/xml", &workbook)
-        .related("/xl/tables/table1.xml", r#"<table name="T"/>"#);
-    assert_eq!(check(book), Seen::new());
 }
 
 #[test]

@@ -1365,6 +1365,54 @@
     "origin": "<origin>"
   },
   {
+    "code": "formula_too_long",
+    "severity": "error",
+    "message": "a formula is longer than the limit, so it is refused unread: 70000 bytes at the longest, the limit 65536; 2 time(s), the first here",
+    "args": {
+      "size": 70000,
+      "limit": 65536,
+      "count": 2
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml",
+      "place": "C3"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxFormulaBytes",
+      "value": 65536,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxFormulaBytes: 70000"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "defined_names_too_many",
+    "severity": "error",
+    "message": "the workbook part defines 70000 names; the limit is 65536",
+    "args": {
+      "count": 70000,
+      "limit": 65536
+    },
+    "location": {
+      "part": "/xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxDefinedNames",
+      "value": 65536,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxDefinedNames: 70000"
+    },
+    "origin": "<origin>"
+  },
+  {
     "code": "formula_denied",
     "severity": "error",
     "message": "a formula holds dde content, which is denied unless the template allows it; 2 time(s), the first here",

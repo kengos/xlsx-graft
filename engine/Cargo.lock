@@ -719,6 +719,7 @@ dependencies = [
  "xlsx-graft-diagnostics",
  "xlsx-graft-formula",
  "xlsx-graft-package",
+ "xlsx-graft-read",
  "xlsx-graft-xml",
 ]
 

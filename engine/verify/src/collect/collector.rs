@@ -52,6 +52,7 @@
 mod attributes;
 
 use super::FormulaSink;
+pub(crate) use attributes::attribute;
 use attributes::{bytes, value};
 use std::borrow::Cow;
 use xlsx_graft_xml::events::BytesStart;
@@ -132,12 +133,9 @@ impl<'a> Collector<'a> {
                 self.range = value(start, "sqref");
             }
             "table" => {
-                for name in [value(start, "name"), value(start, "displayName")]
-                    .into_iter()
-                    .flatten()
-                {
-                    self.sink.table(&self.part, &name);
-                }
+                let names = [value(start, "name"), value(start, "displayName")];
+                let names: Vec<String> = names.into_iter().flatten().collect();
+                self.sink.table(&self.part, &names);
             }
             _ => self.attributes(local, start),
         }
