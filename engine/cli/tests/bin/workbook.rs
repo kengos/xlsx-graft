@@ -22,12 +22,20 @@ pub const WORKSHEET: &str =
 pub const CHARTSHEET: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chartsheet";
 
+/// The Transitional `dialogsheet` relationship type.
+pub const DIALOGSHEET: &str =
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/dialogsheet";
+/// The `xlMacrosheet` relationship type ([MS-OFFMACRO2] 2.2.1.1).
+pub const MACROSHEET: &str = "http://schemas.microsoft.com/office/2006/relationships/xlMacrosheet";
+
 /// A sheet: its name, the type of its relationship (none: its `r:id`
-/// names no relationship) and its part's XML.
+/// names no relationship), its part's XML and its `state` (none: the
+/// attribute left out).
 pub struct Sheet<'a> {
     pub name: &'a str,
     pub rel_type: Option<&'a str>,
     pub xml: String,
+    pub state: Option<&'a str>,
 }
 
 /// A worksheet named `name` whose `sheetData` holds `rows`.
@@ -37,6 +45,7 @@ pub fn worksheet<'a>(name: &'a str, rows: &str) -> Sheet<'a> {
         name,
         rel_type: Some(WORKSHEET),
         xml,
+        state: None,
     }
 }
 
@@ -46,6 +55,7 @@ pub fn unrelated(name: &str) -> Sheet<'_> {
         name,
         rel_type: None,
         xml: String::new(),
+        state: None,
     }
 }
 
@@ -62,7 +72,8 @@ pub fn xlsx(sheets: &[Sheet<'_>]) -> Vec<u8> {
     let listed: String = (sheets.iter().zip(1..))
         .map(|(sheet, n)| {
             let name = sheet.name;
-            format!(r#"<sheet name="{name}" sheetId="{n}" r:id="rId{n}"/>"#)
+            let state = (sheet.state).map_or(String::new(), |state| format!(r#" state="{state}""#));
+            format!(r#"<sheet name="{name}" sheetId="{n}"{state} r:id="rId{n}"/>"#)
         })
         .collect();
     let workbook =

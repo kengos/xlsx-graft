@@ -4,14 +4,15 @@
 //! ABI and the MCP server. `main.rs` parses [`Cli`]
 //! ([`Cli::try_parse_args`]), hands it to [`run`] and exits with the
 //! [`exit_status`] of what it returns; everything testable lives here.
-//! There are `--version` and the `read` command.
+//! There are `--version` and the `sheets` and `read` commands.
 //!
 //! Every command's output is printed as text or as JSON by `--format`:
-//! `--version` through [`emit`], one value; `read` a line at a time as it
-//! reads ([`ReadArgs`]). The JSON is a contract: its keys and their types
-//! do not change once released, so a script can read them without parsing
-//! the text. The help is not a command's output: it is text whatever
-//! `--format` says, as clap's own `-h` / `--help` are.
+//! `--version` through [`emit`], one value; `sheets` one value too
+//! ([`SheetsArgs`]); `read` a line at a time as it reads ([`ReadArgs`]).
+//! The JSON is a contract: its keys and their types do not change once
+//! released, so a script can read them without parsing the text. The
+//! help is not a command's output: it is text whatever `--format` says,
+//! as clap's own `-h` / `--help` are.
 
 use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser, Subcommand};
@@ -21,11 +22,15 @@ use std::io::{self, Write};
 mod error;
 mod format;
 mod read;
+mod sheets;
+mod text;
 mod version;
+mod workbook;
 
 pub use error::CliError;
 pub use format::{Format, Report, emit};
 pub use read::ReadArgs;
+pub use sheets::SheetsArgs;
 pub use version::VersionReport;
 
 /// The command line.
@@ -77,6 +82,9 @@ impl Cli {
 /// A command.
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// List a workbook's sheets: index, name, kind and state.
+    #[command(long_about = sheets::LONG_ABOUT, after_long_help = sheets::AFTER_LONG_HELP)]
+    Sheets(SheetsArgs),
     /// Print a sheet's rows, one line each, as they are read.
     #[command(long_about = read::LONG_ABOUT, after_long_help = read::AFTER_LONG_HELP)]
     Read(ReadArgs),
@@ -103,6 +111,7 @@ pub enum Outcome {
 /// the output cannot be serialized or written.
 pub fn run(cli: &Cli, out: &mut dyn Write, err: &mut dyn Write) -> Result<Outcome, CliError> {
     let outcome = match &cli.command {
+        Some(Command::Sheets(args)) => sheets::run(args, cli.format, out, err)?,
         Some(Command::Read(args)) => read::run(args, cli.format, out, err)?,
         None if cli.version => {
             emit(cli.format, &VersionReport::current(), out)?;

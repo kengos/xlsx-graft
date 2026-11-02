@@ -14,6 +14,7 @@
 mod output;
 mod read;
 mod read_failures;
+mod sheets;
 mod usage;
 mod version;
 mod workbook;

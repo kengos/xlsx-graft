@@ -12,9 +12,9 @@
 
 use super::{End, Sink};
 use crate::CliError;
+use crate::text::{escape, problems};
 use std::fmt::{self, Write as _};
 use std::io::Write;
-use xlsx_graft_diagnostics::Record;
 use xlsx_graft_read::{Row, Value};
 
 /// Prints the rows to `out` and the problems to `err`.
@@ -50,17 +50,10 @@ impl Sink for Text<'_> {
             .map_err(CliError::Write)
     }
 
-    /// Writes the problems to `err` once the rows before them are out. A
-    /// stderr that refuses them is passed over: the status still says the
-    /// run failed, and a closed stderr must not pass for a closed stdout.
+    /// Writes the problems to `err` once the rows before them are out.
     fn end(&mut self, end: &End) -> Result<(), CliError> {
         self.out.flush().map_err(CliError::Write)?;
-        for record in &end.diagnostics {
-            let _ = writeln!(self.err, "xlsx-graft: {}", Problem(record));
-        }
-        if let Some(error) = &end.error {
-            let _ = writeln!(self.err, "xlsx-graft: {}", error.0);
-        }
+        problems(self.err, &end.diagnostics, end.error.as_ref());
         Ok(())
     }
 }
@@ -87,37 +80,5 @@ pub(super) fn write_value(line: &mut String, value: Value<'_>) -> fmt::Result {
             let (seconds, ms) = (ms / 1_000 % 60, ms % 1_000);
             write!(line, "{hours}:{minutes:02}:{seconds:02}.{ms:03}")
         }
-    }
-}
-
-/// Writes `text` to `line`, its backslashes, tabs and line ends escaped.
-fn escape(line: &mut String, text: &str) {
-    for char in text.chars() {
-        match char {
-            '\\' => line.push_str("\\\\"),
-            '\t' => line.push_str("\\t"),
-            '\n' => line.push_str("\\n"),
-            '\r' => line.push_str("\\r"),
-            char => line.push(char),
-        }
-    }
-}
-
-/// A diagnostic, on one line: `error xml_schema_invalid in /xl/...: ...`.
-pub(super) struct Problem<'r>(pub(super) &'r Record);
-
-impl fmt::Display for Problem<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let diagnostic = &self.0.diagnostic;
-        let severity = diagnostic.severity().as_str();
-        write!(f, "{severity} {}", diagnostic.code().as_str())?;
-        let location = &self.0.location;
-        let place = (location.part.as_ref())
-            .or(location.entry.as_ref())
-            .or(location.rels_part.as_ref());
-        if let Some(place) = place {
-            write!(f, " in {place}")?;
-        }
-        write!(f, ": {}", diagnostic.message())
     }
 }
