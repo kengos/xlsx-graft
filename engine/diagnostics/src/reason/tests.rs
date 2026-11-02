@@ -1,8 +1,8 @@
 //! Unit tests for the reason enums: each prints as it serializes.
 
 use super::{
-    EncodingReason, InflateReason, PartKind, PartNameReason, SchemaReason, ZipDirectoryReason,
-    ZipHeaderField,
+    EncodingReason, FormulaMalformedReason, FunctionDenial, InflateReason, PartKind,
+    PartNameReason, SchemaReason, ZipDirectoryReason, ZipHeaderField,
 };
 use serde::Serialize;
 use std::fmt::Display;
@@ -118,5 +118,30 @@ fn every_part_kind_prints_as_its_wire_string() {
             PartKind::WebPublish,
         ],
         r#"["macro","external_link","dde","ole","activex","data_connection","web_publish"]"#,
+    );
+}
+
+#[test]
+fn every_formula_malformed_reason_prints_as_its_wire_string() {
+    assert_wire(
+        &[
+            FormulaMalformedReason::UndecodableEscape,
+            FormulaMalformedReason::UpperCaseEscape,
+            FormulaMalformedReason::UnclosedString,
+            FormulaMalformedReason::UnclosedSheetName,
+            FormulaMalformedReason::UnclosedBracket,
+            FormulaMalformedReason::BracketsTooDeep,
+            FormulaMalformedReason::UnknownCharacter,
+            FormulaMalformedReason::StraySheetName,
+        ],
+        r#"["undecodable_escape","upper_case_escape","unclosed_string","unclosed_sheet_name","unclosed_bracket","brackets_too_deep","unknown_character","stray_sheet_name"]"#,
+    );
+}
+
+#[test]
+fn every_function_denial_prints_as_its_wire_string() {
+    assert_wire(
+        &[FunctionDenial::Unreviewed, FunctionDenial::Unknown],
+        r#"["unreviewed","unknown"]"#,
     );
 }

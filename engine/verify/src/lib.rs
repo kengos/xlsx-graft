@@ -49,13 +49,20 @@
 //! other than UTF-32, or one the bytes are not in), so an image or a VML
 //! drawing that is not well-formed raises nothing.
 //!
+//! # Formulas
+//!
+//! [`FormulaJudge`] judges a formula: what it calls, names and links to,
+//! its names resolved against the workbook's ([`Names`]), by [`Rules`]
+//! (their part side for a DDE link or another workbook, so `parts.allow`
+//! admits those in a formula too; their function side for a function) and
+//! a [`FunctionTable`]. [`verify`] does not call it yet: finding the
+//! formulas in the parts is not here, so a DDE link or an external
+//! reference written in a formula (`=cmd|' /C calc'!A0`,
+//! `'C:\x\[b.xlsx]S'!A1`) is not refused by [`verify`] yet.
+//!
 //! # Not yet
 //!
-//! The formulas are not read yet, so a DDE link or an external reference
-//! written in a formula (`=cmd|' /C calc'!A0`, `'C:\x\[b.xlsx]S'!A1`) is
-//! not refused here: that is the formula check's. [`FunctionTable`] and
-//! the function side of [`Rules`] are the shapes it takes. Not checked
-//! either: Office add-ins (`webextension`), a ribbon (`customUI`),
+//! Not checked: Office add-ins (`webextension`), a ribbon (`customUI`),
 //! attached toolbars (`attachedToolbars`), and the macro name a form
 //! control gives in VML or in its control properties (`fmlaMacro`), or a
 //! drawing's shape in its `macro` attribute, which formulas will read.
@@ -63,10 +70,12 @@
 //! admits whatever it embeds, links a compound file keeps inside it
 //! included.
 
+mod formulas;
 mod functions;
 mod parts;
 mod rules;
 
+pub use formulas::{FormulaJudge, Names, Place};
 pub use functions::{FunctionClass, FunctionTable};
 pub use rules::{Rules, Ruling};
 pub use xlsx_graft_diagnostics::PartKind;
@@ -95,8 +104,8 @@ pub enum VerifyError {
 /// Verifies the workbook `reader` holds, pushing a diagnostic for each
 /// problem into `diagnostics`.
 ///
-/// `functions` classifies the functions the formulas call, for the formula
-/// check that is not here yet.
+/// `functions` classifies the functions the formulas call, for when the
+/// formulas are found in the parts, which is not here yet.
 ///
 /// # Errors
 ///

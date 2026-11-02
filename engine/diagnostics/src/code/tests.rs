@@ -2,8 +2,9 @@
 //! wire strings it may and may not use.
 
 use crate::{
-    Code, DecidedBy, Diagnostic, Diagnostics, Echo, EncodingReason, InflateReason, Limit, Location,
-    PartKind, PartNameReason, SchemaReason, Severity, ZipDirectoryReason, ZipHeaderField,
+    Code, DecidedBy, Diagnostic, Diagnostics, Echo, EncodingReason, FormulaMalformedReason,
+    FunctionDenial, InflateReason, Limit, Location, PartKind, PartNameReason, SchemaReason,
+    Severity, ZipDirectoryReason, ZipHeaderField,
 };
 
 /// Every wire string a code once had and no longer has. A removed code's
@@ -420,6 +421,65 @@ fn sample(code: Code) -> (Diagnostic, Location) {
                 .with_rels_part("/xl/worksheets/_rels/sheet1.xml.rels")
                 .with_relationship_id("rId1"),
         ),
+        Code::FormulaMalformed => (
+            Diagnostic::FormulaMalformed {
+                reason: FormulaMalformedReason::UnclosedString,
+                count: 1,
+            },
+            Location::default()
+                .with_part("/xl/worksheets/sheet1.xml")
+                .with_place("A1"),
+        ),
+        Code::FormulaDenied => (
+            Diagnostic::FormulaDenied {
+                kind: PartKind::Dde,
+                count: 2,
+            },
+            Location::default()
+                .with_part("/xl/worksheets/sheet1.xml")
+                .with_place("A1"),
+        ),
+        Code::FormulaForbidden => (
+            Diagnostic::FormulaForbidden {
+                kind: PartKind::ExternalLink,
+                reason: Echo::new("no workbook may reach outside the host"),
+                count: 1,
+            },
+            Location::default()
+                .with_part("/xl/workbook.xml")
+                .with_place("definedName Rates"),
+        ),
+        Code::FunctionDenied => (
+            Diagnostic::FunctionDenied {
+                name: Echo::new("STOCKHISTORY"),
+                denial: FunctionDenial::Unknown,
+                count: 3,
+            },
+            Location::default()
+                .with_part("/xl/worksheets/sheet1.xml")
+                .with_place("B2"),
+        ),
+        Code::FunctionDangerous => (
+            Diagnostic::FunctionDangerous {
+                name: Echo::new("WEBSERVICE"),
+                reason: Echo::new("reaches the network"),
+                count: 1,
+            },
+            Location::default()
+                .with_part("/xl/worksheets/sheet1.xml")
+                .with_place("B2")
+                .with_defined_name("Fetch"),
+        ),
+        Code::FunctionForbidden => (
+            Diagnostic::FunctionForbidden {
+                name: Echo::new("WEBSERVICE"),
+                reason: Echo::new("no workbook may reach the network"),
+                count: 1,
+            },
+            Location::default()
+                .with_part("/xl/worksheets/sheet1.xml")
+                .with_place("C3"),
+        ),
     }
 }
 
@@ -533,4 +593,74 @@ fn a_shared_strings_size_fix_raises_the_limit_until_32_bits_hold_no_more() {
             ))
         );
     }
+}
+
+#[test]
+fn a_function_denial_says_why_in_its_message() {
+    let message = |denial| {
+        Diagnostic::FunctionDenied {
+            name: Echo::new("F"),
+            denial,
+            count: 1,
+        }
+        .message()
+    };
+    assert!(message(FunctionDenial::Unreviewed).contains("has not reviewed yet"));
+    assert!(message(FunctionDenial::Unknown).contains("does not know"));
+}
+
+#[test]
+fn a_malformed_formula_cites_what_decides_its_reason() {
+    let malformed = |reason| Diagnostic::FormulaMalformed { reason, count: 1 };
+    let standard = |reference| Some(DecidedBy::standard(reference));
+    let again = Some(crate::Fix::workbook("save the workbook again from Excel"));
+    let cases = [
+        (
+            FormulaMalformedReason::UndecodableEscape,
+            standard("ECMA-376-1:2016 §22.9.2.19"),
+            &again,
+        ),
+        (
+            FormulaMalformedReason::UpperCaseEscape,
+            Some(DecidedBy::Default {}),
+            &again,
+        ),
+        (
+            FormulaMalformedReason::UnclosedString,
+            standard("ECMA-376-1:2016 §18.17.2"),
+            &again,
+        ),
+        (
+            FormulaMalformedReason::UnclosedSheetName,
+            standard("ECMA-376-1:2016 §18.17.2"),
+            &again,
+        ),
+        (
+            FormulaMalformedReason::UnclosedBracket,
+            standard("ECMA-376-1:2016 §18.17.2"),
+            &again,
+        ),
+        (
+            FormulaMalformedReason::UnknownCharacter,
+            standard("ECMA-376-1:2016 §18.17.2"),
+            &again,
+        ),
+        (
+            FormulaMalformedReason::StraySheetName,
+            standard("ECMA-376-1:2016 §18.17.2"),
+            &again,
+        ),
+    ];
+    for (reason, decided_by, fix) in cases {
+        assert_eq!(malformed(reason).decided_by(), decided_by, "{reason}");
+        assert_eq!(&malformed(reason).fix(), fix, "{reason}");
+    }
+    let deep = malformed(FormulaMalformedReason::BracketsTooDeep);
+    assert_eq!(deep.decided_by(), Some(DecidedBy::Default {}));
+    assert_eq!(
+        deep.fix(),
+        Some(crate::Fix::workbook(
+            "nest the formula's brackets less deeply"
+        ))
+    );
 }

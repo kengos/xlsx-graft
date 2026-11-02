@@ -717,6 +717,7 @@ dependencies = [
  "crc32fast",
  "thiserror",
  "xlsx-graft-diagnostics",
+ "xlsx-graft-formula",
  "xlsx-graft-package",
  "xlsx-graft-xml",
 ]

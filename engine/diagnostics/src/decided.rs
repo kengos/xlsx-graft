@@ -33,8 +33,9 @@ pub enum DecidedBy {
         source: LimitSource,
     },
     /// The engine's defaults: a part of a kind it denies is refused unless
-    /// the template allows it, and so will be a function its table does
-    /// not mark reviewed safe, once formulas are checked.
+    /// the template allows it, and so is a function its table does not
+    /// mark reviewed safe, and a formula it does not read for reasons of
+    /// its own rather than a standard's.
     Default {},
     /// The template's `allow` lists, which admit what the defaults deny. No
     /// code cites it yet: it is for a notice about what a template admits

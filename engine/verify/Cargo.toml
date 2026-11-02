@@ -11,6 +11,8 @@ repository.workspace = true
 thiserror = { workspace = true }
 # Every problem in the workbook is returned as a Diagnostic.
 xlsx-graft-diagnostics = { workspace = true }
+# Reads each formula into the facts it states, which are judged here.
+xlsx-graft-formula = { workspace = true }
 # The package the parts, their media types and relationships are read from.
 xlsx-graft-package = { workspace = true }
 # Reads each XML part as a stream, looking for the elements that carry a

@@ -1341,5 +1341,134 @@
     },
     "fix": null,
     "origin": "<origin>"
+  },
+  {
+    "code": "formula_malformed",
+    "severity": "error",
+    "message": "a formula could not be read (unclosed_string), so it is refused: past that, what it states is a guess; 1 time(s), the first here",
+    "args": {
+      "reason": "unclosed_string",
+      "count": 1
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml",
+      "place": "A1"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.17.2"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "formula_denied",
+    "severity": "error",
+    "message": "a formula holds dde content, which is denied unless the template allows it; 2 time(s), the first here",
+    "args": {
+      "kind": "dde",
+      "count": 2
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml",
+      "place": "A1"
+    },
+    "decidedBy": {
+      "kind": "default"
+    },
+    "fix": {
+      "in": "template",
+      "list": "parts.allow",
+      "add": "dde"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "formula_forbidden",
+    "severity": "error",
+    "message": "a formula holds external_link content, which the host's policy forbids: no workbook may reach outside the host; 1 time(s), the first here",
+    "args": {
+      "kind": "external_link",
+      "reason": "no workbook may reach outside the host",
+      "count": 1
+    },
+    "location": {
+      "part": "/xl/workbook.xml",
+      "place": "definedName Rates"
+    },
+    "decidedBy": {
+      "kind": "policy"
+    },
+    "fix": null,
+    "origin": "<origin>"
+  },
+  {
+    "code": "function_denied",
+    "severity": "error",
+    "message": "a formula calls, or may call, STOCKHISTORY, which the engine does not know, so it is denied unless the template allows it; 3 time(s), the first here",
+    "args": {
+      "name": "STOCKHISTORY",
+      "denial": "unknown",
+      "count": 3
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml",
+      "place": "B2"
+    },
+    "decidedBy": {
+      "kind": "default"
+    },
+    "fix": {
+      "in": "template",
+      "list": "functions.allow",
+      "add": "STOCKHISTORY"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "function_dangerous",
+    "severity": "error",
+    "message": "a formula calls, or may call, WEBSERVICE, which the engine finds dangerous (reaches the network), so it is denied unless the template allows it; 1 time(s), the first here",
+    "args": {
+      "name": "WEBSERVICE",
+      "reason": "reaches the network",
+      "count": 1
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml",
+      "place": "B2",
+      "definedName": "Fetch"
+    },
+    "decidedBy": {
+      "kind": "default"
+    },
+    "fix": {
+      "in": "template",
+      "list": "functions.allow",
+      "add": "WEBSERVICE"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "function_forbidden",
+    "severity": "error",
+    "message": "a formula calls, or may call, WEBSERVICE, which the host's policy forbids: no workbook may reach the network; 1 time(s), the first here",
+    "args": {
+      "name": "WEBSERVICE",
+      "reason": "no workbook may reach the network",
+      "count": 1
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml",
+      "place": "C3"
+    },
+    "decidedBy": {
+      "kind": "policy"
+    },
+    "fix": null,
+    "origin": "<origin>"
   }
 ]
