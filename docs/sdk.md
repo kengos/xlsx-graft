@@ -318,7 +318,7 @@ not (Go). It is never a result.
   | The run | The result |
   | --- | --- |
   | exit 0, stdout a JSON object with what the call reads (`version` a string) | successful, with the value |
-  | exit other than 0, or killed by a signal (but `read`'s exit 1 with its end line, [below](#reading-rows-read)) | failed, diagnostic `exit_status`: the status or the signal, and the start of stderr |
+  | exit other than 0, or killed by a signal (but [`sheets`](#listing-sheets-sheets)' exit 1 with its object and [`read`](#reading-rows-read)'s with its end line) | failed, diagnostic `exit_status`: the status or the signal, and the start of stderr |
   | exit 0, stdout not JSON, not an object, or without what the call reads | failed, diagnostic `invalid_output`: the start of stdout, if any |
 
   A diagnostic's message quotes at most 200 characters of the output, cut
@@ -342,6 +342,31 @@ not (Go). It is never a result.
 - **No timeout, no cancelling and no cap on the output yet.** `--version`
   returns at once and prints one line; they come with the first call that
   can take long or print much.
+
+### Listing sheets (`sheets`)
+
+`xlsx-graft sheets <path> --format json` prints one JSON object, the
+workbook's sheets in the order it lists them; the CLI's `sheets --help`
+gives the whole contract. An SDK lists a book's sheets with it, as an SDK
+over the C ABI calls `xlsx_graft_book_sheets`.
+
+- **The object** is `{"ok": BOOL, "sheets": [SHEET, ...], "error":
+  {"code": "workbook_unreadable", "message": TEXT} | null,
+  "diagnostics": [...]}`. A `SHEET` is `{"index": N, "name": NAME, "kind":
+  KIND, "state": STATE}`: the index `read --sheet-index` takes, `kind` one
+  of `worksheet`, `chartsheet`, `dialogsheet`, `macrosheet` and `unknown`
+  (which part the sheet is is not known), `state` one of `visible`,
+  `hidden` and `veryHidden`, as the addon names them (the CLI never prints
+  the addon's `unknown` state, which only a C ABI newer than the addon
+  gives). `sheets` is empty
+  when `error` is set. `ok` is as `read`'s: no `error` and no diagnostic
+  an error.
+- **The diagnostics** are those of opening the workbook, which `read`
+  prints too: it opens the workbook the same way.
+- **What is a result**: exit 0 or 1 with the object, a result (successful
+  when `ok`). Exit 1 with no object is the host failing, and stderr says
+  why: `exit_status`, as any other exit or a signal is. Exit 0 with no
+  object, or one without `sheets`, is `invalid_output`.
 
 ### Reading rows (`read`)
 

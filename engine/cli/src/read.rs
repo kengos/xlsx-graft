@@ -12,18 +12,16 @@ mod json;
 mod select;
 mod text;
 
+use crate::workbook::{self, Refused};
 use crate::{CliError, Format, Outcome};
 use clap::Args;
 pub(crate) use help::{AFTER_LONG_HELP, LONG_ABOUT};
-use select::Refused;
 use serde::Serialize;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::PathBuf;
 use xlsx_graft_diagnostics::{Diagnostics, Record};
-use xlsx_graft_package::Limits;
-use xlsx_graft_read::{Book, ReadLimits, Refusal, Row};
-use xlsx_graft_spool::TempFiles;
+use xlsx_graft_read::{Book, Refusal, Row};
 
 /// The arguments of `read`.
 #[derive(Debug, Args)]
@@ -80,18 +78,8 @@ pub(crate) fn run(
     out: &mut dyn Write,
     err: &mut dyn Write,
 ) -> Result<Outcome, CliError> {
-    let file = File::open(&args.path).map_err(|source| CliError::Open {
-        path: args.path.clone(),
-        source,
-    })?;
     let mut diagnostics = Diagnostics::new();
-    let book = Book::open(
-        BufReader::new(file),
-        &Limits::default(),
-        &ReadLimits::default(),
-        &mut TempFiles::new(),
-        &mut diagnostics,
-    )?;
+    let book = workbook::open(&args.path, &mut diagnostics)?;
     let (mut as_text, mut as_json);
     let sink: &mut dyn Sink = match format {
         Format::Text => {

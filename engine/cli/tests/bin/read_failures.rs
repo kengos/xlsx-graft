@@ -68,6 +68,7 @@ fn a_sheet_that_is_no_worksheet_is_not_read() {
         name: "Chart",
         rel_type: Some(CHARTSHEET),
         xml: "<chartsheet/>".to_owned(),
+        state: None,
     };
     let (_dir, path) = write(&xlsx(&[chart]));
     let output = run(&["read", path.to_str().unwrap(), "--format", "json"]);

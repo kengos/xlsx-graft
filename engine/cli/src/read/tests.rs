@@ -3,12 +3,12 @@
 //! `tests/bin/read`.
 
 use super::json::Cell;
-use super::select::Refused;
-use super::text::{Problem, Text, write_value};
+use super::text::{Text, write_value};
 use super::{End, Sink};
 use crate::CliError;
+use crate::workbook::Refused;
 use std::io::{self, Write};
-use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Limit, Location};
+use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Location};
 use xlsx_graft_read::{DateSystem, FormatKind, Refusal, Value};
 
 /// `value` as `read --format json` prints a cell of it.
@@ -127,47 +127,6 @@ fn a_string_in_text_never_splits_its_line_or_its_column() {
     let value = Value::String("a\\b\tc\nd\re é");
     assert_eq!(text(value), "a\\\\b\\tc\\nd\\re é");
     assert_eq!(text(Value::Error("#\t")), "#\\t");
-}
-
-#[test]
-fn a_diagnostic_in_text_says_its_severity_code_place_and_message() {
-    let mut diagnostics = Diagnostics::with_limit(Limit::default_of(1));
-    let missing = Diagnostic::SharedStringMissing { index: 7 };
-    let sheet = Location::default().with_part("/xl/worksheets/sheet1.xml");
-    diagnostics.push(missing.clone(), sheet);
-    diagnostics.push(missing.clone(), Location::default().with_entry("a.xml"));
-    let records = diagnostics.finish();
-    let lines: Vec<String> = (records.iter())
-        .map(|record| Problem(record).to_string())
-        .collect();
-    assert_eq!(lines.len(), 2);
-    assert_eq!(
-        lines[0],
-        format!(
-            "error shared_string_missing in /xl/worksheets/sheet1.xml: {}",
-            missing.message()
-        )
-    );
-    // The truncation notice points nowhere in the package.
-    assert!(lines[1].starts_with("notice diagnostics_truncated: "));
-    let rels = Location::default().with_rels_part("/_rels/.rels");
-    let mut diagnostics = Diagnostics::new();
-    diagnostics.push(missing, rels.with_relationship_id("rId1"));
-    let records = diagnostics.finish();
-    assert!(
-        Problem(&records[0])
-            .to_string()
-            .contains(" in /_rels/.rels: ")
-    );
-}
-
-#[test]
-fn a_refusal_prints_as_its_code_and_message() {
-    let refused = Refused(Refusal::NoSuchName("X".to_owned()));
-    let json = serde_json::to_value(&refused).unwrap();
-    let expected =
-        serde_json::json!({ "code": "sheet_not_found", "message": "no sheet is named \"X\"" });
-    assert_eq!(json, expected);
 }
 
 #[test]
