@@ -1,0 +1,15 @@
+[package]
+name = "xlsx-graft-formula"
+description = "xlsx-graft formula: the facts a formula string states (the functions it calls, its references, names, DDE links and external books), read by a lexer that does not trust its input"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[dev-dependencies]
+# The property tests: any string lexes without a panic and back to itself.
+proptest = { workspace = true }
+
+[lints]
+workspace = true

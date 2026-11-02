@@ -5,6 +5,7 @@ members = [
     "cli",
     "core",
     "diagnostics",
+    "formula",
     "mcp",
     "napi",
     "package",
@@ -29,6 +30,8 @@ xlsx-graft-core = { path = "core" }
 xlsx-graft-diagnostics = { path = "diagnostics" }
 # The guarded reader for a package's untrusted XML (engine/xml).
 xlsx-graft-xml = { path = "xml" }
+# The facts a formula string states, read by its lexer (engine/formula).
+xlsx-graft-formula = { path = "formula" }
 # The zip container of an untrusted package, read under limits (engine/package).
 xlsx-graft-package = { path = "package" }
 # Scratch storage that spills to a temporary file (engine/spool).
@@ -82,6 +85,11 @@ crc32fast = "1"
 # the OS, and a name taken is retried, since every file is created
 # exclusively.
 tempfile = { version = "3", default-features = false }
+# The formula lexer's property tests (engine/formula, dev only): it shrinks
+# a failing string to a short one. No default features: `fork` and
+# `timeout` bring rusty-fork and wait-timeout, `regex-syntax` the regex
+# strategies, and the tests build their strings from a list of characters.
+proptest = { version = "1", default-features = false, features = ["std"] }
 # Each crate's error enum (docs/guidelines.md § Rust code rules).
 thiserror = "2"
 # The Node.js addon's N-API glue (engine/napi, behind its `shim` feature):
