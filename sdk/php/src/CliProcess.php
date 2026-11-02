@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace XlsxGraft;
 
 /**
- * Runs the engine's CLI once (docs/sdk.md § Running the CLI).
+ * Runs the engine's CLI (docs/sdk.md § Running the CLI): at once and whole
+ * ({@see self::run()}), or started and read a line at a time
+ * ({@see self::start()}).
  *
  * The command is an array, so `proc_open` starts the CLI itself and no shell
  * reads the arguments. stdin is closed at once, so a CLI that ever asked for
@@ -20,6 +22,23 @@ namespace XlsxGraft;
  */
 final class CliProcess
 {
+    /** Whether stdout is closed, as {@see self::finish()} closes it. */
+    private bool $closed = false;
+
+    /** @var array{int, int|null, string}|null what {@see self::finish()} returned */
+    private ?array $ended = null;
+
+    /**
+     * @param resource $process
+     * @param resource $stdout
+     * @param resource $stderr
+     */
+    private function __construct(
+        private $process,
+        private $stdout,
+        private $stderr,
+    ) {}
+
     /**
      * @param list<string> $args
      *
@@ -30,6 +49,23 @@ final class CliProcess
      *                              temporary file can take its stderr
      */
     public static function run(string $cli, array $args): array
+    {
+        $process = self::start($cli, $args);
+        $stdout = (string) stream_get_contents($process->stdout);
+        [$status, $signal, $stderr] = $process->finish();
+
+        return [$status, $signal, $stdout, $stderr];
+    }
+
+    /**
+     * The CLI started, its stdout to be read a line at a time.
+     *
+     * @param list<string> $args
+     *
+     * @throws CliNotFoundException when the CLI cannot be run, or no
+     *                              temporary file can take its stderr
+     */
+    public static function start(string $cli, array $args): self
     {
         // A disabled function does not exist in PHP 8, so calling it would
         // throw an Error. Neither throw can happen in the suite's own PHP, so
@@ -48,18 +84,52 @@ final class CliProcess
         }
 
         fclose($pipes[0]);
-        $stdout = (string) stream_get_contents($pipes[1]);
-        fclose($pipes[1]);
+
+        return new self($process, $pipes[1], $stderr);
+    }
+
+    /**
+     * The next line of stdout, its line feed kept; null at its end, or once
+     * {@see self::finish()} closed it.
+     */
+    public function line(): ?string
+    {
+        $line = $this->closed ? false : fgets($this->stdout);
+
+        return $line === false ? null : $line;
+    }
+
+    /** Reads stdout to its end, each line dropped. */
+    public function drain(): void
+    {
+        while ($this->line() !== null);
+    }
+
+    /**
+     * Closes stdout, waits for the CLI to end and frees the run; a second
+     * call returns what the first did. A CLI still writing stops at the next
+     * output it flushes, finding stdout closed.
+     *
+     * @return array{int, int|null, string} the exit status (-1 when killed by a signal), the
+     *                                      signal that killed it, and stderr
+     */
+    public function finish(): array
+    {
+        if ($this->ended !== null) {
+            return $this->ended;
+        }
+        $this->closed = true;
+        fclose($this->stdout);
         // stdout closes before the CLI exits, so its status may not be in yet.
-        while (($state = proc_get_status($process))['running']) {
+        while (($state = proc_get_status($this->process))['running']) {
             usleep(1000);
         }
-        proc_close($process);
+        proc_close($this->process);
 
-        rewind($stderr);
-        $errors = (string) stream_get_contents($stderr);
-        fclose($stderr);
+        rewind($this->stderr);
+        $errors = (string) stream_get_contents($this->stderr);
+        fclose($this->stderr);
 
-        return [$state['exitcode'], $state['signaled'] ? $state['termsig'] : null, $stdout, $errors];
+        return $this->ended = [$state['exitcode'], $state['signaled'] ? $state['termsig'] : null, $errors];
     }
 }

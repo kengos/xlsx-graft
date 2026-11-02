@@ -73,6 +73,7 @@
 #     make engine:format        rustfmt
 #     make sdk:format:jvm       google-java-format, through Spotless, on sdk/jvm
 #     make sdk:format:js        Biome's format and safe fixes, on sdk/js
+#     make sdk:format:php       php-cs-fixer's fixes, on sdk/php
 #     make engine:lock          re-resolve engine/Cargo.lock after a manifest
 #                               edit — every gate is --locked and refuses until
 #                               you do (then: git add engine/Cargo.lock)
