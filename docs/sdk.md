@@ -283,7 +283,9 @@ The header gives the whole contract; this is the shape an SDK builds on.
   `XLSX_GRAFT_ERR_IO` is the host failing (the file would not open or
   read, a temporary file would not write), as `read`'s exit 1 without an
   end line is; `xlsx_graft_error_message` says why, on the thread that
-  made the call.
+  made the call. Read it before anything that could block: a JVM virtual
+  thread that blocks (on a `java.util.concurrent` lock since Java 21, on a
+  monitor since Java 24) may come back on another operating system thread.
 
 ## Running the CLI
 
@@ -423,9 +425,10 @@ later SDK takes the same shape in its own language's idiom.
 - **The call returns a result.** On success its value is what the
   caller's block returned; a failed result has none, so a caller that
   wants the rows read before a stop keeps them outside the block. Where
-  the scope has no value (Python's `with`, .NET's `using`), the book
-  holds the result, read after the scope, and its value is none; a file
-  that cannot be opened then still runs the block, with no sheets. It is
+  the scope has no value (Python's `with`, .NET's `using`, Java's
+  try-with-resources), the book holds the result, read after the scope,
+  and its value is none; a file that cannot be opened then still runs the
+  block, with no sheets. It is
   successful exactly when `read`'s `ok` would be true: no `error`, and no
   diagnostic of severity `error`. A problem the engine finds in a sheet
   leaves such a diagnostic (the rows before it have come), and where it
@@ -490,7 +493,9 @@ later SDK takes the same shape in its own language's idiom.
   instead. .NET has no `Thread.Abort`: between two plain lines comes
   none (a `ThreadInterruptedException` comes only while waiting, as for
   the lock, before any call), and it keeps the same rules against an
-  exception of the SDK's own:
+  exception of the SDK's own. So does the JVM, whose only exceptions
+  between two lines are the deprecated `Thread.stop`'s (gone since Java
+  20) and a `VirtualMachineError` (out of memory, out of stack):
   - A handle's slot exists before the call that fills it, and a handle
     leaves the SDK's list before the call that frees it: an exception
     between two lines then leaks a handle at worst, never frees one twice.
@@ -505,5 +510,8 @@ later SDK takes the same shape in its own language's idiom.
     collected it), under the book's lock, reentrant for that reason.
     .NET frees it in the enumerator's `finally`, which runs on the
     caller's thread as the enumeration ends or is disposed (a `foreach`
-    does). A runtime whose finalizers run on a thread of their own (the JVM's
-    Cleaner, .NET's finalizer) frees nothing there.
+    does). Java's `Iterator` has no `finally`: its rows object is
+    `AutoCloseable`, opened when asked for rather than at the first row,
+    and rows neither read to the end nor closed wait for the book's
+    close. A runtime whose finalizers run on a thread of their own (the
+    JVM's Cleaner, .NET's finalizer) frees nothing there.

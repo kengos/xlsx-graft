@@ -9,8 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.jna.Native;
 import com.sun.jna.ptr.PointerByReference;
+import java.lang.reflect.Proxy;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiFunction;
 import org.junit.jupiter.api.Test;
 
 class VersionCallTest {
@@ -24,8 +26,9 @@ class VersionCallTest {
     assertNull(result.value());
     assertEquals(
         Collections.singletonList(
-            new Diagnostic("panic", "the engine panicked; the call did not complete")),
+            new Diagnostic("panic", "error", "the engine panicked; the call did not complete")),
         result.diagnostics());
+    assertNull(result.error());
   }
 
   @Test
@@ -35,20 +38,21 @@ class VersionCallTest {
 
   @Test
   void aStatusThisPackageDoesNotKnowReturnsAFailureNamingIt() {
-    List<Diagnostic> diagnostics = callReturning(7).diagnostics();
+    List<Diagnostic> diagnostics = callReturning(42).diagnostics();
 
     assertEquals(1, diagnostics.size());
     assertEquals("unknown_status", diagnostics.get(0).code());
-    assertTrue(diagnostics.get(0).message().contains("status 7"));
+    assertTrue(diagnostics.get(0).message().contains("status 42"));
   }
 
   @Test
   void aLibraryThatExportsNoXlsxGraftVersionThrowsNamingIt() {
     UnsatisfiedLinkError missing = new UnsatisfiedLinkError("Error looking up function");
     XlsxGraftLibrary api =
-        (outPtr, outLen) -> {
-          throw missing;
-        };
+        version(
+            (outPtr, outLen) -> {
+              throw missing;
+            });
 
     LibraryNotFoundException error =
         assertThrows(LibraryNotFoundException.class, () -> VersionCall.call(api, "/old.so"));
@@ -73,14 +77,26 @@ class VersionCallTest {
   // written, as a panic may leave one: a failure must not read it.
   private static Result<String> callReturning(int status) {
     XlsxGraftLibrary api =
-        (PointerByReference outPtr, SizeTByReference outLen) -> {
-          if (Native.SIZE_T_SIZE == 8) {
-            outLen.getPointer().setLong(0, -1);
-          } else {
-            outLen.getPointer().setInt(0, -1);
-          }
-          return status;
-        };
+        version(
+            (outPtr, outLen) -> {
+              if (Native.SIZE_T_SIZE == 8) {
+                outLen.getPointer().setLong(0, -1);
+              } else {
+                outLen.getPointer().setInt(0, -1);
+              }
+              return status;
+            });
     return VersionCall.call(api, "/stand-in.so");
+  }
+
+  /** A library whose xlsx_graft_version is {@code version}; it has no other function. */
+  private static XlsxGraftLibrary version(
+      BiFunction<PointerByReference, SizeTByReference, Integer> version) {
+    return (XlsxGraftLibrary)
+        Proxy.newProxyInstance(
+            XlsxGraftLibrary.class.getClassLoader(),
+            new Class<?>[] {XlsxGraftLibrary.class},
+            (proxy, method, args) ->
+                version.apply((PointerByReference) args[0], (SizeTByReference) args[1]));
   }
 }

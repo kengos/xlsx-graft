@@ -2,8 +2,8 @@
 # language's file sets and what `sdk_lang` makes of them)
 
 .PHONY: _sdk-image-jvm _sdk-lint-jvm _sdk-lint-jvm-line _sdk-test-jvm \
-        _sdk-test-jvm-line _sdk-verify-jvm _sdk-verify-jvm-line sdk\:lint\:jvm \
-        sdk\:lock\:jvm sdk\:test\:jvm sdk\:verify\:jvm
+        _sdk-test-jvm-line _sdk-verify-jvm _sdk-verify-jvm-line sdk\:format\:jvm \
+        sdk\:lint\:jvm sdk\:lock\:jvm sdk\:test\:jvm sdk\:verify\:jvm
 
 # The floor first and the latest stable line last: LATEST=1 takes the last and
 # sdk:lock:jvm the first. Only LTS lines: a non-LTS line lives six months, so
@@ -40,6 +40,13 @@ sdk\:lock\:jvm: ## Re-resolve sdk/jvm's gradle.lockfile and buildscript-gradle.l
 	$(GATE_LOCK) docker run --rm --init --label "xlsx-graft.tree=$(CURDIR)" \
 		-v "$(CURDIR):/repo" -w /repo/sdk/jvm $(JVM_IMAGE)-tools \
 		gradle --project-cache-dir /tmp/gradle-project dependencies --write-locks
+
+# Writes the formatter's fixes into the mounted checkout's sources, as
+# engine:format does, and does NOT go through `quiet`. Spotless runs on the
+# tools' JDK whatever the line, so the latest names the image.
+sdk\:format\:jvm: override JVM_VER = $(lastword $(JVM_LINES))
+sdk\:format\:jvm: _sdk-image-jvm ## Apply Spotless (google-java-format) to sdk/jvm's sources (then: git diff)
+	$(JVM_IN_DOCKER) '$(JVM_GRADLE) spotlessApply'
 
 _sdk-image-jvm:
 	@echo "== sdk jvm image (Temurin $(JVM_PATCH)) =="
