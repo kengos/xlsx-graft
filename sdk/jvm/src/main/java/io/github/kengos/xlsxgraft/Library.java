@@ -13,9 +13,12 @@
 
 package io.github.kengos.xlsxgraft;
 
+import com.sun.jna.Function;
 import com.sun.jna.Native;
+import com.sun.jna.NativeLibrary;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Proxy;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -62,6 +65,34 @@ final class Library {
   /** The library's functions. */
   XlsxGraftLibrary api() {
     return api;
+  }
+
+  /**
+   * Checks the library exports every one of {@code names}: JNA looks a function up on its first
+   * call, not when the library opens, and a reader would otherwise find one missing midway.
+   *
+   * @throws LibraryNotFoundException the library exports one of them not
+   */
+  void require(String... names) {
+    for (String name : names) {
+      function(name);
+    }
+  }
+
+  /**
+   * The function {@code name}, to call without the binding's proxy.
+   *
+   * @throws LibraryNotFoundException the library exports it not
+   */
+  Function function(String name) {
+    // The NativeLibrary the binding holds, which OPENED keeps.
+    NativeLibrary library =
+        ((com.sun.jna.Library.Handler) Proxy.getInvocationHandler(api)).getNativeLibrary();
+    try {
+      return library.getFunction(name);
+    } catch (UnsatisfiedLinkError missing) {
+      throw new LibraryNotFoundException(path + " exports no `" + name + "`", missing);
+    }
   }
 
   /** The library {@code env} or {@code path} names, or the packaged copy on the classpath. */
@@ -126,7 +157,8 @@ final class Library {
         + "  * set "
         + ENV_VAR
         + " to the path of a libxlsx_graft_capi library\n"
-        + "  * pass Engine.version(\"/path/to/libxlsx_graft_capi.so\")\n"
+        + "  * pass Engine.version(\"/path/to/libxlsx_graft_capi.so\"),\n"
+        + "    or XlsxReader.open(path, \"/path/to/libxlsx_graft_capi.so\")\n"
         + "  * put the library in native/ on the classpath";
   }
 }

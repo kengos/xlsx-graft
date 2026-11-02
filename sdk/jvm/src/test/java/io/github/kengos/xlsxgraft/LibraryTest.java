@@ -86,6 +86,8 @@ class LibraryTest {
     assertTrue(message.startsWith("no engine library was found."), message);
     assertTrue(message.contains("set XLSX_GRAFT_LIBRARY"), message);
     assertTrue(message.contains("Engine.version(\"/path/to/libxlsx_graft_capi.so\")"), message);
+    assertTrue(
+        message.contains("XlsxReader.open(path, \"/path/to/libxlsx_graft_capi.so\")"), message);
     assertTrue(message.contains("native/ on the classpath"), message);
   }
 
