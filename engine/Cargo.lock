@@ -711,6 +711,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "xlsx-graft-verify"
+version = "0.0.0"
+dependencies = [
+ "crc32fast",
+ "thiserror",
+ "xlsx-graft-diagnostics",
+ "xlsx-graft-package",
+ "xlsx-graft-xml",
+]
+
+[[package]]
 name = "xlsx-graft-xml"
 version = "0.0.0"
 dependencies = [

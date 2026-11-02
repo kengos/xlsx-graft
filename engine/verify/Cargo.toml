@@ -1,0 +1,25 @@
+[package]
+name = "xlsx-graft-verify"
+description = "xlsx-graft verify: refuses what an untrusted workbook may not carry (macros, external links, DDE, OLE, ActiveX, data connections, Web publishing), each part judged against the engine's defaults, the template's allow lists and the host's forbids"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+# Every problem in the workbook is returned as a Diagnostic.
+xlsx-graft-diagnostics = { workspace = true }
+# The package the parts, their media types and relationships are read from.
+xlsx-graft-package = { workspace = true }
+# Reads each XML part as a stream, looking for the elements that carry a
+# denied kind of content.
+xlsx-graft-xml = { workspace = true }
+
+[dev-dependencies]
+# The CRC-32 of each entry of the zips the tests build.
+crc32fast = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,5 +1,5 @@
-//! The reason enums: closed sets of causes a code takes as an argument,
-//! written as their snake_case names.
+//! The reason enums: closed sets of causes (and of kinds) a code takes as
+//! an argument, written as their snake_case names.
 //!
 //! A new enum is one entry of `reasons!`: the enum's doc, then each variant's
 //! doc and its wire string. The macro derives the rest (`Display` and
@@ -17,7 +17,7 @@ macro_rules! reasons {
         $name:ident { $( $(#[$variant_meta:meta])* $variant:ident => $wire:literal, )* }
     )*) => {$(
         $(#[$meta])*
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub enum $name {
             $( $(#[$variant_meta])* $variant, )*
         }
@@ -171,6 +171,28 @@ reasons! {
         UnexpectedText => "unexpected_text",
         /// An attribute's value is not one its type allows.
         InvalidValue => "invalid_value",
+    }
+
+    /// The kind of content a part holds that the engine denies by default,
+    /// as a template's `parts.allow` and a policy's forbid name it.
+    PartKind {
+        /// VBA or XLM macros: a VBA project, a macro-enabled workbook, a
+        /// macro sheet or a dialog sheet.
+        Macro => "macro",
+        /// A link to another workbook or a resource outside the package.
+        ExternalLink => "external_link",
+        /// A DDE link: a value another program serves.
+        Dde => "dde",
+        /// An embedded or linked OLE object.
+        Ole => "ole",
+        /// An ActiveX control.
+        Activex => "activex",
+        /// A data connection: a connection, a query table, an XML map's data
+        /// binding or a Power Query definition.
+        DataConnection => "data_connection",
+        /// A Web publishing item, which republishes part of the workbook
+        /// to a location of its own.
+        WebPublish => "web_publish",
     }
 }
 

@@ -6,8 +6,10 @@ use serde::Serialize;
 
 /// What decided that this is a problem.
 ///
-/// Serialized with a `kind` tag: `{"kind":"standard","ref":"..."}` or
-/// `{"kind":"limit","name":"...","value":...,"source":"..."}`.
+/// Serialized with a `kind` tag: `{"kind":"standard","ref":"..."}`,
+/// `{"kind":"limit","name":"...","value":...,"source":"..."}`, or
+/// `{"kind":"default"}`, `{"kind":"template"}` and `{"kind":"policy"}` for
+/// what the engine denies, the template allows and the host forbids.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(
     tag = "kind",
@@ -30,6 +32,16 @@ pub enum DecidedBy {
         /// Who set the value in force.
         source: LimitSource,
     },
+    /// The engine's defaults: a part of a kind it denies is refused unless
+    /// the template allows it, and so will be a function its table does
+    /// not mark reviewed safe, once formulas are checked.
+    Default {},
+    /// The template's `allow` lists, which admit what the defaults deny. No
+    /// code cites it yet: it is for a notice about what a template admits
+    /// that the engine would otherwise deny.
+    Template {},
+    /// The host's policy, which forbids what no template may allow.
+    Policy {},
 }
 
 impl DecidedBy {
@@ -52,8 +64,9 @@ impl DecidedBy {
 
 /// How the problem can be resolved.
 ///
-/// Serialized with an `in` tag: `{"in":"workbook","text":"..."}` or
-/// `{"in":"policy","line":"..."}`. The text is an English default and may
+/// Serialized with an `in` tag: `{"in":"workbook","text":"..."}`,
+/// `{"in":"policy","line":"..."}` or
+/// `{"in":"template","list":"...","add":"..."}`. The text is an English default and may
 /// change; the shape is the contract.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "in", rename_all = "camelCase", rename_all_fields = "camelCase")]
@@ -68,6 +81,13 @@ pub enum Fix {
         /// The policy line that would admit this workbook.
         line: String,
     },
+    /// Add a value to one of the template's lists.
+    Template {
+        /// The list, such as `parts.allow`.
+        list: &'static str,
+        /// The value to add to it.
+        add: String,
+    },
 }
 
 impl Fix {
@@ -81,6 +101,15 @@ impl Fix {
     #[must_use]
     pub fn policy(line: impl Into<String>) -> Self {
         Self::Policy { line: line.into() }
+    }
+
+    /// Add `value` to the template's list `list`.
+    #[must_use]
+    pub fn template(list: &'static str, value: impl Into<String>) -> Self {
+        Self::Template {
+            list,
+            add: value.into(),
+        }
     }
 }
 

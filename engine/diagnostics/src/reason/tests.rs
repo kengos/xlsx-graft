@@ -1,7 +1,8 @@
 //! Unit tests for the reason enums: each prints as it serializes.
 
 use super::{
-    EncodingReason, InflateReason, PartNameReason, SchemaReason, ZipDirectoryReason, ZipHeaderField,
+    EncodingReason, InflateReason, PartKind, PartNameReason, SchemaReason, ZipDirectoryReason,
+    ZipHeaderField,
 };
 use serde::Serialize;
 use std::fmt::Display;
@@ -101,5 +102,21 @@ fn every_schema_reason_prints_as_its_wire_string() {
             SchemaReason::InvalidValue,
         ],
         r#"["unexpected_element","unexpected_attribute","missing_attribute","missing_element","unexpected_text","invalid_value"]"#,
+    );
+}
+
+#[test]
+fn every_part_kind_prints_as_its_wire_string() {
+    assert_wire(
+        &[
+            PartKind::Macro,
+            PartKind::ExternalLink,
+            PartKind::Dde,
+            PartKind::Ole,
+            PartKind::Activex,
+            PartKind::DataConnection,
+            PartKind::WebPublish,
+        ],
+        r#"["macro","external_link","dde","ole","activex","data_connection","web_publish"]"#,
     );
 }
