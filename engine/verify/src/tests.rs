@@ -1,9 +1,11 @@
 //! Tests for the crate, driven through `verify` on packages the tests
 //! build (`zip.rs`) with a [`Book`]. `parts.rs` covers the kinds of
 //! content a part holds and how the rules judge them, `links.rs` the
-//! relationships that point outside the package, and `opening.rs` what
-//! opening and reading the package refuses on the way.
+//! relationships that point outside the package, `opening.rs` what
+//! opening and reading the package refuses on the way, and `formulas.rs`
+//! the formulas found as the parts are read.
 
+mod formulas;
 mod links;
 mod opening;
 mod parts;
@@ -97,6 +99,12 @@ impl Book {
         let entry = (name.to_owned(), content_type.to_owned(), xml.into());
         self.parts.push(entry);
         self
+    }
+
+    /// This workbook, with the part `name` holding `xml`, related from the
+    /// workbook part.
+    fn related(self, name: &str, xml: &str) -> Self {
+        (self.part(name, "application/xml", xml)).rel("/xl/workbook.xml", "styles", name)
     }
 
     /// This workbook, with the item of the part `item` names built as

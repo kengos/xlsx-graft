@@ -20,6 +20,7 @@
 mod kinds;
 mod scan;
 
+use crate::collect::{Collector, FormulaSink};
 use crate::{Rules, Ruling};
 use scan::Shown;
 use std::collections::BTreeSet;
@@ -32,11 +33,14 @@ use xlsx_graft_xml::XmlLimits;
 const PACKAGE_RELATIONSHIPS: &str = "/_rels/.rels";
 
 /// Pushes a diagnostic for each kind of content a part of `package` holds
-/// that `rules` do not allow, reading its XML parts under `limits`.
+/// that `rules` do not allow, reading its XML parts under `limits` and
+/// handing their formulas, kept up to `max_formula_bytes`, to `formulas`.
 pub(crate) fn check<R: Read + Seek>(
     package: &mut Package<R>,
     limits: &XmlLimits,
     rules: &Rules,
+    max_formula_bytes: u64,
+    formulas: &mut dyn FormulaSink,
     diagnostics: &mut Diagnostics,
 ) -> Result<(), PackageError> {
     let mut held = targeted(package);
@@ -48,12 +52,15 @@ pub(crate) fn check<R: Read + Seek>(
         }
         if !part.name().is_relationships() {
             let links = web_or_mail_links(part.relationships());
-            scanned.push((index, media_type.is_some_and(is_xml), links));
+            let name = part.name().as_str().to_owned();
+            scanned.push((index, name, media_type.is_some_and(is_xml), links));
         }
     }
     let mut shown: Vec<Shown> = held.iter().map(|_| Shown::default()).collect();
-    for (index, declared, links) in scanned {
-        let read = scan::read(package, index, declared, &links, limits, diagnostics)?;
+    for (index, name, declared, links) in scanned {
+        let mut collector = Collector::new(formulas, &name, max_formula_bytes);
+        let found = &mut collector;
+        let read = scan::read(package, index, declared, &links, limits, found, diagnostics)?;
         if let Some(slot) = shown.get_mut(index) {
             *slot = read;
         }

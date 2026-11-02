@@ -55,21 +55,28 @@
 //! its names resolved against the workbook's ([`Names`]), by [`Rules`]
 //! (their part side for a DDE link or another workbook, so `parts.allow`
 //! admits those in a formula too; their function side for a function) and
-//! a [`FunctionTable`]. [`verify`] does not call it yet: finding the
-//! formulas in the parts is not here, so a DDE link or an external
+//! a [`FunctionTable`].
+//!
+//! [`verify`] finds the formulas as it reads the parts: those of cells,
+//! defined names, data validations, conditional formats, table columns,
+//! pivot caches, charts, revisions, linked objects, controls and drawings
+//! (the macros they name included), with the defined names and tables.
+//! It does not hand them to the judge yet, so a DDE link or an external
 //! reference written in a formula (`=cmd|' /C calc'!A0`,
 //! `'C:\x\[b.xlsx]S'!A1`) is not refused by [`verify`] yet.
 //!
 //! # Not yet
 //!
 //! Not checked: Office add-ins (`webextension`), a ribbon (`customUI`),
-//! attached toolbars (`attachedToolbars`), and the macro name a form
-//! control gives in VML or in its control properties (`fmlaMacro`), or a
-//! drawing's shape in its `macro` attribute, which formulas will read.
+//! attached toolbars (`attachedToolbars`), and the formulas a form
+//! control keeps in its control properties or in VML (`fmlaMacro`,
+//! `fmlaLink`, `fmlaRange` and the like), which no schema of ECMA-376
+//! types.
 //! What an embedded object or package holds is not read: allowing OLE
 //! admits whatever it embeds, links a compound file keeps inside it
 //! included.
 
+mod collect;
 mod formulas;
 mod functions;
 mod parts;
@@ -80,17 +87,37 @@ pub use functions::{FunctionClass, FunctionTable};
 pub use rules::{Rules, Ruling};
 pub use xlsx_graft_diagnostics::PartKind;
 
+use collect::{Discard, FormulaSink};
 use std::io::{Read, Seek};
 use thiserror::Error;
-use xlsx_graft_diagnostics::Diagnostics;
+use xlsx_graft_diagnostics::{Diagnostics, Limit};
 use xlsx_graft_package::{Package, PackageError};
 
 /// The limits [`verify`] holds a workbook to.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Limits {
     /// The package reader's, whose XML limits also hold each XML part
     /// read.
     pub package: xlsx_graft_package::Limits,
+    /// The most bytes of one formula kept, as UTF-8: a longer one is
+    /// counted, not kept. Policy name `maxFormulaBytes`.
+    pub max_formula_bytes: Limit,
+}
+
+impl Limits {
+    /// The default `max_formula_bytes`, 64 KiB: Excel keeps a formula to
+    /// 8,192 characters, at most 24 KiB as UTF-8, and under 56 KiB with
+    /// every character written as an `_xHHHH_` escape.
+    pub const DEFAULT_MAX_FORMULA_BYTES: u64 = 64 * 1024;
+}
+
+impl Default for Limits {
+    fn default() -> Self {
+        Self {
+            package: xlsx_graft_package::Limits::default(),
+            max_formula_bytes: Limit::default_of(Self::DEFAULT_MAX_FORMULA_BYTES),
+        }
+    }
 }
 
 /// A failure of the host, apart from any problem in the workbook.
@@ -117,10 +144,22 @@ pub fn verify<R: Read + Seek>(
     _functions: &dyn FunctionTable,
     diagnostics: &mut Diagnostics,
 ) -> Result<(), VerifyError> {
+    read(reader, limits, rules, &mut Discard, diagnostics)
+}
+
+/// [`verify`], handing the formulas the parts hold to `formulas`.
+fn read<R: Read + Seek>(
+    reader: R,
+    limits: &Limits,
+    rules: &Rules,
+    formulas: &mut dyn FormulaSink,
+    diagnostics: &mut Diagnostics,
+) -> Result<(), VerifyError> {
     let Some(mut package) = Package::open(reader, &limits.package, diagnostics)? else {
         return Ok(());
     };
-    parts::check(&mut package, &limits.package.xml, rules, diagnostics)?;
+    let (xml, max) = (&limits.package.xml, limits.max_formula_bytes.value);
+    parts::check(&mut package, xml, rules, max, formulas, diagnostics)?;
     Ok(())
 }
 

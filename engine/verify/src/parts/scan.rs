@@ -17,32 +17,37 @@
 //! use (but UTF-32) or one the bytes are not in, are reported for every
 //! part: an event too large may be a comment that hides what follows.
 //!
+//! What its formulas state is handed to a [`Collector`] as it is read.
+//!
 //! It also tells which of the part's hyperlinks to a Web page or a mail
 //! address are used as hyperlinks: named by the `id` of a `hyperlink`,
 //! `hlinkClick` or `hlinkHover` element, by no other attribute, and in a
 //! part read to its end.
 
 use super::kinds;
+use crate::collect::Collector;
 use std::collections::BTreeSet;
 use std::io::{BufRead, BufReader, Read, Seek};
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, EncodingReason, Location, PartKind};
 use xlsx_graft_package::{Package, PackageError};
 use xlsx_graft_xml::XmlVersion;
-use xlsx_graft_xml::events::{BytesStart, Event};
+use xlsx_graft_xml::events::{BytesRef, BytesStart, Event};
 use xlsx_graft_xml::{XmlLimits, XmlStreamError, XmlStreamReader};
 
 /// What the elements of the part at `index` show, read to its end under
 /// `limits`; `declared` when its media type is XML, and `links` the `Id`s
 /// of its relationships that are hyperlinks to a Web page or a mail
-/// address. What stops reading is pushed against the part as this
-/// module's header says, and what was found before that is kept; a part
-/// that cannot be opened, for a reason already reported, shows nothing.
+/// address, its formulas handed to `formulas`. What stops reading is
+/// pushed against the part as this module's header says, and what was
+/// found before that is kept; a part that cannot be opened, for a reason
+/// already reported, shows nothing.
 pub(super) fn read<R: Read + Seek>(
     package: &mut Package<R>,
     index: usize,
     declared: bool,
     links: &BTreeSet<String>,
     limits: &XmlLimits,
+    formulas: &mut Collector<'_>,
     diagnostics: &mut Diagnostics,
 ) -> Result<Shown, PackageError> {
     let location = (package.parts().get(index))
@@ -54,7 +59,7 @@ pub(super) fn read<R: Read + Seek>(
             return Ok(walked.shown());
         };
         let mut xml = XmlStreamReader::new(BufReader::new(entry), limits);
-        let walked_through = walk(&mut xml, links, &mut walked);
+        let walked_through = walk(&mut xml, links, &mut walked, formulas);
         if walked_through.is_err() {
             // What follows where reading stops may use a hyperlink for
             // something else: none is admitted.
@@ -153,18 +158,23 @@ impl Walked {
 }
 
 /// Reads `xml` to its end, putting in `walked` the kind of every element
-/// that names one and the use of each of `links` an element names.
+/// that names one and the use of each of `links` an element names, and
+/// handing every element and text to `formulas`.
 fn walk<R: BufRead>(
     xml: &mut XmlStreamReader<R>,
     links: &BTreeSet<String>,
     walked: &mut Walked,
+    formulas: &mut Collector<'_>,
 ) -> Result<(), XmlStreamError> {
     let mut buf = Vec::new();
     loop {
-        match xml.read_event_into(&mut buf)? {
+        let event = xml.read_event_into(&mut buf)?;
+        let opened = matches!(event, Event::Start(_));
+        match event {
             Event::Start(start) | Event::Empty(start) => {
                 let (_, local) = xml.resolve_element(start.name());
                 let local = local.as_ref();
+                formulas.start(local, &start, opened);
                 walked.kinds.extend(kinds::element(local));
                 walked.dde_or_ole_link |= matches!(local, "ddeLink" | "oleLink");
                 if !links.is_empty() {
@@ -172,11 +182,32 @@ fn walk<R: BufRead>(
                     walked.note(&start, hyperlink, links);
                 }
             }
+            Event::End(end) => formulas.end(xml.resolve_element(end.name()).1.as_ref()),
+            Event::Text(text) => formulas.text(|| text.xml10_content()),
+            Event::CData(data) => formulas.text(|| data.xml10_content()),
+            Event::GeneralRef(reference) => formulas.text(|| resolve(&reference).into()),
             Event::Eof => return Ok(()),
             _ => {}
         }
         buf.clear();
     }
+}
+
+/// The text a reference the XML reader admitted stands for: one of the
+/// five predefined entities or a character reference.
+fn resolve(reference: &BytesRef<'_>) -> String {
+    const ENTITIES: [(&str, char); 5] = [
+        ("lt", '<'),
+        ("gt", '>'),
+        ("amp", '&'),
+        ("apos", '\''),
+        ("quot", '"'),
+    ];
+    let named = ENTITIES.iter().find(|(name, _)| *name == &**reference);
+    let c = reference.resolve_char_ref().ok().flatten();
+    c.or(named.map(|&(_, c)| c))
+        .map(String::from)
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
