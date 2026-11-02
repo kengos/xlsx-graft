@@ -339,9 +339,16 @@ not (Go). It is never a result.
   the wait status). An end the SDK cannot read at all (Go's, when the
   application ignores SIGCHLD and the system reaps the CLI first) is an
   `exit_status` too, saying why.
-- **No timeout, no cancelling and no cap on the output yet.** `--version`
-  returns at once and prints one line; they come with the first call that
-  can take long or print much.
+- **No timeout and no cap on the output.** `--version` returns at once and
+  prints one line. A read can take long, and its caller cancels it by
+  taking no more rows, which closes stdout (below); the CLI stops at the
+  next output it flushes, which the SDK waits for, rather than killing a
+  CLI that may have temporary files to remove. PHP adds no timeout of its own: it is synchronous,
+  waiting on a pipe with one would take `stream_select`, which does not
+  wait on a pipe on Windows, and `max_execution_time` does not count the
+  time spent waiting for the CLI but on Windows. Neither PHP nor Go caps
+  the output: a line is a row, which every SDK holds whole, and the
+  engine's limits bound it as they bound the row any host gives.
 
 ### Listing sheets (`sheets`)
 
@@ -472,7 +479,11 @@ later SDK takes the same shape in its own language's idiom.
   than the SDK), `datetime_unrepresentable` (a date-time the caller's
   timezone cannot place, as one its daylight saving skips or has twice),
   `diagnostics_unreadable` (JSON the SDK cannot read) and `interrupted`
-  (a close an exception cut short, below). A sheet refused
+  (a close an exception cut short, below). An SDK over the CLI has no
+  status to name: it adds `exit_status` and `invalid_output`
+  ([Running the CLI](#running-the-cli)) for a run that failed, and
+  `invalid_arg` for a sheet name that is not UTF-8 or a path or name
+  holding a NUL, which no command line can carry. A sheet refused
   stays the error even when another is read after: to look for a sheet,
   look in the list.
 - **`diagnostics`** are the engine's, every field of the JSON every host
@@ -506,6 +517,21 @@ later SDK takes the same shape in its own language's idiom.
   language has no duration is seconds, or milliseconds where the
   language counts time in them (JavaScript). An error value is never a
   string, which a cell holding the text `#N/A` would be too.
+- **What an SDK over the CLI keeps.** Every list of the sheets is a run of
+  `sheets` and every sheet's rows a run of `read`, each opening the file
+  again, so a file changed in between is read as it is then. Each run
+  reports the problems of opening the workbook again, by the same JSON: the
+  SDK keeps a diagnostic as many times as one run gave it, and not again
+  for a later run that gives it as often. It lists the sheets once and
+  keeps the list. It keeps the runs open, to stop them when the book
+  closes, and no diagnostics of a run it stopped, the CLI printing none.
+  The path is the CLI's to open, so a file that cannot be opened still
+  runs the block, its first run failing with `exit_status` (quoting why),
+  as a book that holds the result does; a path holding a NUL, which no
+  command line carries, is `invalid_arg` and does not run it. Bytes are
+  written to a file of the book's own, only its user may read, removed
+  when the book closes (a fatal error, which runs no `finally`, leaves
+  it); `io` when they cannot be, which does not run the block.
 - **What an SDK over the C ABI keeps.** A lock of the book's, taken for
   every call into it and its rows, closes included, as the header asks,
   what a call lends copied out before letting it go; every input passed
@@ -555,3 +581,12 @@ later SDK takes the same shape in its own language's idiom.
   throws out of `open` and leaves no result to read. Its rows are a
   generator, freed in its `finally` (a `for...of` that ends or breaks
   runs it) or by the book's close.
+
+  PHP needs none of them either: it runs on one thread, raises nothing
+  between two lines but running out of memory or time (both fatal, which
+  end the process and the pipes with it) or what a signal handler throws
+  under `pcntl_async_signals`, and holds no handle a second free could
+  harm: an exception between two lines leaves a run for the book's close
+  to stop at worst. Its rows are a generator, which stops its run in its
+  `finally` (a `foreach` that ends or breaks, or the generator dropped,
+  runs it) or at the book's close.

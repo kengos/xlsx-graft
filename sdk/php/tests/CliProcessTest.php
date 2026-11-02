@@ -30,6 +30,16 @@ final class CliProcessTest extends TestCase
         self::assertSame([3, null, '--version|a b|$HOME|', "oops\n"], CliProcess::run($cli, ['--version', 'a b', '$HOME']));
     }
 
+    public function testReadsALineAtATimeAndFinishesOnce(): void
+    {
+        $process = CliProcess::start(Engine::fakeCli($this->dir, 'echo one; echo two; echo err >&2; exit 4'), []);
+
+        self::assertSame(["one\n", "two\n", null], [$process->line(), $process->line(), $process->line()]);
+        self::assertSame([4, null, "err\n"], $process->finish());
+        self::assertNull($process->line());
+        self::assertSame([4, null, "err\n"], $process->finish());
+    }
+
     public function testClosesStdin(): void
     {
         // `cat` would wait for ever on an open stdin.

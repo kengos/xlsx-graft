@@ -2,8 +2,8 @@
 # language's file sets and what `sdk_lang` makes of them)
 
 .PHONY: _sdk-image-php _sdk-lint-php _sdk-lint-php-line _sdk-test-php _sdk-test-php-line \
-        _sdk-verify-php _sdk-verify-php-line sdk\:lint\:php sdk\:lock\:php sdk\:test\:php \
-        sdk\:verify\:php
+        _sdk-verify-php _sdk-verify-php-line sdk\:format\:php sdk\:lint\:php sdk\:lock\:php \
+        sdk\:test\:php sdk\:verify\:php
 
 # The floor first and the latest stable line last: LATEST=1 takes the last and
 # sdk:lock:php the first. Each line is pinned to a PHP release. The base
@@ -44,6 +44,15 @@ sdk\:lock\:php: ## Re-resolve sdk/php/composer.lock after a composer.json edit (
 		cd /tmp/lock; \
 		composer update --no-install --no-scripts --minimal-changes; \
 		cp composer.lock /repo/sdk/php/composer.lock'
+
+# Writes php-cs-fixer's fixes into the mounted checkout's sources, as
+# engine:format does, and does NOT go through `quiet`. The fixer is the
+# image's, in /pkg/vendor, and needs no vendor/ in the checkout; no cache is
+# written there. It runs on the floor, as the fixer asks to run on the PHP
+# composer.json requires at least, so it writes no syntax the floor lacks.
+sdk\:format\:php: override PHP_VER = $(firstword $(PHP_LINES))
+sdk\:format\:php: _sdk-image-php ## Apply php-cs-fixer's fixes to sdk/php's sources (then: git diff)
+	$(PHP_IN_DOCKER) '/pkg/vendor/bin/php-cs-fixer fix --using-cache=no'
 
 _sdk-image-php:
 	@echo "== sdk php image (PHP $(PHP_PATCH)) =="
