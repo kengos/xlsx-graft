@@ -40,13 +40,12 @@
 //! all it holds. Attributes are read unprefixed. The `dimension` is not
 //! read: Excel does not use it, and writes it again as it saves.
 
-mod count;
 mod elements;
 mod merges;
 mod place;
 
 use crate::collect::attribute;
-use count::Unsigned;
+use crate::count::Unsigned;
 use elements::{Cell, Kind};
 use merges::Merges;
 use place::Place;

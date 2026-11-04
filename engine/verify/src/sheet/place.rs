@@ -1,7 +1,7 @@
 //! [`Place`]: where the rows and cells of a worksheet stand, checked as
 //! each starts, as [`SheetCheck`](super::SheetCheck) says.
 
-use super::count::Unsigned;
+use crate::count::Unsigned;
 use xlsx_graft_diagnostics::{Diagnostic, Echo};
 use xlsx_graft_read::CellRef;
 

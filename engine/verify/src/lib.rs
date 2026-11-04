@@ -93,6 +93,14 @@
 
 mod book;
 mod collect;
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "verify reads its sheets through it once #13 wires it in"
+    )
+)]
+mod count;
 mod formulas;
 mod functions;
 mod judging;

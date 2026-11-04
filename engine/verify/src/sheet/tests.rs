@@ -1,13 +1,12 @@
 //! Tests for the sheet checks, driven through [`SheetCheck`] on worksheet
 //! XML read as `verify` reads a part. `places.rs` covers where rows and
 //! cells stand, `values.rs` the shared strings, styles and inline strings
-//! cells refer to, `merges.rs` the merged cells, `count.rs` how numbers
-//! and string lengths are read, and this file what the checks read at all.
+//! cells refer to, `merges.rs` the merged cells, and this file what the
+//! checks read at all.
 //!
 //! What Excel for Mac 16.114.3 did as it opened a workbook with each
 //! problem is said beside the test that holds it.
 
-mod count;
 mod merges;
 mod places;
 mod values;
