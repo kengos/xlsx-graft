@@ -1877,5 +1877,57 @@
     },
     "fix": null,
     "origin": "<origin>"
+  },
+  {
+    "code": "target_function_unsupported",
+    "severity": "error",
+    "message": "a formula calls XLOOKUP; targets lists excel versions that lack it (2016, 2019); where it is missing, if it is, the formula evaluates to #NAME?; 3 time(s), the first here",
+    "args": {
+      "name": "XLOOKUP",
+      "app": "excel",
+      "unsupported": "2016, 2019",
+      "unverified": "",
+      "requires": "",
+      "fallback": "name_error",
+      "count": 3
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml",
+      "place": "B2"
+    },
+    "decidedBy": {
+      "kind": "template"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "call a function other than XLOOKUP so the workbook works in excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "best_effort_function_unsupported",
+    "severity": "warn",
+    "message": "a formula calls FILTER; bestEffort lists libreoffice versions that lack it (24.2) and that are not confirmed to have it (24.8, 25.2); in some of them, it needs dynamic_array as well, which is missing or not confirmed there; 1 time(s), the first here",
+    "args": {
+      "name": "FILTER",
+      "app": "libreoffice",
+      "unsupported": "24.2",
+      "unverified": "24.8, 25.2",
+      "requires": "dynamic_array",
+      "fallback": "unknown",
+      "count": 1
+    },
+    "location": {
+      "part": "/xl/workbook.xml",
+      "place": "definedName Pick"
+    },
+    "decidedBy": {
+      "kind": "template"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "call a function other than FILTER so the workbook works in libreoffice"
+    },
+    "origin": "<origin>"
   }
 ]

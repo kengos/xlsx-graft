@@ -13,8 +13,8 @@
 use crate::table::diagnostics;
 use crate::{
     DecidedBy, Echo, EncodingReason, Fix, FormulaMalformedReason, FunctionDenial, InflateReason,
-    Limit, PartKind, PartNameReason, SchemaReason, SheetNameReason, TargetList, TargetReason,
-    ZipDirectoryReason, ZipHeaderField,
+    Limit, PartKind, PartNameReason, SchemaReason, SheetNameReason, TargetApp, TargetFallback,
+    TargetList, TargetReason, ZipDirectoryReason, ZipHeaderField,
 };
 
 diagnostics! {
@@ -1189,6 +1189,102 @@ diagnostics! {
         }),
         decided_by: Some(DecidedBy::Template {}),
         fix: None;
+
+    /// A formula calls a function that a version the template's `targets:`
+    /// holds, where the workbook must work, lacks, or that no source the
+    /// compatibility table cites says it has, a feature it needs counted
+    /// with it. One per part, defined name reached through, function,
+    /// application and list.
+    TargetFunctionUnsupported {
+        /// The function, upper-cased, without its prefixes (`_xlfn.`,
+        /// `_xlws.`, `_xleta.`).
+        name: Echo,
+        /// The application.
+        app: TargetApp,
+        /// The versions of it the list holds that lack the function, or a
+        /// feature in `requires`, oldest first, comma-separated (`2016,
+        /// 2019`); empty when none does, and then `unverified` is not.
+        /// Google Sheets' only version is `current`.
+        unsupported: Echo,
+        /// The versions of it the list holds that no source the table
+        /// cites says have the function, or a feature in `requires`, and
+        /// none says lack it, as `unsupported`; empty when none.
+        unverified: Echo,
+        /// The features the function needs as well (`dynamic_array`) that
+        /// some of those versions lack where the function itself is there
+        /// or not confirmed, or are not confirmed to have where it is
+        /// there, comma-separated; empty when none.
+        requires: Echo,
+        /// What a version that lacks the function shows instead: the
+        /// function's own whenever the function itself is not there, or
+        /// not confirmed, in some of those versions; the first a source
+        /// gives for the features in `requires` only when the function
+        /// itself is there in all of them; `unknown` when no source says.
+        fallback: TargetFallback,
+        /// How many times it was found.
+        count: u64,
+    } => "target_function_unsupported", Error,
+        message: crate::target::Unmet {
+            what: format!("a formula calls {name}"),
+            list: "targets",
+            app: *app,
+            unsupported,
+            unverified,
+            requires,
+            fallback: *fallback,
+            count: *count,
+        }
+        .message(),
+        decided_by: Some(DecidedBy::Template {}),
+        fix: Some(Fix::workbook(format!("call a function other than {name} so the workbook works in {}", crate::target::spelled(*app))));
+
+    /// A formula calls a function that a version the template's `bestEffort:`
+    /// holds, where the workbook should work, lacks, or that no source the
+    /// compatibility table cites says it has, a feature it needs counted
+    /// with it. One per part, defined name reached through, function,
+    /// application and list.
+    BestEffortFunctionUnsupported {
+        /// The function, upper-cased, without its prefixes (`_xlfn.`,
+        /// `_xlws.`, `_xleta.`).
+        name: Echo,
+        /// The application.
+        app: TargetApp,
+        /// The versions of it the list holds that lack the function, or a
+        /// feature in `requires`, oldest first, comma-separated (`2016,
+        /// 2019`); empty when none does, and then `unverified` is not.
+        /// Google Sheets' only version is `current`.
+        unsupported: Echo,
+        /// The versions of it the list holds that no source the table
+        /// cites says have the function, or a feature in `requires`, and
+        /// none says lack it, as `unsupported`; empty when none.
+        unverified: Echo,
+        /// The features the function needs as well (`dynamic_array`) that
+        /// some of those versions lack where the function itself is there
+        /// or not confirmed, or are not confirmed to have where it is
+        /// there, comma-separated; empty when none.
+        requires: Echo,
+        /// What a version that lacks the function shows instead: the
+        /// function's own whenever the function itself is not there, or
+        /// not confirmed, in some of those versions; the first a source
+        /// gives for the features in `requires` only when the function
+        /// itself is there in all of them; `unknown` when no source says.
+        fallback: TargetFallback,
+        /// How many times it was found.
+        count: u64,
+    } => "best_effort_function_unsupported", Warn,
+        message: crate::target::Unmet {
+            what: format!("a formula calls {name}"),
+            list: "bestEffort",
+            app: *app,
+            unsupported,
+            unverified,
+            requires,
+            fallback: *fallback,
+            count: *count,
+        }
+        .message(),
+        decided_by: Some(DecidedBy::Template {}),
+        fix: Some(Fix::workbook(format!("call a function other than {name} so the workbook works in {}", crate::target::spelled(*app))));
 }
 
 #[cfg(test)]

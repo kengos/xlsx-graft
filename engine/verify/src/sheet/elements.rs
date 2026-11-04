@@ -104,7 +104,7 @@ impl SheetCheck<'_> {
 
     /// Pushes why a row or cell was refused: the place it names.
     fn refuse(&mut self, refused: Refused) -> String {
-        self.push(refused.diagnostic);
+        self.push(*refused.diagnostic);
         refused.place
     }
 

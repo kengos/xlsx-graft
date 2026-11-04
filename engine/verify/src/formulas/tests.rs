@@ -4,10 +4,11 @@
 //! and `names.rs` the defined names a formula reaches.
 
 mod names;
+mod targets;
 mod words;
 
 use super::{FormulaJudge, Names, Place};
-use crate::{FunctionClass, FunctionTable, Rules};
+use crate::{FunctionClass, FunctionTable, Rules, Targets};
 use xlsx_graft_diagnostics::{
     Diagnostic, Diagnostics, Echo, FormulaMalformedReason, FunctionDenial, Location, PartKind,
 };
@@ -40,7 +41,18 @@ fn judge_at(
     names: &Names,
     formulas: &[(Place<'_>, &str)],
 ) -> Vec<(Diagnostic, Location)> {
-    let mut judge = FormulaJudge::new(rules, &Table, names);
+    judge_against(rules, &Targets::default(), names, formulas)
+}
+
+/// What judging each formula at its place, by `rules` with `names`,
+/// checking the functions against `targets`, reports.
+fn judge_against(
+    rules: &Rules,
+    targets: &Targets,
+    names: &Names,
+    formulas: &[(Place<'_>, &str)],
+) -> Vec<(Diagnostic, Location)> {
+    let mut judge = FormulaJudge::new(rules, &Table, targets, names);
     for (place, formula) in formulas {
         judge.judge(place, formula);
     }

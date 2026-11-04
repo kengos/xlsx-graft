@@ -40,6 +40,8 @@ xlsx-graft-package = { path = "package" }
 xlsx-graft-spool = { path = "spool" }
 # A workbook's shared strings, read on the package (engine/read).
 xlsx-graft-read = { path = "read" }
+# Which application version has each function and feature (engine/compat).
+xlsx-graft-compat = { path = "compat" }
 # Refuses what an untrusted workbook may not carry (engine/verify).
 xlsx-graft-verify = { path = "verify" }
 # The C ABI host, linked as an rlib by the Node.js addon (engine/napi).

@@ -5,7 +5,7 @@
 
 use super::zip::Item;
 use super::{Book, Reader, Table, VerifyError, WORKSHEET, verify};
-use crate::{Limits, Rules};
+use crate::{Limits, Rules, Targets};
 use std::io::Cursor;
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Limit};
 
@@ -66,12 +66,17 @@ fn table(name: &str, column: &str, xml: &str) -> String {
 /// What verifying `book` under `limits` and `rules` finds, one line each:
 /// where, through which defined name, and what.
 fn judged_under(book: Book, limits: &Limits, rules: &Rules) -> Vec<String> {
+    judged_against(book, limits, rules, &Targets::default())
+}
+
+/// [`judged_under`], the functions checked against `targets`.
+fn judged_against(book: Book, limits: &Limits, rules: &Rules, targets: &Targets) -> Vec<String> {
     let reader = Reader {
         inner: Cursor::new(book.zip()),
         poisoned: (0, 0),
     };
     let mut diagnostics = Diagnostics::new();
-    verify(reader, limits, rules, &Table, &mut diagnostics).unwrap();
+    verify(reader, limits, rules, &Table, targets, &mut diagnostics).unwrap();
     (diagnostics.finish().into_iter())
         .map(|record| {
             let location = record.location;
@@ -107,6 +112,22 @@ fn brief(diagnostic: &Diagnostic) -> String {
         Diagnostic::FormulaDenied { kind, count } => format!("{kind} x{count}"),
         Diagnostic::FormulaMalformed { reason, count } => format!("{reason} x{count}"),
         Diagnostic::FormulaTooLong { size, count, .. } => format!("{size} bytes x{count}"),
+        Diagnostic::TargetFunctionUnsupported {
+            name,
+            app,
+            unsupported,
+            unverified,
+            count,
+            ..
+        } => format!("targets {name} {app} [{unsupported}] [{unverified}] x{count}"),
+        Diagnostic::BestEffortFunctionUnsupported {
+            name,
+            app,
+            unsupported,
+            unverified,
+            count,
+            ..
+        } => format!("bestEffort {name} {app} [{unsupported}] [{unverified}] x{count}"),
         other => format!("{other:?}"),
     }
 }
@@ -379,6 +400,7 @@ fn reading_the_workbook_part_for_its_names_fails_as_the_host_does() {
         &Limits::default(),
         &Rules::default(),
         &Table,
+        &Targets::default(),
         &mut diagnostics,
     );
     assert!(matches!(error, Err(VerifyError::Package(_))), "{error:?}");
@@ -469,5 +491,53 @@ fn only_the_first_table_of_a_table_part_names_a_table() {
     assert_eq!(
         judged(book),
         ["/xl/worksheets/sheet1.xml A1: unknown NEWFN x1"]
+    );
+}
+
+#[test]
+fn a_function_the_targets_lack_is_an_error_and_one_best_effort_lacks_a_warning() {
+    let names = r#"<definedName name="Pick">_xlfn.LAMBDA(_xlpm.x,_xlfn.XLOOKUP(_xlpm.x,A1:A3,B1:B3))</definedName>"#;
+    let book = || {
+        cells(
+            names,
+            [
+                &[
+                    "_xlfn.XLOOKUP(1,A1:A3,B1:B3)",
+                    "_xlfn.XLOOKUP(2,A1:A3,B1:B3)+Pick(3)",
+                ],
+                &["_xlfn._xlws.FILTER(A1:A3,A1:A3>1)"],
+            ],
+        )
+    };
+    let rules = Rules::default()
+        .allow_function("XLOOKUP")
+        .allow_function("FILTER");
+    let mut diagnostics = Diagnostics::new();
+    let targets = Targets::parse(
+        &["excel >= 2019"],
+        &["libreoffice <= 24.8"],
+        &mut diagnostics,
+    );
+    let found = judged_against(book(), &Limits::default(), &rules, &targets.unwrap());
+    assert_eq!(
+        found,
+        [
+            "/xl/workbook.xml definedName Pick: targets LAMBDA excel [2019, 2021] [] x1",
+            "/xl/workbook.xml definedName Pick: bestEffort LAMBDA libreoffice [24.2, 24.8] [] x1",
+            "/xl/workbook.xml definedName Pick: targets XLOOKUP excel [2019] [] x1",
+            "/xl/workbook.xml definedName Pick: bestEffort XLOOKUP libreoffice [24.2] [] x1",
+            "/xl/worksheets/sheet1.xml A1: targets XLOOKUP excel [2019] [] x2",
+            "/xl/worksheets/sheet1.xml A1: bestEffort XLOOKUP libreoffice [24.2] [] x2",
+            "/xl/worksheets/sheet1.xml A2 via Pick: targets LAMBDA excel [2019, 2021] [] x1",
+            "/xl/worksheets/sheet1.xml A2 via Pick: bestEffort LAMBDA libreoffice [24.2, 24.8] [] x1",
+            "/xl/worksheets/sheet1.xml A2 via Pick: targets XLOOKUP excel [2019] [] x1",
+            "/xl/worksheets/sheet1.xml A2 via Pick: bestEffort XLOOKUP libreoffice [24.2] [] x1",
+            "/xl/worksheets/sheet2.xml A1: targets FILTER excel [2019] [] x1",
+            "/xl/worksheets/sheet2.xml A1: bestEffort FILTER libreoffice [24.2] [24.8] x1",
+        ]
+    );
+    assert_eq!(
+        judged_under(book(), &Limits::default(), &rules),
+        Vec::<String>::new()
     );
 }

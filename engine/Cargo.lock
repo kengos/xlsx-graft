@@ -723,6 +723,7 @@ version = "0.0.0"
 dependencies = [
  "crc32fast",
  "thiserror",
+ "xlsx-graft-compat",
  "xlsx-graft-diagnostics",
  "xlsx-graft-formula",
  "xlsx-graft-package",

@@ -38,6 +38,7 @@ mod location;
 mod reason;
 mod record;
 mod table;
+mod target;
 
 pub use code::{Code, Diagnostic};
 pub use collect::Diagnostics;
@@ -47,8 +48,8 @@ pub use limit::{Limit, LimitSource};
 pub use location::Location;
 pub use reason::{
     EncodingReason, FormulaMalformedReason, FunctionDenial, InflateReason, PartKind,
-    PartNameReason, SchemaReason, SheetNameReason, TargetList, TargetReason, ZipDirectoryReason,
-    ZipHeaderField,
+    PartNameReason, SchemaReason, SheetNameReason, TargetApp, TargetFallback, TargetList,
+    TargetReason, ZipDirectoryReason, ZipHeaderField,
 };
 pub use record::Record;
 

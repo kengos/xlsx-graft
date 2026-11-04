@@ -16,7 +16,7 @@ mod repairs;
 mod strings;
 mod zip;
 
-use crate::{FunctionClass, FunctionTable, Limits, Rules, VerifyError, verify};
+use crate::{FunctionClass, FunctionTable, Limits, Rules, Targets, VerifyError, verify};
 use std::io::{self, Cursor, Read, Seek, SeekFrom};
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Location, PartKind};
 use zip::Item;
@@ -215,7 +215,14 @@ fn run(
         poisoned,
     };
     let mut diagnostics = Diagnostics::new();
-    verify(reader, limits, rules, &Table, &mut diagnostics)?;
+    verify(
+        reader,
+        limits,
+        rules,
+        &Table,
+        &Targets::default(),
+        &mut diagnostics,
+    )?;
     Ok(seen(diagnostics))
 }
 

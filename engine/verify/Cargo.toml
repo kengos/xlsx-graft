@@ -9,6 +9,9 @@ repository.workspace = true
 
 [dependencies]
 thiserror = { workspace = true }
+# Which versions of the applications a template targets lack each
+# function a formula calls.
+xlsx-graft-compat = { workspace = true }
 # Every problem in the workbook is returned as a Diagnostic.
 xlsx-graft-diagnostics = { workspace = true }
 # Reads each formula into the facts it states, which are judged here.
