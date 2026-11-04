@@ -13,7 +13,8 @@
 use crate::table::diagnostics;
 use crate::{
     DecidedBy, Echo, EncodingReason, Fix, FormulaMalformedReason, FunctionDenial, InflateReason,
-    Limit, PartKind, PartNameReason, SchemaReason, ZipDirectoryReason, ZipHeaderField,
+    Limit, PartKind, PartNameReason, SchemaReason, SheetNameReason, ZipDirectoryReason,
+    ZipHeaderField,
 };
 
 diagnostics! {
@@ -692,6 +693,143 @@ diagnostics! {
     } => "sheet_relationship_type_invalid", Error,
         message: format!("a sheet's relationship is of type {rel_type}, which is not a sheet's, so the sheet has no part"),
         decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §12.3")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    // What Excel repairs as it opens the workbook part's sheets and names
+    // and the table parts' tables, or reads otherwise than they say.
+
+    /// A sheet's name is one Excel does not take, so it repairs the
+    /// workbook as it opens it and renames the sheet. A name the same as
+    /// another sheet's is `sheet_name_duplicate`.
+    SheetNameInvalid {
+        /// The sheet's name.
+        name: Echo,
+        /// What is wrong with it.
+        reason: SheetNameReason,
+    } => "sheet_name_invalid", Error,
+        message: match reason {
+            SheetNameReason::Empty => "a sheet's name is empty".to_owned(),
+            SheetNameReason::TooLong => format!("the sheet name {name} is longer than 31 characters, counted in UTF-16 code units"),
+            SheetNameReason::Character => format!("the sheet name {name} holds one of [ ] : * ? / \\"),
+            SheetNameReason::Apostrophe => format!("the sheet name {name} starts or ends with '"),
+        },
+        decided_by: Some(DecidedBy::standard("MS-OI29500 on ECMA-376-1:2016 §18.2.19, note a")),
+        fix: Some(Fix::workbook("rename the sheet"));
+
+    /// Two sheets of the workbook have the same `sheetId`, so Excel
+    /// repairs the workbook as it opens it and gives the later one another.
+    /// Reported at every sheet after the first.
+    SheetIdDuplicate {
+        /// The sheet's name.
+        name: Echo,
+        /// The name of the sheet before it with the same `sheetId`.
+        other: Echo,
+        /// The `sheetId` they share.
+        sheet_id: u64,
+    } => "sheet_id_duplicate", Error,
+        message: format!("the sheet {name} has the same sheetId {sheet_id} as the sheet {other}"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.2.19")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// A defined name's name is not one a formula can name, so Excel
+    /// repairs the workbook as it opens it and drops the defined name.
+    DefinedNameInvalid {
+        /// The defined name's name.
+        name: Echo,
+    } => "defined_name_invalid", Error,
+        message: format!("the defined name {name} is empty, or does not start with a letter, _ or \\ and go on with letters, digits, _, \\, . and ?"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.17.2.5; MS-OI29500 on §18.2.5, note q, and on §18.17.2.5, note a")),
+        fix: Some(Fix::workbook("rename the defined name"));
+
+    /// A defined name's `localSheetId` counts past the last sheet, so
+    /// Excel repairs the workbook as it opens it and drops the defined
+    /// name.
+    DefinedNameSheetIndexInvalid {
+        /// The defined name's name.
+        name: Echo,
+        /// Its `localSheetId`.
+        local_sheet_id: u64,
+        /// How many sheets the workbook has.
+        sheets: u64,
+    } => "defined_name_sheet_index_invalid", Error,
+        message: format!("the defined name {name} is scoped to the sheet at index {local_sheet_id}, but the workbook has {sheets} sheet(s)"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.2.5; MS-OI29500 on §18.2.5, note l")),
+        fix: Some(Fix::workbook("scope the defined name to a sheet the workbook has, or to the workbook"));
+
+    /// Two defined names of one scope have the same name, letter case
+    /// aside. Excel opens the workbook without a word and keeps only the
+    /// later one. Reported at every defined name before the last.
+    DefinedNameDuplicate {
+        /// The defined name's name.
+        name: Echo,
+        /// The name of the defined name after it, in the same scope, that
+        /// Excel keeps instead.
+        other: Echo,
+    } => "defined_name_duplicate", Notice,
+        message: format!("the defined name {name} has the same name as the later defined name {other} of its scope, letter case aside; Excel keeps only the later one"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.17.2.5; MS-OI29500 on §18.2.5, note n")),
+        fix: Some(Fix::workbook("remove or rename one of the defined names"));
+
+    /// A defined name refers to a sheet the workbook does not have. Excel
+    /// opens the workbook without a word and reads the reference as one to
+    /// another workbook. Reported once per sheet a defined name names.
+    DefinedNameSheetMissing {
+        /// The defined name's name.
+        name: Echo,
+        /// The sheet it refers to.
+        sheet: Echo,
+    } => "defined_name_sheet_missing", Notice,
+        message: format!("the defined name {name} refers to the sheet {sheet}, which the workbook does not have; Excel reads it as a sheet of another workbook"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.17.2.3")),
+        fix: Some(Fix::workbook("point the defined name at a sheet the workbook has"));
+
+    /// Two tables of one sheet overlap, so Excel repairs the workbook as
+    /// it opens it and drops the later one. Reported at every table that
+    /// overlaps one listed before it.
+    TableRangeOverlap {
+        /// The table's `displayName`.
+        name: Echo,
+        /// The `displayName` of the table before it that it overlaps.
+        other: Echo,
+    } => "table_range_overlap", Error,
+        message: format!("the table {name} overlaps the table {other} on the same sheet"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.5.1.2")),
+        fix: Some(Fix::workbook("move or resize one of the tables"));
+
+    /// A table's `displayName` is the same as another table's, or as a
+    /// defined name's, letter case aside, so Excel repairs the workbook as
+    /// it opens it and renames the table. Reported at every table after
+    /// the first with the name.
+    TableNameDuplicate {
+        /// The table's `displayName`.
+        name: Echo,
+        /// The name it has the same as.
+        other: Echo,
+        /// Whether `other` is a defined name's; else it is the
+        /// `displayName` of a table before it.
+        defined_name: bool,
+    } => "table_name_duplicate", Error,
+        message: if *defined_name {
+            format!("the table {name} has the same name as the defined name {other}, letter case aside")
+        } else {
+            format!("the table {name} has the same name as the table {other}, letter case aside")
+        },
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.5.1.2")),
+        fix: Some(Fix::workbook("rename the table"));
+
+    /// Two tables of the workbook have the same `id`, so Excel repairs the
+    /// workbook as it opens it and drops the later one. Reported at every
+    /// table after the first with the `id`.
+    TableIdDuplicate {
+        /// The table's `displayName`.
+        name: Echo,
+        /// The `displayName` of the table before it with the same `id`.
+        other: Echo,
+        /// The `id` they share.
+        id: u64,
+    } => "table_id_duplicate", Error,
+        message: format!("the table {name} has the same id {id} as the table {other}"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.5.1.2")),
         fix: Some(Fix::workbook("save the workbook again from Excel"));
 
     /// A cell of `t="s"` refers to a shared string the shared strings table

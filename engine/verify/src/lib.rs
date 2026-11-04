@@ -71,6 +71,15 @@
 //! defines more names than `max_defined_names` is refused
 //! (`defined_names_too_many`).
 //!
+//! # What Excel repairs
+//!
+//! [`Structure`] checks what the workbook part says of its sheets and
+//! defined names, and the table parts of their tables, for what Excel
+//! repairs as it opens the workbook (an error) or reads otherwise than it
+//! says without a word (a notice): a sheet's name or `sheetId`, a defined
+//! name's name, scope or sheets, and tables that overlap or share a name
+//! or an `id`. [`verify`] does not call it yet.
+//!
 //! # Not yet
 //!
 //! Not checked: Office add-ins (`webextension`), a ribbon (`customUI`),
@@ -89,10 +98,12 @@ mod functions;
 mod judging;
 mod parts;
 mod rules;
+mod structure;
 
 pub use formulas::{FormulaJudge, Names, Place};
 pub use functions::{FunctionClass, FunctionTable};
 pub use rules::{Rules, Ruling};
+pub use structure::{NameEntry, SheetEntry, Structure, TableEntry};
 pub use xlsx_graft_diagnostics::PartKind;
 
 use book::Book;

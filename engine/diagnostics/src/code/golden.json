@@ -1220,6 +1220,198 @@
     "origin": "<origin>"
   },
   {
+    "code": "sheet_name_invalid",
+    "severity": "error",
+    "message": "the sheet name Q1/Q2 holds one of [ ] : * ? / \\",
+    "args": {
+      "name": "Q1/Q2",
+      "reason": "character"
+    },
+    "location": {
+      "part": "/xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "MS-OI29500 on ECMA-376-1:2016 §18.2.19, note a"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "rename the sheet"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "sheet_id_duplicate",
+    "severity": "error",
+    "message": "the sheet Summary has the same sheetId 5 as the sheet Data",
+    "args": {
+      "name": "Summary",
+      "other": "Data",
+      "sheetId": 5
+    },
+    "location": {
+      "part": "/xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.2.19"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "defined_name_invalid",
+    "severity": "error",
+    "message": "the defined name Bad Name is empty, or does not start with a letter, _ or \\ and go on with letters, digits, _, \\, . and ?",
+    "args": {
+      "name": "Bad Name"
+    },
+    "location": {
+      "part": "/xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.17.2.5; MS-OI29500 on §18.2.5, note q, and on §18.17.2.5, note a"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "rename the defined name"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "defined_name_sheet_index_invalid",
+    "severity": "error",
+    "message": "the defined name Total is scoped to the sheet at index 99, but the workbook has 8 sheet(s)",
+    "args": {
+      "name": "Total",
+      "localSheetId": 99,
+      "sheets": 8
+    },
+    "location": {
+      "part": "/xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.2.5; MS-OI29500 on §18.2.5, note l"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "scope the defined name to a sheet the workbook has, or to the workbook"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "defined_name_duplicate",
+    "severity": "notice",
+    "message": "the defined name BASE_NAME has the same name as the later defined name Base_Name of its scope, letter case aside; Excel keeps only the later one",
+    "args": {
+      "name": "BASE_NAME",
+      "other": "Base_Name"
+    },
+    "location": {
+      "part": "/xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.17.2.5; MS-OI29500 on §18.2.5, note n"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "remove or rename one of the defined names"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "defined_name_sheet_missing",
+    "severity": "notice",
+    "message": "the defined name Base_Name refers to the sheet NoSuch, which the workbook does not have; Excel reads it as a sheet of another workbook",
+    "args": {
+      "name": "Base_Name",
+      "sheet": "NoSuch"
+    },
+    "location": {
+      "part": "/xl/workbook.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.17.2.3"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "point the defined name at a sheet the workbook has"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "table_range_overlap",
+    "severity": "error",
+    "message": "the table T_Extra overlaps the table T_Data on the same sheet",
+    "args": {
+      "name": "T_Extra",
+      "other": "T_Data"
+    },
+    "location": {
+      "part": "/xl/tables/table2.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.5.1.2"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "move or resize one of the tables"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "table_name_duplicate",
+    "severity": "error",
+    "message": "the table Base_Name has the same name as the defined name Base_Name, letter case aside",
+    "args": {
+      "name": "Base_Name",
+      "other": "Base_Name",
+      "definedName": true
+    },
+    "location": {
+      "part": "/xl/tables/table2.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.5.1.2"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "rename the table"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "table_id_duplicate",
+    "severity": "error",
+    "message": "the table T_Extra has the same id 1 as the table T_Data",
+    "args": {
+      "name": "T_Extra",
+      "other": "T_Data",
+      "id": 1
+    },
+    "location": {
+      "part": "/xl/tables/table2.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.5.1.2"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
     "code": "shared_string_missing",
     "severity": "error",
     "message": "a cell refers to shared string 12, which the shared strings table does not hold",
