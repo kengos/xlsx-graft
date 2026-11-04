@@ -121,6 +121,7 @@ fn relationships_from_or_to_a_relationships_part_are_refused() {
     assert!(rels.relationships().is_empty() && rels.incoming().is_empty());
     // Both lists left a relationship out.
     assert!(!package.relationships_known() && !rels.relationships_known());
+    assert!(!package.graph_complete());
     assert_eq!(
         seen,
         vec![

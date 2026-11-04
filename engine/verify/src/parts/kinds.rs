@@ -33,7 +33,7 @@ use xlsx_graft_diagnostics::PartKind;
 
 /// The relationship types defined by ECMA-376, Transitional and Strict,
 /// up to the name of the type.
-const ECMA: [&str; 2] = [
+pub(super) const ECMA: [&str; 2] = [
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/",
     "http://purl.oclc.org/ooxml/officeDocument/relationships/",
 ];
@@ -112,7 +112,7 @@ pub(super) fn web_or_mail_link(rel_type: &str, target: &str) -> bool {
 }
 
 /// What follows `prefix` in `text`, with ASCII letter case aside.
-fn after<'a>(text: &'a str, prefix: &str) -> Option<&'a str> {
+pub(super) fn after<'a>(text: &'a str, prefix: &str) -> Option<&'a str> {
     let head = text.get(..prefix.len())?;
     head.eq_ignore_ascii_case(prefix)
         .then(|| text.get(prefix.len()..))

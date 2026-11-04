@@ -45,8 +45,9 @@ macro_rules! features {
             requires: [$($requires:ident),* $(,)?],
             sources: $sources:expr;
     )*) => {
-        /// A feature of a workbook that not every application has.
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        /// A feature of a workbook that not every application has. Its order
+        /// is the order of the rows, which orders what is reported of them.
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub enum Feature {
             $( $(#[$meta])* $variant, )*
         }

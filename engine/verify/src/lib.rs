@@ -87,7 +87,23 @@
 //! one per part, defined name reached through, function, application and
 //! list, at the first place found, counting every time. A function the
 //! table has no row for, one Excel 2007 already had, is not checked.
-//! [`Targets::default`] checks nothing.
+//!
+//! It also checks the features of the table each part holds, found in the
+//! same reading by the part's role, its media type or the type of a
+//! relationship that targets it, and the elements [MS-XLSX] extends that
+//! role with, in every part the package reaches through its relationships
+//! (every part, when some may be left out): dynamic arrays, threaded comments, a PivotTable's
+//! or a table's slicers, timelines, the Data Model, sparklines and
+//! pictures placed in cells. One some versions lack, or are not confirmed
+//! to have, is an error for `targets:` (`target_feature_unsupported`) and a
+//! warning for `bestEffort:` (`best_effort_feature_unsupported`), one per
+//! feature, application and list, at the first part that holds it,
+//! counting the parts. A feature found is not blamed again on each
+//! function that needs it: `FILTER` in a workbook found to use dynamic
+//! arrays is checked as `FILTER` alone. Dynamic arrays are found by the
+//! metadata Excel writes for them, which a formula that only may spill, a
+//! single cell's included, is given as well. [`Targets::default`] checks
+//! nothing.
 //!
 //! # What Excel repairs
 //!
@@ -147,15 +163,18 @@ mod count;
 mod formulas;
 mod functions;
 mod judging;
+mod limits;
 mod parts;
 mod rules;
 mod sheet;
 mod strings;
 mod structure;
+mod used;
 mod worksheets;
 
 pub use formulas::{FormulaJudge, Names, Place};
 pub use functions::{FunctionClass, FunctionTable};
+pub use limits::Limits;
 pub use rules::{Rules, Ruling};
 pub use structure::{NameEntry, SheetEntry, Structure, TableEntry};
 pub use xlsx_graft_compat::Targets;
@@ -166,66 +185,10 @@ use collect::FormulaSink;
 use judging::Judging;
 use std::io::{Read, Seek};
 use thiserror::Error;
+use used::Used;
 use worksheets::Worksheets;
-use xlsx_graft_diagnostics::{Diagnostics, Limit};
+use xlsx_graft_diagnostics::Diagnostics;
 use xlsx_graft_package::{Package, PackageError};
-use xlsx_graft_read::ReadLimits;
-
-/// The limits [`verify`] holds a workbook to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Limits {
-    /// The package reader's, whose XML limits also hold each XML part
-    /// read.
-    pub package: xlsx_graft_package::Limits,
-    /// The most bytes of one formula kept, as UTF-8: a longer one is
-    /// counted, not kept. Policy name `maxFormulaBytes`.
-    pub max_formula_bytes: Limit,
-    /// The most defined names of the workbook part read: past it, the
-    /// workbook is refused, and the names past it are no names a formula
-    /// is judged by. Policy name `maxDefinedNames`.
-    pub max_defined_names: Limit,
-    /// The most merged ranges of one worksheet kept to check: past it,
-    /// the sheet is refused, and the ranges past it are not checked.
-    /// Policy name `maxMergedCells`.
-    pub max_merged_cells: Limit,
-    /// The most cell formats (`xf` in `cellXfs`) the styles may hold: past
-    /// it, the styles are refused, and no cell's format is checked against
-    /// them. Policy name `maxCellFormats`.
-    pub max_cell_formats: Limit,
-    /// The most number formats (`numFmt` in `numFmts`) the styles may
-    /// hold: past it, as past `max_cell_formats`. Policy name
-    /// `maxNumberFormats`.
-    pub max_number_formats: Limit,
-}
-
-impl Limits {
-    /// The default `max_formula_bytes`, 64 KiB: Excel keeps a formula to
-    /// 8,192 characters, at most 24 KiB as UTF-8, and under 56 KiB with
-    /// every character written as an `_xHHHH_` escape.
-    pub const DEFAULT_MAX_FORMULA_BYTES: u64 = 64 * 1024;
-
-    /// The default `max_defined_names`, 65,536: each name kept costs a few
-    /// hundred bytes beside its text.
-    pub const DEFAULT_MAX_DEFINED_NAMES: u64 = 65_536;
-
-    /// The default `max_merged_cells`, 262,144: each range kept costs some
-    /// 100 bytes as overlaps are looked for, under 30 MiB at the most, and
-    /// the columns they reach 1 MiB at the most.
-    pub const DEFAULT_MAX_MERGED_CELLS: u64 = 262_144;
-}
-
-impl Default for Limits {
-    fn default() -> Self {
-        Self {
-            package: xlsx_graft_package::Limits::default(),
-            max_formula_bytes: Limit::default_of(Self::DEFAULT_MAX_FORMULA_BYTES),
-            max_defined_names: Limit::default_of(Self::DEFAULT_MAX_DEFINED_NAMES),
-            max_merged_cells: Limit::default_of(Self::DEFAULT_MAX_MERGED_CELLS),
-            max_cell_formats: Limit::default_of(ReadLimits::DEFAULT_MAX_CELL_FORMATS),
-            max_number_formats: Limit::default_of(ReadLimits::DEFAULT_MAX_NUMBER_FORMATS),
-        }
-    }
-}
 
 /// A failure of the host, apart from any problem in the workbook.
 #[derive(Debug, Error)]
@@ -258,7 +221,7 @@ pub fn verify<R: Read + Seek>(
     };
     let (mut book, mut worksheets) = Book::read(&mut package, limits, diagnostics)?;
     let mut judging = Judging::new(rules, functions, targets, &book, limits.max_formula_bytes);
-    read_parts(
+    let used = read_parts(
         &mut package,
         limits,
         rules,
@@ -266,7 +229,8 @@ pub fn verify<R: Read + Seek>(
         &mut worksheets,
         diagnostics,
     )?;
-    judging.finish(diagnostics);
+    judging.finish(&used.features(), diagnostics);
+    used.judge(targets, diagnostics);
     if let Some(structure) = book.structure(&package, &worksheets) {
         structure.check(diagnostics);
     }
@@ -274,7 +238,8 @@ pub fn verify<R: Read + Seek>(
 }
 
 /// Checks the parts of `package`, handing the formulas they hold to
-/// `formulas` and checking those `worksheets` holds as worksheets.
+/// `formulas`, checking those `worksheets` holds as worksheets and handing
+/// back the features they hold.
 fn read_parts<R: Read + Seek>(
     package: &mut Package<R>,
     limits: &Limits,
@@ -282,10 +247,10 @@ fn read_parts<R: Read + Seek>(
     formulas: &mut dyn FormulaSink,
     worksheets: &mut Worksheets,
     diagnostics: &mut Diagnostics,
-) -> Result<(), VerifyError> {
+) -> Result<Used, VerifyError> {
     let (xml, max) = (&limits.package.xml, limits.max_formula_bytes.value);
-    parts::check(package, xml, rules, max, formulas, worksheets, diagnostics)?;
-    Ok(())
+    let used = parts::check(package, xml, rules, max, formulas, worksheets, diagnostics);
+    used.map_err(VerifyError::from)
 }
 
 #[cfg(test)]

@@ -2,7 +2,8 @@
 //! lack it, those not confirmed, the features it needs, and the
 //! diagnostic each [`Unmet`] makes.
 
-use super::{Unmet, app, fallback};
+use super::Unmet;
+use super::wire::{app, fallback};
 use crate::entry::Entry;
 use crate::row::{Row, Support};
 use crate::{
@@ -215,5 +216,81 @@ fn a_feature_missing_where_the_function_is_not_confirmed_is_missing() {
             requires: vec![Feature::DynamicArray],
             ..unmet("RANDARRAY", TargetList::Targets, App::Numbers)
         }]
+    );
+}
+
+#[test]
+fn a_feature_found_on_its_own_is_left_out_of_what_a_function_needs() {
+    let both = targets(&["libreoffice >= 24.8"], &["onlyoffice <= 9.3"]);
+    let filter = function("FILTER").unwrap();
+    assert_eq!(both.check_besides(filter, &[Feature::DynamicArray]), []);
+    assert_eq!(
+        both.check_besides(filter, &[Feature::Sparkline]),
+        both.check(filter)
+    );
+    let old = targets(&["libreoffice 24.2"], &[]);
+    assert_eq!(
+        old.check_besides(filter, &[Feature::DynamicArray]),
+        [Unmet {
+            unsupported: vec!["24.2"],
+            ..unmet("FILTER", TargetList::Targets, App::LibreOffice)
+        }]
+    );
+}
+
+#[test]
+fn a_feature_row_is_checked_as_a_function_row_is() {
+    assert_eq!(
+        targets(&["excel >= 2019"], &["numbers 14.4"]).check(Feature::ThreadedComment.row()),
+        [
+            Unmet {
+                unsupported: vec!["2019", "2021"],
+                unverified: vec!["2024"],
+                fallback: Some(Fallback::AsNote),
+                ..unmet("threaded_comment", TargetList::Targets, App::Excel)
+            },
+            Unmet {
+                unverified: vec!["14.4"],
+                ..unmet("threaded_comment", TargetList::BestEffort, App::Numbers)
+            },
+        ]
+    );
+}
+
+#[test]
+fn each_list_makes_its_own_feature_code() {
+    let found = Unmet {
+        unsupported: vec!["2019"],
+        unverified: vec!["2024"],
+        fallback: Some(Fallback::AsNote),
+        ..unmet("threaded_comment", TargetList::Targets, App::Excel)
+    };
+    assert_eq!(
+        found.feature_diagnostic(2),
+        Diagnostic::TargetFeatureUnsupported {
+            name: Echo::new("threaded_comment"),
+            app: TargetApp::Excel,
+            unsupported: Echo::new("2019"),
+            unverified: Echo::new("2024"),
+            requires: Echo::new(""),
+            fallback: TargetFallback::AsNote,
+            count: 2,
+        }
+    );
+    let found = Unmet {
+        unverified: vec!["24.8"],
+        ..unmet("dynamic_array", TargetList::BestEffort, App::LibreOffice)
+    };
+    assert_eq!(
+        found.feature_diagnostic(1),
+        Diagnostic::BestEffortFeatureUnsupported {
+            name: Echo::new("dynamic_array"),
+            app: TargetApp::LibreOffice,
+            unsupported: Echo::new(""),
+            unverified: Echo::new("24.8"),
+            requires: Echo::new(""),
+            fallback: TargetFallback::Unknown,
+            count: 1,
+        }
     );
 }

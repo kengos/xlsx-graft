@@ -152,3 +152,49 @@ fn the_message_names_each_application_as_the_template_does() {
         );
     }
 }
+
+#[test]
+fn a_feature_code_says_what_the_workbook_uses_and_in_how_many_parts() {
+    let target = Diagnostic::TargetFeatureUnsupported {
+        name: Echo::new("threaded_comment"),
+        app: TargetApp::Excel,
+        unsupported: Echo::new(""),
+        unverified: Echo::new("2024"),
+        requires: Echo::new(""),
+        fallback: TargetFallback::AsNote,
+        count: 2,
+    };
+    assert_eq!(target.severity(), Severity::Error);
+    assert_eq!(target.decided_by(), Some(DecidedBy::Template {}));
+    assert_eq!(
+        target.message(),
+        "the workbook uses threaded_comment; targets lists excel versions that are not confirmed to have it (2024); where it is missing, if it is, it shows as a legacy note; in 2 part(s), the first here"
+    );
+    assert_eq!(
+        target.fix(),
+        Some(Fix::workbook(
+            "leave threaded_comment out of the workbook so it works in excel"
+        ))
+    );
+    let best_effort = Diagnostic::BestEffortFeatureUnsupported {
+        name: Echo::new("sparkline"),
+        app: TargetApp::Numbers,
+        unsupported: Echo::new(""),
+        unverified: Echo::new("14.4"),
+        requires: Echo::new(""),
+        fallback: TargetFallback::Unknown,
+        count: 1,
+    };
+    assert_eq!(best_effort.severity(), Severity::Warn);
+    assert_eq!(best_effort.decided_by(), Some(DecidedBy::Template {}));
+    assert_eq!(
+        best_effort.message(),
+        "the workbook uses sparkline; bestEffort lists numbers versions that are not confirmed to have it (14.4); in 1 part(s), the first here"
+    );
+    assert_eq!(
+        best_effort.fix(),
+        Some(Fix::workbook(
+            "leave sparkline out of the workbook so it works in numbers"
+        ))
+    );
+}

@@ -4,9 +4,11 @@
 //! relationships that point outside the package, `opening.rs` what
 //! opening and reading the package refuses on the way, `formulas.rs`
 //! the formulas found as the parts are read, and `judging.rs` how they are
-//! judged; `strings.rs` covers the shared strings table, and
+//! judged, and `features.rs` the features of the compatibility table found
+//! as they are read; `strings.rs` covers the shared strings table, and
 //! `repairs.rs` what Excel repairs in the workbook and its worksheets.
 
+mod features;
 mod formulas;
 mod judging;
 mod links;

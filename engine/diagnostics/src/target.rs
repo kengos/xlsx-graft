@@ -24,8 +24,11 @@ pub(crate) struct Unmet<'a> {
     pub(crate) requires: &'a Echo,
     /// What a version that lacks it shows.
     pub(crate) fallback: TargetFallback,
-    /// How many times it was found.
+    /// How many times it was found, or, with `parts`, how many parts hold
+    /// it.
     pub(crate) count: u64,
+    /// Whether `count` counts parts rather than times.
+    pub(crate) parts: bool,
 }
 
 impl Unmet<'_> {
@@ -60,7 +63,13 @@ impl Unmet<'_> {
         if let Some(shows) = shows(self.fallback) {
             message += &format!("; where it is missing, if it is, {shows}");
         }
-        message + &format!("; {} time(s), the first here", self.count)
+        let count = self.count;
+        message
+            + &if self.parts {
+                format!("; in {count} part(s), the first here")
+            } else {
+                format!("; {count} time(s), the first here")
+            }
     }
 }
 

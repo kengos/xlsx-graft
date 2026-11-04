@@ -1,6 +1,6 @@
-//! [`kinds`]: the kinds of content the elements of one part show, read as
-//! XML as a stream so a large worksheet costs no more memory than a small
-//! one.
+//! [`kinds`]: the kinds of content the elements of one part show, and the
+//! [`features`] of the compatibility table, read as XML as a stream so a
+//! large worksheet costs no more memory than a small one.
 //!
 //! Every part is read as XML, whatever its media type says: which parts
 //! Excel would read as XML is not guessed, so a worksheet that calls
@@ -26,13 +26,14 @@
 //! `hlinkClick` or `hlinkHover` element, by no other attribute, and in a
 //! part read to its end.
 
-use super::kinds;
+use super::{features, kinds};
 use crate::collect::Collector;
 use crate::sheet::SheetCheck;
 use crate::worksheets::Worksheets;
 use std::collections::BTreeSet;
 use std::io::{BufRead, BufReader, Read, Seek};
 use stops::not_xml;
+use xlsx_graft_compat::Feature;
 use xlsx_graft_diagnostics::{Diagnostics, Location, PartKind};
 use xlsx_graft_package::{Package, PackageError};
 use xlsx_graft_xml::XmlVersion;
@@ -133,6 +134,8 @@ fn append(from: Diagnostics, diagnostics: &mut Diagnostics) {
 pub(super) struct Shown {
     /// The kinds of content they name.
     pub(super) kinds: BTreeSet<PartKind>,
+    /// The features of the compatibility table they show.
+    pub(super) features: BTreeSet<Feature>,
     /// The `Id`s of the hyperlinks they use as hyperlinks alone.
     pub(super) hyperlinks: BTreeSet<String>,
     /// Whether one is a `ddeLink` or an `oleLink`, which makes an external
@@ -145,6 +148,8 @@ pub(super) struct Shown {
 struct Walked {
     /// The kinds its elements show.
     kinds: BTreeSet<PartKind>,
+    /// The features its elements show.
+    features: BTreeSet<Feature>,
     /// The hyperlinks a hyperlink element names.
     linked: BTreeSet<String>,
     /// The hyperlinks another element names.
@@ -177,6 +182,7 @@ impl Walked {
         let hyperlinks = self.linked.difference(&self.misused).cloned().collect();
         Shown {
             kinds: self.kinds,
+            features: self.features,
             hyperlinks,
             dde_or_ole_link: self.dde_or_ole_link,
         }
@@ -207,6 +213,9 @@ fn walk<R: BufRead>(
                 }
                 formulas.start(local, &start, opened);
                 walked.kinds.extend(kinds::element(local));
+                if let ResolveResult::Bound(Namespace(ns)) = resolved {
+                    walked.features.extend(features::element(ns, local, &start));
+                }
                 walked.dde_or_ole_link |= matches!(local, "ddeLink" | "oleLink");
                 if !links.is_empty() {
                     let hyperlink = matches!(local, "hyperlink" | "hlinkClick" | "hlinkHover");

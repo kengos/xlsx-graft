@@ -1929,5 +1929,55 @@
       "text": "call a function other than FILTER so the workbook works in libreoffice"
     },
     "origin": "<origin>"
+  },
+  {
+    "code": "target_feature_unsupported",
+    "severity": "error",
+    "message": "the workbook uses threaded_comment; targets lists excel versions that lack it (2019) and that are not confirmed to have it (2024); where it is missing, if it is, it shows as a legacy note; in 2 part(s), the first here",
+    "args": {
+      "name": "threaded_comment",
+      "app": "excel",
+      "unsupported": "2019",
+      "unverified": "2024",
+      "requires": "",
+      "fallback": "as_note",
+      "count": 2
+    },
+    "location": {
+      "part": "/xl/threadedComments/threadedComment1.xml"
+    },
+    "decidedBy": {
+      "kind": "template"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "leave threaded_comment out of the workbook so it works in excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "best_effort_feature_unsupported",
+    "severity": "warn",
+    "message": "the workbook uses dynamic_array; bestEffort lists libreoffice versions that are not confirmed to have it (24.8, 25.2); in 1 part(s), the first here",
+    "args": {
+      "name": "dynamic_array",
+      "app": "libreoffice",
+      "unsupported": "",
+      "unverified": "24.8, 25.2",
+      "requires": "",
+      "fallback": "unknown",
+      "count": 1
+    },
+    "location": {
+      "part": "/xl/metadata.xml"
+    },
+    "decidedBy": {
+      "kind": "template"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "leave dynamic_array out of the workbook so it works in libreoffice"
+    },
+    "origin": "<origin>"
   }
 ]

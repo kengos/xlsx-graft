@@ -654,6 +654,30 @@ fn sample(code: Code) -> (Diagnostic, Location) {
                 .with_part("/xl/workbook.xml")
                 .with_place("definedName Pick"),
         ),
+        Code::TargetFeatureUnsupported => (
+            Diagnostic::TargetFeatureUnsupported {
+                name: Echo::new("threaded_comment"),
+                app: TargetApp::Excel,
+                unsupported: Echo::new("2019"),
+                unverified: Echo::new("2024"),
+                requires: Echo::new(""),
+                fallback: TargetFallback::AsNote,
+                count: 2,
+            },
+            Location::default().with_part("/xl/threadedComments/threadedComment1.xml"),
+        ),
+        Code::BestEffortFeatureUnsupported => (
+            Diagnostic::BestEffortFeatureUnsupported {
+                name: Echo::new("dynamic_array"),
+                app: TargetApp::LibreOffice,
+                unsupported: Echo::new(""),
+                unverified: Echo::new("24.8, 25.2"),
+                requires: Echo::new(""),
+                fallback: TargetFallback::Unknown,
+                count: 1,
+            },
+            Location::default().with_part("/xl/metadata.xml"),
+        ),
     }
 }
 
