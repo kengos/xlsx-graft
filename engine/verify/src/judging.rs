@@ -21,7 +21,7 @@
 
 use crate::book::{Book, local_sheet_id};
 use crate::collect::{FormulaSink, TableTag};
-use crate::{FormulaJudge, FunctionTable, Place, Rules};
+use crate::{FormulaJudge, FunctionTable, Place, Rules, Targets};
 use std::collections::BTreeMap;
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, FormulaMalformedReason, Limit, Location};
 
@@ -49,16 +49,18 @@ struct Unread {
 }
 
 impl<'a> Judging<'a> {
-    /// A sink judging by `rules` and `functions`, with the names and sheets
-    /// of `book`, of formulas held to `limit`.
+    /// A sink judging by `rules` and `functions`, checking the functions
+    /// against `targets`, with the names and sheets of `book`, of formulas
+    /// held to `limit`.
     pub(crate) fn new(
         rules: &'a Rules,
         functions: &'a dyn FunctionTable,
+        targets: &'a Targets,
         book: &'a Book,
         limit: Limit,
     ) -> Self {
         Self {
-            judge: FormulaJudge::new(rules, functions, &book.names),
+            judge: FormulaJudge::new(rules, functions, targets, &book.names),
             book,
             limit,
             unread: Vec::new(),

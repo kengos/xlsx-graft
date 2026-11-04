@@ -2,8 +2,8 @@
 
 use super::{
     EncodingReason, FormulaMalformedReason, FunctionDenial, InflateReason, PartKind,
-    PartNameReason, SchemaReason, SheetNameReason, TargetList, TargetReason, ZipDirectoryReason,
-    ZipHeaderField,
+    PartNameReason, SchemaReason, SheetNameReason, TargetApp, TargetFallback, TargetList,
+    TargetReason, ZipDirectoryReason, ZipHeaderField,
 };
 use serde::Serialize;
 use std::fmt::Display;
@@ -178,5 +178,40 @@ fn every_target_list_and_reason_prints_as_its_wire_string() {
             TargetReason::Overlap,
         ],
         r#"["malformed","unknown_app","unknown_version","version_required","version_not_allowed","empty","overlap"]"#,
+    );
+}
+
+#[test]
+fn every_target_fallback_prints_as_its_wire_string() {
+    assert_wire(
+        &[
+            TargetFallback::Unknown,
+            TargetFallback::Ignored,
+            TargetFallback::ValueOnly,
+            TargetFallback::NameError,
+            TargetFallback::ValueError,
+            TargetFallback::LegacyArray,
+            TargetFallback::AsNote,
+            TargetFallback::PlaceholderShape,
+            TargetFallback::Degraded,
+            TargetFallback::RepairPrompt,
+            TargetFallback::Unopenable,
+        ],
+        r#"["unknown","ignored","value_only","name_error","value_error","legacy_array","as_note","placeholder_shape","degraded","repair_prompt","unopenable"]"#,
+    );
+}
+
+#[test]
+fn every_target_app_prints_as_its_wire_string() {
+    assert_wire(
+        &[
+            TargetApp::Excel,
+            TargetApp::ExcelMac,
+            TargetApp::LibreOffice,
+            TargetApp::GoogleSheets,
+            TargetApp::Numbers,
+            TargetApp::OnlyOffice,
+        ],
+        r#"["excel","excel_mac","libreoffice","google_sheets","numbers","onlyoffice"]"#,
     );
 }

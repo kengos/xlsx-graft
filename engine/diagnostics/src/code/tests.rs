@@ -4,7 +4,8 @@
 use crate::{
     Code, DecidedBy, Diagnostic, Diagnostics, Echo, EncodingReason, FormulaMalformedReason,
     FunctionDenial, InflateReason, Limit, Location, PartKind, PartNameReason, SchemaReason,
-    Severity, SheetNameReason, TargetList, TargetReason, ZipDirectoryReason, ZipHeaderField,
+    Severity, SheetNameReason, TargetApp, TargetFallback, TargetList, TargetReason,
+    ZipDirectoryReason, ZipHeaderField,
 };
 
 /// Every wire string a code once had and no longer has. A removed code's
@@ -624,6 +625,34 @@ fn sample(code: Code) -> (Diagnostic, Location) {
                 names: Echo::new("2007, 2010, 2013, 2016, 2019, 2021, 2024, 365"),
             },
             Location::default(),
+        ),
+        Code::TargetFunctionUnsupported => (
+            Diagnostic::TargetFunctionUnsupported {
+                name: Echo::new("XLOOKUP"),
+                app: TargetApp::Excel,
+                unsupported: Echo::new("2016, 2019"),
+                unverified: Echo::new(""),
+                requires: Echo::new(""),
+                fallback: TargetFallback::NameError,
+                count: 3,
+            },
+            Location::default()
+                .with_part("/xl/worksheets/sheet1.xml")
+                .with_place("B2"),
+        ),
+        Code::BestEffortFunctionUnsupported => (
+            Diagnostic::BestEffortFunctionUnsupported {
+                name: Echo::new("FILTER"),
+                app: TargetApp::LibreOffice,
+                unsupported: Echo::new("24.2"),
+                unverified: Echo::new("24.8, 25.2"),
+                requires: Echo::new("dynamic_array"),
+                fallback: TargetFallback::Unknown,
+                count: 1,
+            },
+            Location::default()
+                .with_part("/xl/workbook.xml")
+                .with_place("definedName Pick"),
         ),
     }
 }

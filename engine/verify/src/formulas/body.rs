@@ -4,6 +4,8 @@
 use super::Context;
 use super::names::{Bucket, Scope};
 use crate::{FunctionClass, Ruling};
+use std::hash::{Hash, Hasher};
+use xlsx_graft_compat::Row;
 use xlsx_graft_diagnostics::{FormulaMalformedReason, FunctionDenial, PartKind};
 use xlsx_graft_formula::Location;
 use xlsx_graft_formula::{MalformedReason, analyze};
@@ -28,6 +30,28 @@ pub(super) enum Finding {
     Forbidden(PartKind, String),
     /// It may call this function, which is denied.
     Function(String, Verdict),
+    /// It calls this function, which the compatibility table has a row
+    /// for, to check against the targets.
+    Target(Target),
+}
+
+/// A function's row in the compatibility table, compared by name so a
+/// finding counts once per function.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Target(pub(super) &'static Row);
+
+impl PartialEq for Target {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.name == other.0.name
+    }
+}
+
+impl Eq for Target {}
+
+impl Hash for Target {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.name.hash(state);
+    }
 }
 
 /// Why a function is denied.
@@ -53,6 +77,8 @@ struct Word<'a> {
     scope: Scope,
     /// Whether it may be a table's name: a name with no `(`.
     table: bool,
+    /// Whether the formula reader saw it, rather than only its safety net.
+    seen: bool,
 }
 
 /// What `formula` holds, its names looked up in `scope` unless a sheet
@@ -81,6 +107,7 @@ pub(super) fn read(formula: &str, scope: Scope, context: Context<'_>) -> Body {
                 book: call.location.book.is_some(),
                 scope: within(&call.location, scope),
                 table: false,
+                seen: true,
             },
         );
     }
@@ -98,6 +125,7 @@ pub(super) fn read(formula: &str, scope: Scope, context: Context<'_>) -> Body {
                     .is_some_and(|before| before.ends_with('!')),
                 scope,
                 table: false,
+                seen: false,
             },
         );
     }
@@ -110,6 +138,7 @@ pub(super) fn read(formula: &str, scope: Scope, context: Context<'_>) -> Body {
                 book: name.location.book.is_some(),
                 scope: within(&name.location, scope),
                 table: true,
+                seen: true,
             },
         );
     }
@@ -136,9 +165,12 @@ impl Body {
         if word.prefix.is_empty() && !word.book {
             if let Some((bucket, in_scope)) = context.names.resolve(word.name, word.scope) {
                 self.names.push(bucket);
+                let named = in_scope || context.names.is_table(word.name);
+                self.target(context, word, word.table && named);
                 self.function(context, word.name, !in_scope);
             } else {
                 let table = word.table && context.names.is_table(word.name);
+                self.target(context, word, table);
                 self.function(context, word.name, !table);
             }
         } else if is_user_defined(word.prefix) {
@@ -149,7 +181,22 @@ impl Body {
             }
             self.function(context, &format!("_XLUDF.{}", word.name), true);
         } else {
+            self.target(context, word, false);
             self.function(context, word.name, true);
+        }
+    }
+
+    /// `word` as a function, to check against the targets when the table
+    /// of compatibility has a row for it: unless only the safety net saw
+    /// it, another workbook is named before it, or it is a `named` defined
+    /// name in scope or table with no `(`, which then calls no function.
+    /// A call stays a call whatever names share its name.
+    fn target(&mut self, context: Context<'_>, word: &Word<'_>, named: bool) {
+        if !word.seen || word.book || named || !context.targeted {
+            return;
+        }
+        if let Some(row) = xlsx_graft_compat::function(word.name) {
+            self.findings.push(Finding::Target(Target(row)));
         }
     }
 

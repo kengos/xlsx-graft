@@ -6,10 +6,11 @@ use xlsx_graft_diagnostics::{Diagnostic, Echo};
 use xlsx_graft_read::CellRef;
 
 /// A row or cell refused: why, and the place it names, as written or as
-/// it would be without `r`.
+/// it would be without `r`. The diagnostic is boxed: a `Result` carries a
+/// `Refused` on every row and cell read.
 #[derive(Debug)]
 pub(super) struct Refused {
-    pub(super) diagnostic: Diagnostic,
+    pub(super) diagnostic: Box<Diagnostic>,
     pub(super) place: String,
 }
 
@@ -80,9 +81,9 @@ impl Place {
 /// `cell_reference_invalid` at `place`.
 fn invalid(place: &str) -> Refused {
     Refused {
-        diagnostic: Diagnostic::CellReferenceInvalid {
+        diagnostic: Box::new(Diagnostic::CellReferenceInvalid {
             reference: Echo::new(place),
-        },
+        }),
         place: place.to_owned(),
     }
 }
@@ -90,10 +91,10 @@ fn invalid(place: &str) -> Refused {
 /// `cell_order_invalid` at `place`, after `previous`.
 fn order(place: String, previous: &str) -> Refused {
     Refused {
-        diagnostic: Diagnostic::CellOrderInvalid {
+        diagnostic: Box::new(Diagnostic::CellOrderInvalid {
             reference: Echo::new(&place),
             previous: Echo::new(previous),
-        },
+        }),
         place,
     }
 }

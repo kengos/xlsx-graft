@@ -18,6 +18,12 @@
 //!   reviewed safe (`function_dangerous`, `function_denied`), and one the
 //!   policy forbids whatever the template says (`function_forbidden`).
 //!
+//! It also checks each function a formula calls against the versions the
+//! template's [`Targets`] hold, by the compatibility table: one some of
+//! them lack, or are not confirmed to have, is an error for `targets:`
+//! (`target_function_unsupported`) and a warning for `bestEffort:`
+//! (`best_effort_function_unsupported`).
+//!
 //! How it tells a function from a defined name or a table, and what its
 //! caller does, is for [`FormulaJudge`] to say.
 
@@ -32,6 +38,7 @@ use crate::{FunctionTable, Rules};
 use found::Found;
 use graph::Graph;
 use names::Scope;
+use xlsx_graft_compat::Targets;
 use xlsx_graft_diagnostics::Diagnostics;
 
 /// Where a formula stands.
@@ -93,6 +100,22 @@ pub struct Place<'a> {
 /// names itself and is judged at its own place shows each problem twice:
 /// at that place, and through its name.
 ///
+/// # Targets
+///
+/// Each function a formula calls, or names with no `(`, that the
+/// compatibility table has a row for is checked against every version the
+/// [`Targets`] hold, the features it needs included; a function the table
+/// has no row for (one Excel 2007 already had) is not. Through a defined
+/// name, the functions of its formula are checked: a `LAMBDA` named `MyFn`
+/// is checked by the functions inside it. A call is checked as the
+/// function of its name whatever names share it, but a word with no `(`
+/// that names a defined name in scope or a table calls nothing, and is
+/// not: unlike the judging above, guessing here would refuse a workbook
+/// that works. A word only the safety net saw is not checked either, nor
+/// a user-defined function or one after another workbook. Each part gets
+/// one diagnostic per defined name reached through, function, application
+/// and list, as for the other findings.
+///
 /// # One diagnostic per finding
 ///
 /// Each part gets one diagnostic per defined name reached through (or
@@ -120,7 +143,9 @@ pub struct Place<'a> {
 ///
 /// ```
 /// use xlsx_graft_diagnostics::Diagnostics;
-/// use xlsx_graft_verify::{FormulaJudge, FunctionClass, FunctionTable, Names, Place, Rules};
+/// use xlsx_graft_verify::{
+///     FormulaJudge, FunctionClass, FunctionTable, Names, Place, Rules, Targets,
+/// };
 ///
 /// struct Table;
 /// impl FunctionTable for Table {
@@ -131,7 +156,8 @@ pub struct Place<'a> {
 ///
 /// let rules = Rules::default();
 /// let names = Names::default().defined_name("Fetch", None, "WEBSERVICE(\"https://x\")");
-/// let mut judge = FormulaJudge::new(&rules, &Table, &names);
+/// let targets = Targets::default();
+/// let mut judge = FormulaJudge::new(&rules, &Table, &targets, &names);
 /// let place = Place { part: "/xl/worksheets/sheet1.xml", at: "A1", sheet: Some(0) };
 /// judge.judge(&place, "SUM(1,2)+Fetch");
 /// let mut diagnostics = Diagnostics::new();
@@ -149,18 +175,28 @@ pub struct FormulaJudge<'a> {
 struct Context<'a> {
     rules: &'a Rules,
     functions: &'a dyn FunctionTable,
+    targets: &'a Targets,
+    /// Whether `targets` hold any version to check against.
+    targeted: bool,
     names: &'a Names,
 }
 
 impl<'a> FormulaJudge<'a> {
-    /// A judge of formulas by `rules` and `functions`, whose names are
-    /// looked up in `names`.
+    /// A judge of formulas by `rules` and `functions`, checking the
+    /// functions against `targets`, whose names are looked up in `names`.
     #[must_use]
-    pub fn new(rules: &'a Rules, functions: &'a dyn FunctionTable, names: &'a Names) -> Self {
+    pub fn new(
+        rules: &'a Rules,
+        functions: &'a dyn FunctionTable,
+        targets: &'a Targets,
+        names: &'a Names,
+    ) -> Self {
         Self {
             context: Context {
                 rules,
                 functions,
+                targets,
+                targeted: !targets.is_empty(),
                 names,
             },
             graph: Graph::new(names),
@@ -184,7 +220,7 @@ impl<'a> FormulaJudge<'a> {
     /// Pushes a diagnostic for each finding into `diagnostics`, in the
     /// order they were first found.
     pub fn finish(self, diagnostics: &mut Diagnostics) {
-        self.found.finish(diagnostics);
+        self.found.finish(self.context.targets, diagnostics);
     }
 }
 

@@ -9,8 +9,11 @@
 //! `excel 365`, `google-sheets`); the entries of one list that name the
 //! same application add up.
 
+mod check;
 mod entry;
 mod versions;
+
+pub use check::Unmet;
 
 use crate::{App, Version};
 use versions::Versions;

@@ -73,6 +73,22 @@
 //! defines more names than `max_defined_names` is refused
 //! (`defined_names_too_many`).
 //!
+//! # Targets
+//!
+//! [`verify`] checks each function a formula calls against the versions of
+//! the applications the template's `targets:` and `bestEffort:` hold
+//! ([`Targets`]), by the compatibility table of `xlsx-graft-compat`, where
+//! it judges the function: through the same names, so the functions of a
+//! defined name's formula, a `LAMBDA`'s among them, are checked where a
+//! formula reaches it. A function some of those versions lack, or are not
+//! confirmed to have, the features it needs included (`dynamic_array` for
+//! `FILTER`), is an error for `targets:` (`target_function_unsupported`)
+//! and a warning for `bestEffort:` (`best_effort_function_unsupported`),
+//! one per part, defined name reached through, function, application and
+//! list, at the first place found, counting every time. A function the
+//! table has no row for, one Excel 2007 already had, is not checked.
+//! [`Targets::default`] checks nothing.
+//!
 //! # What Excel repairs
 //!
 //! [`verify`] also finds what Excel repairs as it opens the workbook (an
@@ -142,6 +158,7 @@ pub use formulas::{FormulaJudge, Names, Place};
 pub use functions::{FunctionClass, FunctionTable};
 pub use rules::{Rules, Ruling};
 pub use structure::{NameEntry, SheetEntry, Structure, TableEntry};
+pub use xlsx_graft_compat::Targets;
 pub use xlsx_graft_diagnostics::PartKind;
 
 use book::Book;
@@ -221,7 +238,8 @@ pub enum VerifyError {
 /// Verifies the workbook `reader` holds, pushing a diagnostic for each
 /// problem into `diagnostics`.
 ///
-/// `functions` classifies the functions the formulas call.
+/// `functions` classifies the functions the formulas call, and `targets`
+/// holds the versions of the applications they are checked against.
 ///
 /// # Errors
 ///
@@ -232,13 +250,14 @@ pub fn verify<R: Read + Seek>(
     limits: &Limits,
     rules: &Rules,
     functions: &dyn FunctionTable,
+    targets: &Targets,
     diagnostics: &mut Diagnostics,
 ) -> Result<(), VerifyError> {
     let Some(mut package) = Package::open(reader, &limits.package, diagnostics)? else {
         return Ok(());
     };
     let (mut book, mut worksheets) = Book::read(&mut package, limits, diagnostics)?;
-    let mut judging = Judging::new(rules, functions, &book, limits.max_formula_bytes);
+    let mut judging = Judging::new(rules, functions, targets, &book, limits.max_formula_bytes);
     read_parts(
         &mut package,
         limits,

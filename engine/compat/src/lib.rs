@@ -18,7 +18,10 @@
 //! [`Targets`] reads a template's `targets:` and `bestEffort:` lists
 //! (`excel >= 2016`, `google-sheets`) into the versions of each application
 //! a workbook must, and should, work in, and reports every entry that names
-//! none as a `target_invalid` diagnostic.
+//! none as a `target_invalid` diagnostic. [`Targets::check`] says which of
+//! those versions lack a function, or are not confirmed to have it, the
+//! features it needs included ([`Unmet`]); [`Unmet::function_diagnostic`]
+//! is the diagnostic a workbook that calls it gets.
 //!
 //! # The data
 //!
@@ -42,7 +45,10 @@ pub use app::{App, Excel, ExcelMac, GoogleSheets, LibreOffice, Numbers, OnlyOffi
 pub use entry::{Added, Entry, Fallback, Status};
 pub use row::{Row, Support};
 pub use table::Feature;
-pub use targets::Targets;
+pub use targets::{Targets, Unmet};
+
+use std::collections::HashMap;
+use std::sync::OnceLock;
 
 /// Every function the table has a row for.
 #[must_use]
@@ -56,9 +62,15 @@ pub fn functions() -> &'static [Row] {
 /// knows.
 #[must_use]
 pub fn function(name: &str) -> Option<&'static Row> {
-    table::FUNCTIONS
-        .iter()
-        .find(|row| row.name.eq_ignore_ascii_case(name))
+    /// The rows by name, built at the first look-up: a workbook's formulas
+    /// look up every function they call.
+    static BY_NAME: OnceLock<HashMap<&'static str, &'static Row>> = OnceLock::new();
+    let by_name = BY_NAME.get_or_init(|| {
+        (table::FUNCTIONS.iter())
+            .map(|row| (row.name, row))
+            .collect()
+    });
+    by_name.get(name.to_ascii_uppercase().as_str()).copied()
 }
 
 #[cfg(test)]

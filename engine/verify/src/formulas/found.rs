@@ -2,8 +2,9 @@
 //! finding, each with the first place it was found and how many times.
 
 use super::Place;
-use super::body::{Finding, Verdict};
+use super::body::{Finding, Target, Verdict};
 use std::collections::HashMap;
+use xlsx_graft_compat::Targets;
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Echo, Location};
 
 /// The findings so far, in the order first found.
@@ -58,17 +59,29 @@ impl Found {
         });
     }
 
-    /// Pushes a diagnostic for each finding into `diagnostics`.
-    pub(super) fn finish(self, diagnostics: &mut Diagnostics) {
+    /// Pushes a diagnostic for each finding into `diagnostics`; a
+    /// function to check against `targets`, one for each list and
+    /// application with a version that lacks it.
+    pub(super) fn finish(self, targets: &Targets, diagnostics: &mut Diagnostics) {
         for entry in self.entries {
-            diagnostics.push(diagnostic(entry.finding, entry.count), entry.location);
+            for diagnostic in diagnostics_of(entry.finding, entry.count, targets) {
+                diagnostics.push(diagnostic, entry.location.clone());
+            }
         }
     }
 }
 
-/// The diagnostic of `finding`, found `count` times.
-fn diagnostic(finding: Finding, count: u64) -> Diagnostic {
-    match finding {
+/// The diagnostics of `finding`, found `count` times: one, or, for a
+/// function to check against `targets`, one per list and application with
+/// a version that lacks it.
+fn diagnostics_of(finding: Finding, count: u64, targets: &Targets) -> Vec<Diagnostic> {
+    let diagnostic = match finding {
+        Finding::Target(Target(row)) => {
+            let unmet = targets.check(row);
+            return (unmet.iter())
+                .map(|unmet| unmet.function_diagnostic(count))
+                .collect();
+        }
         Finding::Malformed(reason) => Diagnostic::FormulaMalformed { reason, count },
         Finding::Denied(kind) => Diagnostic::FormulaDenied { kind, count },
         Finding::Forbidden(kind, reason) => Diagnostic::FormulaForbidden {
@@ -96,5 +109,6 @@ fn diagnostic(finding: Finding, count: u64) -> Diagnostic {
                 },
             }
         }
-    }
+    };
+    vec![diagnostic]
 }
