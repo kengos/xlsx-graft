@@ -87,3 +87,9 @@ fn excel_365_is_newer_than_every_perpetual_version() {
 fn versions_compare_as_numbers_not_as_text() {
     assert!(OnlyOffice::V9_4 < OnlyOffice::V10_0);
 }
+
+#[test]
+fn only_google_sheets_has_no_versions() {
+    let versionless: Vec<_> = App::ALL.iter().filter(|app| !app.has_versions()).collect();
+    assert_eq!(versionless, [&App::GoogleSheets]);
+}

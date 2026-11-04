@@ -47,7 +47,8 @@ pub use limit::{Limit, LimitSource};
 pub use location::Location;
 pub use reason::{
     EncodingReason, FormulaMalformedReason, FunctionDenial, InflateReason, PartKind,
-    PartNameReason, SchemaReason, SheetNameReason, ZipDirectoryReason, ZipHeaderField,
+    PartNameReason, SchemaReason, SheetNameReason, TargetList, TargetReason, ZipDirectoryReason,
+    ZipHeaderField,
 };
 pub use record::Record;
 

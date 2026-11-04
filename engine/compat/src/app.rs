@@ -50,6 +50,13 @@ impl App {
         }
     }
 
+    /// Whether the application has versions: every one but Google Sheets,
+    /// which a template's `targets:` names alone.
+    #[must_use]
+    pub fn has_versions(self) -> bool {
+        self != App::GoogleSheets
+    }
+
     /// The application's versions as written, oldest first.
     #[must_use]
     pub fn version_names(self) -> &'static [&'static str] {

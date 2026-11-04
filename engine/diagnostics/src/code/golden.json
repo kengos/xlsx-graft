@@ -1859,5 +1859,23 @@
     },
     "fix": null,
     "origin": "<origin>"
+  },
+  {
+    "code": "target_invalid",
+    "severity": "error",
+    "message": "targets[1] `excel >= 2020` names a version the engine does not know; the versions it knows are 2007, 2010, 2013, 2016, 2019, 2021, 2024, 365",
+    "args": {
+      "list": "targets",
+      "index": 1,
+      "entry": "excel >= 2020",
+      "reason": "unknown_version",
+      "names": "2007, 2010, 2013, 2016, 2019, 2021, 2024, 365"
+    },
+    "location": {},
+    "decidedBy": {
+      "kind": "template"
+    },
+    "fix": null,
+    "origin": "<origin>"
   }
 ]

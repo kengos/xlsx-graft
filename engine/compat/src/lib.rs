@@ -15,6 +15,11 @@
 //! added; it has no row yet for one Excel 2007 already had, and says
 //! nothing about it. [`Feature::row`] gives a feature's row.
 //!
+//! [`Targets`] reads a template's `targets:` and `bestEffort:` lists
+//! (`excel >= 2016`, `google-sheets`) into the versions of each application
+//! a workbook must, and should, work in, and reports every entry that names
+//! none as a `target_invalid` diagnostic.
+//!
 //! # The data
 //!
 //! The shape follows MDN's browser-compat-data: a version, `false` or
@@ -31,11 +36,13 @@ mod app;
 mod entry;
 mod row;
 mod table;
+mod targets;
 
 pub use app::{App, Excel, ExcelMac, GoogleSheets, LibreOffice, Numbers, OnlyOffice, Version};
 pub use entry::{Added, Entry, Fallback, Status};
 pub use row::{Row, Support};
 pub use table::Feature;
+pub use targets::Targets;
 
 /// Every function the table has a row for.
 #[must_use]
