@@ -625,9 +625,9 @@ diagnostics! {
     /// Excel for Mac asks to repair the workbook, and cuts the string there,
     /// whether or not a cell refers to it.
     /// Its text is its `t`, or the `t` of each of its runs together; its
-    /// phonetic runs (`rPh`) are not counted. An escape of an unpaired
-    /// surrogate (`_xD83D_`) counts as written, seven where Excel counts
-    /// one, so a string of them can be reported though Excel opens it.
+    /// phonetic runs (`rPh`) are not counted. Each `_xHHHH_` escape counts
+    /// as the one code unit it stands for, an unpaired surrogate included,
+    /// as Excel counts it.
     SharedStringTooLong {
         /// The string's index in the table, from 0, as a cell of `t="s"`
         /// gives it.

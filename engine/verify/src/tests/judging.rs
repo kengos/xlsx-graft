@@ -297,9 +297,14 @@ fn a_local_sheet_id_counts_every_sheet_and_a_part_two_sheets_name_is_neither() {
         .rel("/xl/workbook.xml", "worksheet", SHEETS[1]);
     // Bar is S1's, the sheet at 1 after the chartsheet; Foo is S2's, but
     // S2's part is Again's too, so it is no sheet's. Lost has no part.
+    // What the workbook reader reports of the sheets is reported too.
     assert_eq!(
         judged(book),
-        ["/xl/worksheets/sheet2.xml A1: unknown FOO x1"]
+        [
+            r#"/xl/workbook.xml : SheetPartDuplicate { name: Echo("Again"), other: Echo("S2") }"#,
+            r#"/xl/workbook.xml : SheetRelationshipMissing { relationship_id: Echo("rId9") }"#,
+            "/xl/worksheets/sheet2.xml A1: unknown FOO x1"
+        ]
     );
 }
 

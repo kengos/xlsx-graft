@@ -1,7 +1,8 @@
 //! [`SheetCheck`]: what Excel repairs in a worksheet as it opens it, found
 //! as the part is read as a stream, event by event, so a large worksheet
 //! costs no more memory than a small one; the merged cells alone are kept,
-//! up to `maxMergedCells`.
+//! up to `maxMergedCells`, and which of the tables it is handed its
+//! `tableParts` names.
 //!
 //! Every problem is found, not only the first, each once. Which are
 //! problems, and how heavy, is what Excel for Mac 16.114.3 did as it opened
@@ -34,23 +35,28 @@
 //!   UTF-16 code units, its runs together and its phonetic runs left out
 //!   (`inline_string_too_long`). A formula's cached string is not checked:
 //!   Excel keeps it whole.
+//! - **Tables**: which of the sheet's tables its `tableParts` names, by
+//!   the `r:id` of each `tablePart`, in their order, the first time
+//!   each: the order [`Structure`](crate::Structure) checks them in. Only
+//!   the `Id`s it is handed are kept, so a long list costs no more memory
+//!   than a short one.
 //!
 //! Only the elements of the root's namespace, `worksheet` in SpreadsheetML,
 //! are read, where the schema puts them; anything else is passed over with
 //! all it holds. Attributes are read unprefixed. The `dimension` is not
 //! read: Excel does not use it, and writes it again as it saves.
 
-mod count;
 mod elements;
 mod merges;
 mod place;
 
 use crate::collect::attribute;
-use count::Unsigned;
+use crate::count::Unsigned;
 use elements::{Cell, Kind};
 use merges::Merges;
 use place::Place;
 use std::borrow::Cow;
+use std::collections::BTreeSet;
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Limit, Location};
 use xlsx_graft_xml::events::BytesStart;
 use xlsx_graft_xml::name::{Namespace, ResolveResult};
@@ -86,6 +92,7 @@ enum Frame {
     Run,
     Text,
     MergeCells,
+    TableParts,
 }
 
 /// The checks of one worksheet, handed its XML event by event, pushing
@@ -104,15 +111,21 @@ pub(crate) struct SheetCheck<'a> {
     place: Place,
     cell: Cell,
     merges: Merges,
+    /// The `Id`s of the relationships to tables not yet named.
+    tables: BTreeSet<String>,
+    /// Those named, in order.
+    named: Vec<String>,
 }
 
 impl<'a> SheetCheck<'a> {
     /// The checks of the worksheet `part`, against `counts`, keeping
-    /// `max_merged_cells` merged ranges, pushing into `diagnostics`.
+    /// `max_merged_cells` merged ranges and the order the `tableParts`
+    /// names the relationships `tables` in, pushing into `diagnostics`.
     pub(crate) fn new(
         part: &str,
         counts: Counts,
         max_merged_cells: Limit,
+        tables: BTreeSet<String>,
         diagnostics: &'a mut Diagnostics,
     ) -> Self {
         Self {
@@ -126,17 +139,21 @@ impl<'a> SheetCheck<'a> {
             place: Place::default(),
             cell: Cell::default(),
             merges: Merges::new(max_merged_cells),
+            tables,
+            named: Vec::new(),
         }
     }
 
     /// Reads the start of an element, of namespace `resolved` and local
     /// name `local`: a start tag when `opened`, else an empty element.
+    /// `id` reads its `r:id`, when a check needs it.
     pub(crate) fn start(
         &mut self,
         resolved: &ResolveResult<'_>,
         local: &str,
         start: &BytesStart<'_>,
         opened: bool,
+        id: impl FnOnce() -> Option<String>,
     ) {
         if self.skipped > 0 {
             self.skipped = self.skipped.saturating_add(u64::from(opened));
@@ -152,7 +169,7 @@ impl<'a> SheetCheck<'a> {
                 Some(Frame::Worksheet)
             }
             Some(&frame) if namespace.is_some() && namespace == self.root => {
-                self.child(frame, local, start)
+                self.child(frame, local, start, id)
             }
             _ => None,
         };
@@ -186,18 +203,33 @@ impl<'a> SheetCheck<'a> {
         }
     }
 
-    /// Ends the checks: pushes what the merged cells hold.
-    pub(crate) fn finish(self) {
+    /// Ends the checks: pushes what the merged cells hold. The `Id`s
+    /// handed to [`new`](Self::new) that the `tableParts` names, in order.
+    pub(crate) fn finish(self) -> Vec<String> {
         self.merges.finish(self.diagnostics, &self.location);
+        self.named
     }
 
-    /// The element `local` inside `frame`, that `start` starts, read as it
-    /// starts, if it is one the checks read.
-    fn child(&mut self, frame: Frame, local: &str, start: &BytesStart<'_>) -> Option<Frame> {
+    /// The element `local` inside `frame`, that `start` starts, its `r:id`
+    /// read by `id`, read as it starts, if it is one the checks read.
+    fn child(
+        &mut self,
+        frame: Frame,
+        local: &str,
+        start: &BytesStart<'_>,
+        id: impl FnOnce() -> Option<String>,
+    ) -> Option<Frame> {
         match (frame, local) {
             (Frame::Worksheet, "cols") => Some(Frame::Cols),
             (Frame::Worksheet, "sheetData") => Some(Frame::SheetData),
             (Frame::Worksheet, "mergeCells") => Some(Frame::MergeCells),
+            (Frame::Worksheet, "tableParts") => Some(Frame::TableParts),
+            (Frame::TableParts, "tablePart") => {
+                if let Some(id) = id().and_then(|id| self.tables.take(&id)) {
+                    self.named.push(id);
+                }
+                None
+            }
             (Frame::Cols, "col") => {
                 self.column(start);
                 None

@@ -1,19 +1,19 @@
 //! Tests for the sheet checks, driven through [`SheetCheck`] on worksheet
 //! XML read as `verify` reads a part. `places.rs` covers where rows and
 //! cells stand, `values.rs` the shared strings, styles and inline strings
-//! cells refer to, `merges.rs` the merged cells, `count.rs` how numbers
-//! and string lengths are read, and this file what the checks read at all.
+//! cells refer to, `merges.rs` the merged cells, and this file what the
+//! checks read at all and the tables a sheet's `tableParts` names.
 //!
 //! What Excel for Mac 16.114.3 did as it opened a workbook with each
 //! problem is said beside the test that holds it.
 
-mod count;
 mod merges;
 mod places;
 mod values;
 
 use super::{Counts, SheetCheck};
-use crate::parts::resolve;
+use crate::parts::{relationship_id, resolve};
+use std::collections::BTreeSet;
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Echo, Limit};
 use xlsx_graft_xml::events::Event;
 use xlsx_graft_xml::{XmlLimits, XmlStreamReader};
@@ -41,32 +41,8 @@ fn rows(rows: &str) -> String {
 /// merged ranges.
 fn check_with(xml: &str, counts: Counts, merged: u64) -> Vec<Diagnostic> {
     let mut diagnostics = Diagnostics::new();
-    let mut check = SheetCheck::new(
-        "/xl/worksheets/sheet1.xml",
-        counts,
-        Limit::default_of(merged),
-        &mut diagnostics,
-    );
-    let mut xml = XmlStreamReader::new(xml.as_bytes(), &XmlLimits::default());
-    let mut buf = Vec::new();
-    loop {
-        let event = xml.read_event_into(&mut buf).unwrap();
-        let opened = matches!(event, Event::Start(_));
-        match event {
-            Event::Start(start) | Event::Empty(start) => {
-                let (resolved, local) = xml.resolve_element(start.name());
-                check.start(&resolved, local.as_ref(), &start, opened);
-            }
-            Event::End(_) => check.end(),
-            Event::Text(text) => check.text(|| text.xml10_content()),
-            Event::CData(data) => check.text(|| data.xml10_content()),
-            Event::GeneralRef(reference) => check.text(|| resolve(&reference).into()),
-            Event::Eof => break,
-            _ => {}
-        }
-        buf.clear();
-    }
-    check.finish();
+    let named = walk(xml, counts, merged, BTreeSet::new(), &mut diagnostics);
+    assert_eq!(named, Vec::<String>::new());
     let records = diagnostics.finish();
     for record in &records {
         assert_eq!(
@@ -78,6 +54,46 @@ fn check_with(xml: &str, counts: Counts, merged: u64) -> Vec<Diagnostic> {
         .into_iter()
         .map(|record| record.diagnostic)
         .collect()
+}
+
+/// Hands `xml` to the checks against `counts`, keeping `merged` merged
+/// ranges and looking for the relationships `tables`, pushing into
+/// `diagnostics`: those its `tableParts` names.
+fn walk(
+    xml: &str,
+    counts: Counts,
+    merged: u64,
+    tables: BTreeSet<String>,
+    diagnostics: &mut Diagnostics,
+) -> Vec<String> {
+    let mut check = SheetCheck::new(
+        "/xl/worksheets/sheet1.xml",
+        counts,
+        Limit::default_of(merged),
+        tables,
+        diagnostics,
+    );
+    let mut xml = XmlStreamReader::new(xml.as_bytes(), &XmlLimits::default());
+    let mut buf = Vec::new();
+    loop {
+        let event = xml.read_event_into(&mut buf).unwrap();
+        let opened = matches!(event, Event::Start(_));
+        match event {
+            Event::Start(start) | Event::Empty(start) => {
+                let (resolved, local) = xml.resolve_element(start.name());
+                let id = || relationship_id(&xml, &start);
+                check.start(&resolved, local.as_ref(), &start, opened, id);
+            }
+            Event::End(_) => check.end(),
+            Event::Text(text) => check.text(|| text.xml10_content()),
+            Event::CData(data) => check.text(|| data.xml10_content()),
+            Event::GeneralRef(reference) => check.text(|| resolve(&reference).into()),
+            Event::Eof => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+    check.finish()
 }
 
 /// What the checks find in `xml` against [`COUNTS`].
@@ -188,4 +204,19 @@ fn what_is_not_where_the_schema_puts_it_is_passed_over() {
 fn attributes_are_read_unprefixed() {
     let xml = rows(r#"<row xmlns:z="urn:z" z:r="5" r="1"><c z:s="99" s="1"/></row>"#);
     assert_eq!(check(&xml), []);
+}
+
+#[test]
+fn the_table_parts_name_the_tables_in_their_order_the_first_time_each() {
+    let rels = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    let strict = "http://purl.oclc.org/ooxml/officeDocument/relationships";
+    let xml = format!(
+        r#"<worksheet xmlns="{MAIN}" xmlns:r="{rels}" xmlns:s="{strict}" xmlns:o="urn:other"><tableParts><tablePart r:id="rId3"/><tablePart id="rId9"/><tablePart o:id="rId9"/><tablePart s:id="rId1"/><tablePart r:id="rId3"/><tablePart r:id="rId7"/><tablePart/></tableParts><tablePart r:id="rId9"/></worksheet>"#
+    );
+    let tables: BTreeSet<String> = ["rId1", "rId3", "rId9"].map(String::from).into();
+    let mut diagnostics = Diagnostics::new();
+    let named = walk(&xml, COUNTS, 100, tables, &mut diagnostics);
+    // The `r:id` alone, in a relationships namespace, and in `tableParts`.
+    assert_eq!(named, ["rId3", "rId1"]);
+    assert!(diagnostics.finish().is_empty());
 }

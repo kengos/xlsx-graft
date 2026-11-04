@@ -1,5 +1,5 @@
-//! What a worksheet's checks count: an unsigned number as the sheet writes
-//! one ([`Unsigned`]), and the length of a string in UTF-16 code units, its
+//! What the checks count: an unsigned number as a part writes one
+//! ([`Unsigned`]), and the length of a string in UTF-16 code units, its
 //! `_xHHHH_` escapes undone ([`Utf16`]), both read as the text arrives in
 //! pieces, so a long one costs no more memory than a short one.
 
@@ -9,7 +9,7 @@
 /// A number past `u64::MAX` saturates there, so it reads as past any count
 /// it is checked against.
 #[derive(Debug, Default)]
-pub(super) struct Unsigned {
+pub(crate) struct Unsigned {
     /// The value of the digits so far.
     value: u64,
     /// Whether a digit was read.
@@ -25,14 +25,14 @@ pub(super) struct Unsigned {
 
 impl Unsigned {
     /// The number `text` holds whole, if it holds one.
-    pub(super) fn parse(text: &str) -> Option<u64> {
+    pub(crate) fn parse(text: &str) -> Option<u64> {
         let mut number = Self::default();
         number.push(text);
         number.value()
     }
 
     /// Adds `text` to the number.
-    pub(super) fn push(&mut self, text: &str) {
+    pub(crate) fn push(&mut self, text: &str) {
         for c in text.chars() {
             match c.to_digit(10) {
                 Some(digit) if !self.ended => {
@@ -49,7 +49,7 @@ impl Unsigned {
     }
 
     /// The number read, if the text held one.
-    pub(super) fn value(&self) -> Option<u64> {
+    pub(crate) fn value(&self) -> Option<u64> {
         (self.digits && !self.invalid).then_some(self.value)
     }
 }
@@ -62,7 +62,7 @@ impl Unsigned {
 /// It is read once from the left, as the escapes are undone: `_x005F_` is
 /// `_`, so `_x005F_x0041_` is seven units, not two.
 #[derive(Debug, Default)]
-pub(super) struct Utf16 {
+pub(crate) struct Utf16 {
     /// The code units counted.
     units: u64,
     /// How many characters of an escape have been read (`_`, `_x`, then
@@ -72,19 +72,19 @@ pub(super) struct Utf16 {
 
 impl Utf16 {
     /// The code units counted, the characters held back included.
-    pub(super) fn units(&self) -> u64 {
+    pub(crate) fn units(&self) -> u64 {
         self.units.saturating_add(self.held)
     }
 
     /// Adds `text` to the value.
-    pub(super) fn push(&mut self, text: &str) {
+    pub(crate) fn push(&mut self, text: &str) {
         for c in text.chars() {
             self.char(c);
         }
     }
 
     /// Ends the value: what was held back counts as written.
-    pub(super) fn end(&mut self) {
+    pub(crate) fn end(&mut self) {
         self.units = self.units();
         self.held = 0;
     }
@@ -118,3 +118,6 @@ impl Utf16 {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

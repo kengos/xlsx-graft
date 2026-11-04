@@ -51,7 +51,7 @@
 
 mod attributes;
 
-use super::FormulaSink;
+use super::{FormulaSink, TableTag};
 pub(crate) use attributes::attribute;
 use attributes::{bytes, value};
 use std::borrow::Cow;
@@ -133,9 +133,13 @@ impl<'a> Collector<'a> {
                 self.range = value(start, "sqref");
             }
             "table" => {
-                let names = [value(start, "name"), value(start, "displayName")];
-                let names: Vec<String> = names.into_iter().flatten().collect();
-                self.sink.table(&self.part, &names);
+                let table = TableTag {
+                    name: value(start, "name"),
+                    display_name: value(start, "displayName"),
+                    id: value(start, "id"),
+                    range: value(start, "ref"),
+                };
+                self.sink.table(&self.part, &table);
             }
             _ => self.attributes(local, start),
         }

@@ -1,4 +1,5 @@
-//! xlsx-graft verify: refuses what an untrusted workbook may not carry.
+//! xlsx-graft verify: refuses what an untrusted workbook may not carry, and
+//! finds what Excel repairs in it.
 //!
 //! [`verify`] opens a package under the [`Limits`] in force and pushes a
 //! diagnostic for every problem it finds into the
@@ -25,9 +26,10 @@
 //!   outside is an external link even where OLE is allowed. A hyperlink to
 //!   an `http://`, `https://` or `mailto:` address is the one such
 //!   relationship admitted, and only where its part uses it as a hyperlink
-//!   (`hyperlink`, `hlinkClick`, `hlinkHover`) and as nothing else. An external workbook reference that holds a
-//!   `ddeLink` is DDE instead, and one that holds an `oleLink` OLE, the
-//!   relationship its link points outside by an external link as ever.
+//!   (`hyperlink`, `hlinkClick`, `hlinkHover`) and as nothing else. An
+//!   external workbook reference that holds a `ddeLink` is DDE instead,
+//!   and one that holds an `oleLink` OLE, the relationship its link
+//!   points outside by an external link as ever.
 //! - **OLE**: an embedded object or package, and a worksheet's
 //!   `oleObject` that refers to one.
 //! - **ActiveX**: a control's persistence part (and its `ocx` root) and
@@ -73,12 +75,44 @@
 //!
 //! # What Excel repairs
 //!
-//! [`Structure`] checks what the workbook part says of its sheets and
-//! defined names, and the table parts of their tables, for what Excel
-//! repairs as it opens the workbook (an error) or reads otherwise than it
-//! says without a word (a notice): a sheet's name or `sheetId`, a defined
-//! name's name, scope or sheets, and tables that overlap or share a name
-//! or an `id`. [`verify`] does not call it yet.
+//! [`verify`] also finds what Excel repairs as it opens the workbook (an
+//! error) or reads otherwise than it says without a word (a notice), as
+//! Excel for Mac 16.114.3 did with a workbook damaged one way at a time;
+//! what it opens as it is, it is not checked for. Every problem is found,
+//! not only the first, each once.
+//!
+//! - **The package and its XML**, as it is opened and each part read: a
+//!   relationship whose target is not there (`relationship_target_missing`),
+//!   a part without a media type (`part_content_type_missing`), and XML
+//!   that is not well-formed, a character XML does not allow included
+//!   (`xml_malformed`).
+//! - **The workbook**: a sheet's name two sheets share, letter case aside
+//!   (`sheet_name_duplicate`), and what else the workbook part's sheets are
+//!   refused for as the workbook reader reads them; and what [`Structure`]
+//!   checks of the workbook part's sheets and defined names and the table
+//!   parts' tables: a sheet's name or `sheetId`, a defined name's name,
+//!   scope or sheets, and tables that overlap or share a name or an `id`.
+//! - **Each worksheet**, as its part is read: where its rows and cells
+//!   stand and in what order (`cell_reference_invalid`,
+//!   `cell_order_invalid`), a shared string or a cell format a cell refers
+//!   to that is not there (`shared_string_missing`, `cell_style_missing`,
+//!   and for a column and a row), merged ranges that overlap
+//!   (`merged_cells_overlap`), and an inline string longer than the 32,767
+//!   characters Excel keeps in a cell (`inline_string_too_long`). A sheet
+//!   with more merged ranges than `max_merged_cells` is refused
+//!   (`merged_cells_too_many`), the ranges past it not checked.
+//! - **The shared strings table**: a string longer than Excel keeps
+//!   (`shared_string_too_long`).
+//! - **The styles**: more cell formats than `max_cell_formats`
+//!   (`cell_formats_too_many`) or number formats than
+//!   `max_number_formats` (`number_formats_too_many`), as the styles are
+//!   read to count the cell formats a cell may refer to.
+//!
+//! The workbook reader stops at the first problem of a worksheet; these
+//! checks go on, and the worksheet is read by them alone, so a problem
+//! both see is reported once. The shared strings table and the styles are
+//! read before the worksheets, as the workbook part and the table parts
+//! are, so a cell's reference is checked as the cell is read.
 //!
 //! # Not yet
 //!
@@ -93,28 +127,16 @@
 
 mod book;
 mod collect;
+mod count;
 mod formulas;
 mod functions;
 mod judging;
 mod parts;
 mod rules;
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "verify reads its sheets through it once #13 wires it in"
-    )
-)]
 mod sheet;
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "verify checks the shared strings once the checks of #13 are wired in"
-    )
-)]
 mod strings;
 mod structure;
+mod worksheets;
 
 pub use formulas::{FormulaJudge, Names, Place};
 pub use functions::{FunctionClass, FunctionTable};
@@ -127,8 +149,10 @@ use collect::FormulaSink;
 use judging::Judging;
 use std::io::{Read, Seek};
 use thiserror::Error;
+use worksheets::Worksheets;
 use xlsx_graft_diagnostics::{Diagnostics, Limit};
 use xlsx_graft_package::{Package, PackageError};
+use xlsx_graft_read::ReadLimits;
 
 /// The limits [`verify`] holds a workbook to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -147,6 +171,14 @@ pub struct Limits {
     /// the sheet is refused, and the ranges past it are not checked.
     /// Policy name `maxMergedCells`.
     pub max_merged_cells: Limit,
+    /// The most cell formats (`xf` in `cellXfs`) the styles may hold: past
+    /// it, the styles are refused, and no cell's format is checked against
+    /// them. Policy name `maxCellFormats`.
+    pub max_cell_formats: Limit,
+    /// The most number formats (`numFmt` in `numFmts`) the styles may
+    /// hold: past it, as past `max_cell_formats`. Policy name
+    /// `maxNumberFormats`.
+    pub max_number_formats: Limit,
 }
 
 impl Limits {
@@ -172,6 +204,8 @@ impl Default for Limits {
             max_formula_bytes: Limit::default_of(Self::DEFAULT_MAX_FORMULA_BYTES),
             max_defined_names: Limit::default_of(Self::DEFAULT_MAX_DEFINED_NAMES),
             max_merged_cells: Limit::default_of(Self::DEFAULT_MAX_MERGED_CELLS),
+            max_cell_formats: Limit::default_of(ReadLimits::DEFAULT_MAX_CELL_FORMATS),
+            max_number_formats: Limit::default_of(ReadLimits::DEFAULT_MAX_NUMBER_FORMATS),
         }
     }
 }
@@ -203,24 +237,35 @@ pub fn verify<R: Read + Seek>(
     let Some(mut package) = Package::open(reader, &limits.package, diagnostics)? else {
         return Ok(());
     };
-    let book = Book::read(&mut package, limits, diagnostics)?;
+    let (mut book, mut worksheets) = Book::read(&mut package, limits, diagnostics)?;
     let mut judging = Judging::new(rules, functions, &book, limits.max_formula_bytes);
-    read_parts(&mut package, limits, rules, &mut judging, diagnostics)?;
+    read_parts(
+        &mut package,
+        limits,
+        rules,
+        &mut judging,
+        &mut worksheets,
+        diagnostics,
+    )?;
     judging.finish(diagnostics);
+    if let Some(structure) = book.structure(&package, &worksheets) {
+        structure.check(diagnostics);
+    }
     Ok(())
 }
 
 /// Checks the parts of `package`, handing the formulas they hold to
-/// `formulas`.
+/// `formulas` and checking those `worksheets` holds as worksheets.
 fn read_parts<R: Read + Seek>(
     package: &mut Package<R>,
     limits: &Limits,
     rules: &Rules,
     formulas: &mut dyn FormulaSink,
+    worksheets: &mut Worksheets,
     diagnostics: &mut Diagnostics,
 ) -> Result<(), VerifyError> {
     let (xml, max) = (&limits.package.xml, limits.max_formula_bytes.value);
-    parts::check(package, xml, rules, max, formulas, diagnostics)?;
+    parts::check(package, xml, rules, max, formulas, worksheets, diagnostics)?;
     Ok(())
 }
 

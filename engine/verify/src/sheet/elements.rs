@@ -3,9 +3,9 @@
 //! [`SheetCheck`] says.
 
 use super::SheetCheck;
-use super::count::{Unsigned, Utf16};
 use super::place::{Refused, letters};
 use crate::collect::attribute;
+use crate::count::{Unsigned, Utf16};
 use xlsx_graft_diagnostics::{Diagnostic, Echo};
 use xlsx_graft_read::CellRef;
 use xlsx_graft_xml::events::BytesStart;

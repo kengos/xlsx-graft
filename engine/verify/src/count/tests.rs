@@ -1,7 +1,7 @@
 //! How the checks read a number and count a string's length, as the text
 //! arrives in pieces.
 
-use crate::sheet::count::{Unsigned, Utf16};
+use super::{Unsigned, Utf16};
 
 /// The length of the value that arrives as `pieces`.
 fn units(pieces: &[&str]) -> u64 {
