@@ -20,7 +20,7 @@
 //! to reach for the part to be read.
 
 use crate::book::{Book, local_sheet_id};
-use crate::collect::FormulaSink;
+use crate::collect::{FormulaSink, TableTag};
 use crate::{FormulaJudge, FunctionTable, Place, Rules};
 use std::collections::BTreeMap;
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, FormulaMalformedReason, Limit, Location};
@@ -124,5 +124,5 @@ impl FormulaSink for Judging<'_> {
         self.judge.judge(&Place { part, at, sheet }, text);
     }
 
-    fn table(&mut self, _part: &str, _names: &[String]) {}
+    fn table(&mut self, _part: &str, _table: &TableTag) {}
 }

@@ -21,9 +21,12 @@ mod kinds;
 mod scan;
 
 use crate::collect::{Collector, FormulaSink};
+use crate::worksheets::Worksheets;
 use crate::{Rules, Ruling};
-use scan::Shown;
-pub(crate) use scan::resolve;
+#[cfg(test)]
+pub(crate) use scan::relationship_id;
+use scan::{Part, Shown};
+pub(crate) use scan::{resolve, stops_reading};
 use std::collections::BTreeSet;
 use std::io::{Read, Seek};
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Echo, Location, PartKind};
@@ -34,14 +37,16 @@ use xlsx_graft_xml::XmlLimits;
 const PACKAGE_RELATIONSHIPS: &str = "/_rels/.rels";
 
 /// Pushes a diagnostic for each kind of content a part of `package` holds
-/// that `rules` do not allow, reading its XML parts under `limits` and
-/// handing their formulas, kept up to `max_formula_bytes`, to `formulas`.
+/// that `rules` do not allow, reading its XML parts under `limits`,
+/// handing their formulas, kept up to `max_formula_bytes`, to `formulas`,
+/// and checking those `worksheets` holds as worksheets.
 pub(crate) fn check<R: Read + Seek>(
     package: &mut Package<R>,
     limits: &XmlLimits,
     rules: &Rules,
     max_formula_bytes: u64,
     formulas: &mut dyn FormulaSink,
+    worksheets: &mut Worksheets,
     diagnostics: &mut Diagnostics,
 ) -> Result<(), PackageError> {
     let mut held = targeted(package);
@@ -60,8 +65,13 @@ pub(crate) fn check<R: Read + Seek>(
     let mut shown: Vec<Shown> = held.iter().map(|_| Shown::default()).collect();
     for (index, name, declared, links) in scanned {
         let mut collector = Collector::new(formulas, &name, max_formula_bytes);
-        let found = &mut collector;
-        let read = scan::read(package, index, declared, &links, limits, found, diagnostics)?;
+        let (found, links) = (&mut collector, &links);
+        let part = Part {
+            index,
+            declared,
+            links,
+        };
+        let read = scan::read(package, part, limits, found, worksheets, diagnostics)?;
         if let Some(slot) = shown.get_mut(index) {
             *slot = read;
         }
@@ -99,8 +109,14 @@ pub(crate) fn collect<R: Read + Seek>(
     let name =
         (package.parts().get(index)).map_or_else(String::new, |p| p.name().as_str().to_owned());
     let mut collector = Collector::new(formulas, &name, max_formula_bytes);
-    let (links, found) = (BTreeSet::new(), &mut collector);
-    let read = scan::read(package, index, true, &links, limits, found, diagnostics);
+    let (links, found) = (&BTreeSet::new(), &mut collector);
+    let part = Part {
+        index,
+        declared: true,
+        links,
+    };
+    let sheets = &mut Worksheets::new(xlsx_graft_diagnostics::Limit::default_of(0));
+    let read = scan::read(package, part, limits, found, sheets, diagnostics);
     read.map(drop)
 }
 

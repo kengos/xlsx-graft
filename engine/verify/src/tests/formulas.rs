@@ -3,7 +3,8 @@
 //! the defined names and tables found with them.
 
 use super::{Book, Reader, WORKSHEET};
-use crate::collect::FormulaSink;
+use crate::collect::{FormulaSink, TableTag};
+use crate::worksheets::Worksheets;
 use crate::{Limits, Rules, read_parts};
 use std::io::Cursor;
 use xlsx_graft_diagnostics::{Diagnostics, Limit, PartKind};
@@ -37,8 +38,8 @@ impl FormulaSink for Record {
             .push(format!("{part} {at}: {name} in {sheet} = {text}"));
     }
 
-    fn table(&mut self, part: &str, names: &[String]) {
-        for name in names {
+    fn table(&mut self, part: &str, table: &TableTag) {
+        for name in [&table.name, &table.display_name].into_iter().flatten() {
             self.0.push(format!("{part} table {name}"));
         }
     }
@@ -61,7 +62,16 @@ fn found_under(book: Book, limits: &Limits, rules: &Rules) -> Vec<String> {
     let mut package = Package::open(reader, &limits.package, &mut diagnostics)
         .unwrap()
         .unwrap();
-    read_parts(&mut package, limits, rules, &mut record, &mut diagnostics).unwrap();
+    let sheets = &mut Worksheets::new(limits.max_merged_cells);
+    read_parts(
+        &mut package,
+        limits,
+        rules,
+        &mut record,
+        sheets,
+        &mut diagnostics,
+    )
+    .unwrap();
     assert!(diagnostics.finish().is_empty());
     record.0
 }

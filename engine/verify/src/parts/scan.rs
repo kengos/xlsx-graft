@@ -17,7 +17,9 @@
 //! use (but UTF-32) or one the bytes are not in, are reported for every
 //! part: an event too large may be a comment that hides what follows.
 //!
-//! What its formulas state is handed to a [`Collector`] as it is read.
+//! What its formulas state is handed to a [`Collector`] as it is read,
+//! and a worksheet's XML to its [`SheetCheck`], the part being one the
+//! [`Worksheets`] hold.
 //!
 //! It also tells which of the part's hyperlinks to a Web page or a mail
 //! address are used as hyperlinks: named by the `id` of a `hyperlink`,
@@ -26,59 +28,104 @@
 
 use super::kinds;
 use crate::collect::Collector;
+use crate::sheet::SheetCheck;
+use crate::worksheets::Worksheets;
 use std::collections::BTreeSet;
 use std::io::{BufRead, BufReader, Read, Seek};
-use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, EncodingReason, Location, PartKind};
+use stops::not_xml;
+use xlsx_graft_diagnostics::{Diagnostics, Location, PartKind};
 use xlsx_graft_package::{Package, PackageError};
 use xlsx_graft_xml::XmlVersion;
 use xlsx_graft_xml::events::{BytesRef, BytesStart, Event};
+use xlsx_graft_xml::name::{Namespace, ResolveResult};
 use xlsx_graft_xml::{XmlLimits, XmlStreamError, XmlStreamReader};
 
-/// What the elements of the part at `index` show, read to its end under
-/// `limits`; `declared` when its media type is XML, and `links` the `Id`s
-/// of its relationships that are hyperlinks to a Web page or a mail
-/// address, its formulas handed to `formulas`. What stops reading is
-/// pushed against the part as this module's header says, and what was
+/// The relationships namespaces, Transitional and Strict
+/// (ECMA-376-1:2016 §22.8, ECMA-376-4:2016 §8.1), of an `r:id`.
+const RELATIONSHIPS: [&str; 2] = [
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+    "http://purl.oclc.org/ooxml/officeDocument/relationships",
+];
+
+/// A part to read.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Part<'l> {
+    /// Its index in [`Package::parts`].
+    pub(super) index: usize,
+    /// Whether its media type is XML.
+    pub(super) declared: bool,
+    /// The `Id`s of its relationships that are hyperlinks to a Web page
+    /// or a mail address.
+    pub(super) links: &'l BTreeSet<String>,
+}
+
+/// What the elements of `part` show, read to its end under `limits`, its
+/// formulas handed to `formulas`, and its XML to the checks of its
+/// worksheet when `worksheets` holds it, whose problems come before what
+/// its zip entry reports. What stops reading is pushed against the part
+/// as this module's header says, and what was
 /// found before that is kept; a part that cannot be opened, for a reason
 /// already reported, shows nothing.
 pub(super) fn read<R: Read + Seek>(
     package: &mut Package<R>,
-    index: usize,
-    declared: bool,
-    links: &BTreeSet<String>,
+    part: Part<'_>,
     limits: &XmlLimits,
     formulas: &mut Collector<'_>,
+    worksheets: &mut Worksheets,
     diagnostics: &mut Diagnostics,
 ) -> Result<Shown, PackageError> {
+    let Part {
+        index,
+        declared,
+        links,
+    } = part;
     let location = (package.parts().get(index))
         .map(|part| Location::default().with_part(part.name().as_str()))
         .unwrap_or_default();
     let mut walked = Walked::default();
+    // What the zip entry pushes, as it is opened and as its damage shows,
+    // kept apart while a worksheet's checks push as it is read.
+    let mut opened = Diagnostics::new();
     let refused = {
-        let Some(entry) = package.open_part(index, diagnostics)? else {
+        let Some(entry) = package.open_part(index, &mut opened)? else {
+            append(opened, diagnostics);
             return Ok(walked.shown());
         };
         let mut xml = XmlStreamReader::new(BufReader::new(entry), limits);
-        let walked_through = walk(&mut xml, links, &mut walked, formulas);
+        let name = location.part.as_ref().map_or("", |part| part.as_str());
+        let mut sheet = worksheets.check(index, name, diagnostics);
+        let walked_through = walk(&mut xml, links, &mut walked, formulas, sheet.as_mut());
+        if let Some(sheet) = sheet {
+            worksheets.read(index, sheet.finish());
+        }
         if walked_through.is_err() {
             // What follows where reading stops may use a hyperlink for
             // something else: none is admitted.
             walked.linked.clear();
         }
         match walked_through {
-            Ok(()) => None,
-            Err(XmlStreamError::Invalid(diagnostic)) => Some(diagnostic),
+            Ok(()) => Ok(None),
+            Err(XmlStreamError::Invalid(diagnostic)) => Ok(Some(diagnostic)),
             // A zip entry that stops on damage of its own has reported it.
-            Err(XmlStreamError::Io(_)) if xml.get_ref().get_ref().is_stopped() => None,
-            Err(XmlStreamError::Io(error)) => return Err(PackageError::Io(error)),
+            Err(XmlStreamError::Io(_)) if xml.get_ref().get_ref().is_stopped() => Ok(None),
+            Err(XmlStreamError::Io(error)) => Err(error),
         }
     };
+    append(opened, diagnostics);
+    let refused = refused.map_err(PackageError::Io)?;
     if let Some(diagnostic) = refused
         && (declared || !not_xml(&diagnostic))
     {
         diagnostics.push(diagnostic, location);
     }
     Ok(walked.shown())
+}
+
+/// Pushes what `from` holds into `diagnostics`.
+fn append(from: Diagnostics, diagnostics: &mut Diagnostics) {
+    for record in from.finish() {
+        diagnostics.push(record.diagnostic, record.location);
+    }
 }
 
 /// What a part's elements show.
@@ -91,27 +138,6 @@ pub(super) struct Shown {
     /// Whether one is a `ddeLink` or an `oleLink`, which makes an external
     /// workbook reference that link alone.
     pub(super) dde_or_ole_link: bool,
-}
-
-/// Whether `diagnostic`, stopping a part's reading, says only that the
-/// part is not XML.
-fn not_xml(diagnostic: &Diagnostic) -> bool {
-    match diagnostic {
-        Diagnostic::XmlMalformed { .. } => true,
-        // Bytes sniffed as UTF-32 are not XML: an EMF image starts
-        // `01 00 00 00`. A declaration naming UTF-32 is silenced with them;
-        // Excel reads no such part either.
-        Diagnostic::XmlEncodingUnsupported {
-            encoding,
-            reason: EncodingReason::OtherEncoding,
-        } => encoding.as_str().eq_ignore_ascii_case("UTF-32"),
-        // A declaration that names an encoding XML does not use, or one the
-        // bytes are not in, was read as XML; bytes that do not decode were not.
-        Diagnostic::XmlEncodingUnsupported { reason, .. } => {
-            *reason != EncodingReason::DeclarationMismatch
-        }
-        _ => false,
-    }
 }
 
 /// What reading a part found.
@@ -159,12 +185,13 @@ impl Walked {
 
 /// Reads `xml` to its end, putting in `walked` the kind of every element
 /// that names one and the use of each of `links` an element names, and
-/// handing every element and text to `formulas`.
+/// handing every element and text to `formulas` and `sheet`, if any.
 fn walk<R: BufRead>(
     xml: &mut XmlStreamReader<R>,
     links: &BTreeSet<String>,
     walked: &mut Walked,
     formulas: &mut Collector<'_>,
+    mut sheet: Option<&mut SheetCheck<'_>>,
 ) -> Result<(), XmlStreamError> {
     let mut buf = Vec::new();
     loop {
@@ -172,8 +199,12 @@ fn walk<R: BufRead>(
         let opened = matches!(event, Event::Start(_));
         match event {
             Event::Start(start) | Event::Empty(start) => {
-                let (_, local) = xml.resolve_element(start.name());
+                let (resolved, local) = xml.resolve_element(start.name());
                 let local = local.as_ref();
+                if let Some(sheet) = sheet.as_deref_mut() {
+                    let id = || relationship_id(xml, &start);
+                    sheet.start(&resolved, local, &start, opened, id);
+                }
                 formulas.start(local, &start, opened);
                 walked.kinds.extend(kinds::element(local));
                 walked.dde_or_ole_link |= matches!(local, "ddeLink" | "oleLink");
@@ -182,15 +213,50 @@ fn walk<R: BufRead>(
                     walked.note(&start, hyperlink, links);
                 }
             }
-            Event::End(end) => formulas.end(xml.resolve_element(end.name()).1.as_ref()),
-            Event::Text(text) => formulas.text(|| text.xml10_content()),
-            Event::CData(data) => formulas.text(|| data.xml10_content()),
-            Event::GeneralRef(reference) => formulas.text(|| resolve(&reference).into()),
+            Event::End(end) => {
+                if let Some(sheet) = sheet.as_deref_mut() {
+                    sheet.end();
+                }
+                formulas.end(xml.resolve_element(end.name()).1.as_ref());
+            }
+            Event::Text(text) => {
+                if let Some(sheet) = sheet.as_deref_mut() {
+                    sheet.text(|| text.xml10_content());
+                }
+                formulas.text(|| text.xml10_content());
+            }
+            Event::CData(data) => {
+                if let Some(sheet) = sheet.as_deref_mut() {
+                    sheet.text(|| data.xml10_content());
+                }
+                formulas.text(|| data.xml10_content());
+            }
+            Event::GeneralRef(reference) => {
+                if let Some(sheet) = sheet.as_deref_mut() {
+                    sheet.text(|| resolve(&reference).into());
+                }
+                formulas.text(|| resolve(&reference).into());
+            }
             Event::Eof => return Ok(()),
             _ => {}
         }
         buf.clear();
     }
+}
+
+/// The `r:id` of `start`, read by `xml`: its attribute `id` in a
+/// relationships namespace.
+pub(crate) fn relationship_id<R: BufRead>(
+    xml: &XmlStreamReader<R>,
+    start: &BytesStart<'_>,
+) -> Option<String> {
+    (start.attributes().flatten()).find_map(|attribute| {
+        let (resolved, local) = xml.resolve_attribute(attribute.key);
+        let ours =
+            matches!(resolved, ResolveResult::Bound(Namespace(ns)) if RELATIONSHIPS.contains(&ns));
+        let value = attribute.normalized_value(XmlVersion::Implicit1_0);
+        (ours && local.as_ref() == "id").then(|| value.ok().map(|value| value.into_owned()))?
+    })
 }
 
 /// The text a reference the XML reader admitted stands for: one of the
@@ -209,6 +275,10 @@ pub(crate) fn resolve(reference: &BytesRef<'_>) -> String {
         .map(String::from)
         .unwrap_or_default()
 }
+
+mod stops;
+
+pub(crate) use stops::stops_reading;
 
 #[cfg(test)]
 mod tests;

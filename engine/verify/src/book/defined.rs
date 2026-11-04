@@ -25,7 +25,7 @@
 use super::local_sheet_id;
 use crate::collect::attribute;
 use crate::parts::resolve;
-use crate::{Limits, Names};
+use crate::{Limits, NameEntry, Names};
 use std::borrow::Cow;
 use std::io::{Read, Seek};
 use xlsx_graft_diagnostics::Diagnostics;
@@ -41,9 +41,8 @@ const SPREADSHEETML: [&str; 2] = [
     "http://purl.oclc.org/ooxml/spreadsheetml/main",
 ];
 
-/// The defined names kept, each its name, `localSheetId` and formula, and
-/// how many there are.
-type Found = (Vec<(String, Option<u32>, String)>, u64);
+/// The defined names kept, and how many there are.
+type Found = (Vec<NameEntry>, u64);
 
 /// One `definedName` being read.
 struct Open {
@@ -61,26 +60,26 @@ struct Open {
 /// Reads the defined names of the workbook part at `index` of `package`
 /// into `names`, under `limits`, as the module says, pushing what stops
 /// reading it whole into `diagnostics` (it too large, or its zip entry
-/// damaged): the names, and how many there are, those past
-/// `maxDefinedNames` included.
+/// damaged): the names, each also as it is written, and how many there
+/// are, those past `maxDefinedNames` included.
 pub(super) fn read<R: Read + Seek>(
     package: &mut Package<R>,
     index: usize,
     limits: &Limits,
     names: Names,
     diagnostics: &mut Diagnostics,
-) -> Result<(Names, u64), PackageError> {
+) -> Result<(Names, Vec<NameEntry>, u64), PackageError> {
     let xml = &limits.package.xml;
     let Some(bytes) = package.read_xml_part(index, xml.max_bytes, diagnostics)? else {
-        return Ok((names, 0));
+        return Ok((names, Vec::new(), 0));
     };
     let max = usize::try_from(limits.max_formula_bytes.value).unwrap_or(usize::MAX);
     let kept = usize::try_from(limits.max_defined_names.value).unwrap_or(usize::MAX);
     let (found, count) = walk(&bytes, xml, max, kept).unwrap_or_default();
-    let names = (found.into_iter()).fold(names, |names, (name, sheet, text)| {
-        names.defined_name(&name, sheet, &text)
+    let names = (found.iter()).fold(names, |names, entry| {
+        names.defined_name(&entry.name, entry.local_sheet_id, &entry.formula)
     });
-    Ok((names, count))
+    Ok((names, found, count))
 }
 
 /// The defined names of the part `bytes`, each kept up to `max` bytes of
@@ -128,7 +127,11 @@ fn walk(bytes: &[u8], limits: &XmlLimits, max: usize, kept: usize) -> Option<Fou
                     if !done.left_out && !blank {
                         count = count.saturating_add(1);
                         if found.len() < kept {
-                            found.push((done.name, done.sheet, done.text));
+                            found.push(NameEntry {
+                                name: done.name,
+                                local_sheet_id: done.sheet,
+                                formula: done.text,
+                            });
                         }
                     }
                 }

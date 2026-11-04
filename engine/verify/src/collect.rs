@@ -11,6 +11,20 @@ mod collector;
 
 pub(crate) use collector::{Collector, attribute};
 
+/// What a `table` element says of itself: each attribute it has, as
+/// written, kept as long as `collector.rs` keeps one.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct TableTag {
+    /// Its `name`.
+    pub(crate) name: Option<String>,
+    /// Its `displayName`.
+    pub(crate) display_name: Option<String>,
+    /// Its `id`.
+    pub(crate) id: Option<String>,
+    /// Its `ref`.
+    pub(crate) range: Option<String>,
+}
+
 /// What takes the formulas of the parts, and the names they may use, as
 /// they are read. Every method is told the part it was found in, by its
 /// name; `at` is where in the part, as `collector.rs` says.
@@ -42,7 +56,6 @@ pub(crate) trait FormulaSink {
     /// this alone does not know those.
     fn defined_name(&mut self, part: &str, at: &str, name: &str, sheet: Option<&str>, text: &str);
 
-    /// A table's name and display name, those it has, as written: once
-    /// for each `table` element.
-    fn table(&mut self, part: &str, names: &[String]);
+    /// What a table says of itself: once for each `table` element.
+    fn table(&mut self, part: &str, table: &TableTag);
 }
