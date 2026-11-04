@@ -18,6 +18,8 @@ xlsx-graft-package = { workspace = true }
 # The workbook part's sheets, in order, which a defined name's
 # `localSheetId` counts.
 xlsx-graft-read = { workspace = true }
+# The spool a shared strings table spills to, whose failure is the host's.
+xlsx-graft-spool = { workspace = true }
 # Reads each XML part as a stream, looking for the elements that carry a
 # denied kind of content.
 xlsx-graft-xml = { workspace = true }
