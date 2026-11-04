@@ -834,7 +834,8 @@ diagnostics! {
 
     /// A cell of `t="s"` refers to a shared string the shared strings table
     /// does not hold: its index is past the table's end, or the workbook
-    /// has no table. Reading the sheet stops at the cell.
+    /// has no table. Reading a sheet's rows stops at the cell; verify's
+    /// sheet checks go on.
     SharedStringMissing {
         /// The index the cell's value gives.
         index: u64,
@@ -863,7 +864,8 @@ diagnostics! {
     /// number of 0 or past 1,048,576, a cell's `r` that is not the A1
     /// reference of one cell up to XFD1048576 or names another row than its
     /// row's, or a row or cell without `r` that would come after the last
-    /// row or column. Reading the sheet stops there.
+    /// row or column. Reading a sheet's rows stops there; verify's sheet
+    /// checks go on, the row or cell left out.
     CellReferenceInvalid {
         /// The row number or the cell reference as written; a cell's that
         /// names another row as it reads, its letters in capitals and its
@@ -876,7 +878,8 @@ diagnostics! {
 
     /// A row comes at or before the row before it, or a cell at or before
     /// the cell before it in its row: readers would differ on what the
-    /// sheet holds there. Reading the sheet stops there.
+    /// sheet holds there. Reading a sheet's rows stops there; verify's
+    /// sheet checks go on, the row or cell left out.
     CellOrderInvalid {
         /// The row number or the cell reference.
         reference: Echo,
@@ -886,6 +889,99 @@ diagnostics! {
         message: format!("{reference} comes after {previous}; rows go down the sheet and a row's cells go across it"),
         decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.3.1.4, §18.3.1.73; MS-OI29500 on §18.3.1.73, note a")),
         fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    // What Excel repairs in a worksheet as it opens it, found by verify's
+    // sheet checks, which raise `shared_string_missing`,
+    // `cell_reference_invalid` and `cell_order_invalid` too.
+
+    /// A cell's `s` is a cell format at or past the number of the styles
+    /// part's `cellXfs`: Excel repairs the workbook, dropping the cell's
+    /// format.
+    CellStyleMissing {
+        /// The cell's A1 reference; when it has no place in the sheet, as
+        /// `cell_reference_invalid` and `cell_order_invalid` name it, or, in
+        /// a row that has none, its `r` as written, empty without one.
+        reference: Echo,
+        /// The cell format it names.
+        index: u64,
+        /// How many cell formats the styles part has.
+        count: u64,
+    } => "cell_style_missing", Error,
+        message: format!("cell {reference} uses cell format {index}, but the styles part has {count}"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.3.1.4, §18.8.10")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// A column's `style` is a cell format at or past the number of the
+    /// styles part's `cellXfs`: Excel repairs the workbook, dropping the
+    /// columns' format.
+    ColumnStyleMissing {
+        /// The columns, `C:E`, each in letters when it is one, else as
+        /// written.
+        columns: Echo,
+        /// The cell format they name.
+        index: u64,
+        /// How many cell formats the styles part has.
+        count: u64,
+    } => "column_style_missing", Error,
+        message: format!("columns {columns} use cell format {index}, but the styles part has {count}"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.3.1.13, §18.8.10")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// A row's `s` is a cell format at or past the number of the styles
+    /// part's `cellXfs`: Excel drops the row's format without a word.
+    RowStyleMissing {
+        /// The row's number; when it has no place in the sheet, its `r` as
+        /// written, or as it would be.
+        row: Echo,
+        /// The cell format it names.
+        index: u64,
+        /// How many cell formats the styles part has.
+        count: u64,
+    } => "row_style_missing", Notice,
+        message: format!("row {row} uses cell format {index}, but the styles part has {count}, so Excel drops the row's format"),
+        decided_by: Some(DecidedBy::standard("ECMA-376-1:2016 §18.3.1.73, §18.8.10")),
+        fix: Some(Fix::workbook("save the workbook again from Excel"));
+
+    /// Two merged ranges of a sheet overlap, or are the same range: Excel
+    /// repairs the workbook, dropping one.
+    MergedCellsOverlap {
+        /// The range that comes later in the sheet, its top left corner
+        /// first, whichever way round it is written.
+        reference: Echo,
+        /// The range it overlaps, written the same way.
+        other: Echo,
+    } => "merged_cells_overlap", Error,
+        message: format!("the merged cells {reference} overlap {other}"),
+        decided_by: Some(DecidedBy::Default {}),
+        fix: Some(Fix::workbook("unmerge one of the two ranges"));
+
+    /// A sheet merges more ranges than the limit: those past it are not
+    /// checked, so the sheet is refused.
+    MergedCellsTooMany {
+        /// How many ranges it merges.
+        count: u64,
+        /// The most merged ranges checked.
+        limit: Limit,
+    } => "merged_cells_too_many", Error,
+        message: format!("the sheet merges {count} ranges; the limit is {limit}"),
+        decided_by: Some(DecidedBy::limit("maxMergedCells", *limit)),
+        fix: Some(Fix::policy(format!("maxMergedCells: {count}")));
+
+    /// A cell's inline string is longer than the 32,767 UTF-16 code units
+    /// Excel keeps in a cell: Excel repairs the workbook, cutting it.
+    InlineStringTooLong {
+        /// The cell's A1 reference; when it has no place in the sheet, as
+        /// `cell_reference_invalid` and `cell_order_invalid` name it, or, in
+        /// a row that has none, its `r` as written, empty without one.
+        reference: Echo,
+        /// Its length in UTF-16 code units.
+        length: u64,
+    } => "inline_string_too_long", Error,
+        message: format!("cell {reference} holds an inline string of {length} UTF-16 code units; Excel keeps 32767 and cuts the rest"),
+        decided_by: Some(DecidedBy::Default {}),
+        fix: Some(Fix::workbook("shorten the cell's text to 32767 UTF-16 code units"));
+
+    // The end of what verify's sheet checks raise.
 
     /// A part holds content of a kind the engine denies by default, and the
     /// template does not allow: the part itself (a VBA project, an external

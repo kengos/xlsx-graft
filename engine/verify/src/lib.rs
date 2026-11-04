@@ -98,6 +98,14 @@ mod functions;
 mod judging;
 mod parts;
 mod rules;
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "verify reads its sheets through it once #13 wires it in"
+    )
+)]
+mod sheet;
 mod structure;
 
 pub use formulas::{FormulaJudge, Names, Place};
@@ -127,6 +135,10 @@ pub struct Limits {
     /// workbook is refused, and the names past it are no names a formula
     /// is judged by. Policy name `maxDefinedNames`.
     pub max_defined_names: Limit,
+    /// The most merged ranges of one worksheet kept to check: past it,
+    /// the sheet is refused, and the ranges past it are not checked.
+    /// Policy name `maxMergedCells`.
+    pub max_merged_cells: Limit,
 }
 
 impl Limits {
@@ -138,6 +150,11 @@ impl Limits {
     /// The default `max_defined_names`, 65,536: each name kept costs a few
     /// hundred bytes beside its text.
     pub const DEFAULT_MAX_DEFINED_NAMES: u64 = 65_536;
+
+    /// The default `max_merged_cells`, 262,144: each range kept costs some
+    /// 100 bytes as overlaps are looked for, under 30 MiB at the most, and
+    /// the columns they reach 1 MiB at the most.
+    pub const DEFAULT_MAX_MERGED_CELLS: u64 = 262_144;
 }
 
 impl Default for Limits {
@@ -146,6 +163,7 @@ impl Default for Limits {
             package: xlsx_graft_package::Limits::default(),
             max_formula_bytes: Limit::default_of(Self::DEFAULT_MAX_FORMULA_BYTES),
             max_defined_names: Limit::default_of(Self::DEFAULT_MAX_DEFINED_NAMES),
+            max_merged_cells: Limit::default_of(Self::DEFAULT_MAX_MERGED_CELLS),
         }
     }
 }
