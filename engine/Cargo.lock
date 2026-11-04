@@ -640,6 +640,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "xlsx-graft-compat"
+version = "0.0.0"
+
+[[package]]
 name = "xlsx-graft-core"
 version = "0.0.0"
 

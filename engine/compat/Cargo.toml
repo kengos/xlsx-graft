@@ -1,0 +1,11 @@
+[package]
+name = "xlsx-graft-compat"
+description = "xlsx-graft compat: which version of Excel, Excel for Mac, LibreOffice, Google Sheets, Numbers and ONLYOFFICE supports each function and feature a workbook may use, and what an older one shows instead"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
