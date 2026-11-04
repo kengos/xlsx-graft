@@ -1,19 +1,22 @@
-//! [`Targets::check`]: which versions the targets hold lack a function,
-//! or are not confirmed to have it, the features it needs included.
+//! [`Targets::check`]: which versions the targets hold lack a function or
+//! a feature, or are not confirmed to have it, the features it needs
+//! included. The diagnostics an [`Unmet`] makes are in `check/wire.rs`.
+
+mod wire;
 
 use super::{PerApp, Targets};
 use crate::{
     App, Entry, Excel, ExcelMac, Fallback, Feature, GoogleSheets, LibreOffice, Numbers, OnlyOffice,
     Row, Status, Support, Version,
 };
-use xlsx_graft_diagnostics::{Diagnostic, Echo, TargetApp, TargetFallback, TargetList};
+use xlsx_graft_diagnostics::TargetList;
 
 /// The versions of one application, in one of the template's lists, that
-/// lack a function or are not confirmed to have it.
+/// lack a function or a feature, or are not confirmed to have it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct Unmet {
-    /// The function's name, as its row writes it.
+    /// The function's or the feature's name, as its row writes it.
     pub name: &'static str,
     /// The list that holds the versions.
     pub list: TargetList,
@@ -51,7 +54,21 @@ impl Targets {
     /// nothing about it.
     #[must_use]
     pub fn check(&self, row: &'static Row) -> Vec<Unmet> {
-        let needs = needs(row);
+        self.check_besides(row, &[])
+    }
+
+    /// What [`Targets::check`] says of `row`, the features in `found` left
+    /// out of what it needs: those the workbook was found to use, which
+    /// are checked on their own, so a version that lacks one is reported
+    /// once, for the feature, and not again for each function that needs
+    /// it. A feature in `found` is not followed to the features it
+    /// requires either: its own check follows them. A feature the row
+    /// requires both directly and through one in `found` is still checked
+    /// for the row, and so reported twice; no feature requires another
+    /// today (the table's tests say so).
+    #[must_use]
+    pub fn check_besides(&self, row: &'static Row, found: &[Feature]) -> Vec<Unmet> {
+        let needs = needs(row, found);
         let mut unmet = Vec::new();
         for (list, versions) in [
             (TargetList::Targets, &self.required),
@@ -72,41 +89,6 @@ impl Targets {
             column.check::<OnlyOffice>(|support| &support.onlyoffice);
         }
         unmet
-    }
-}
-
-impl Unmet {
-    /// The diagnostic of the function this is of, found `count` times:
-    /// `target_function_unsupported` for `targets:`,
-    /// `best_effort_function_unsupported` for `bestEffort:`.
-    #[must_use]
-    pub fn function_diagnostic(&self, count: u64) -> Diagnostic {
-        let requires: Vec<&str> = self.requires.iter().map(|f| f.as_str()).collect();
-        let (name, app) = (Echo::new(self.name), app(self.app));
-        let unsupported = Echo::new(&self.unsupported.join(", "));
-        let unverified = Echo::new(&self.unverified.join(", "));
-        let requires = Echo::new(&requires.join(", "));
-        let fallback = fallback(self.fallback);
-        match self.list {
-            TargetList::Targets => Diagnostic::TargetFunctionUnsupported {
-                name,
-                app,
-                unsupported,
-                unverified,
-                requires,
-                fallback,
-                count,
-            },
-            TargetList::BestEffort => Diagnostic::BestEffortFunctionUnsupported {
-                name,
-                app,
-                unsupported,
-                unverified,
-                requires,
-                fallback,
-                count,
-            },
-        }
     }
 }
 
@@ -164,25 +146,25 @@ impl Column<'_> {
     }
 }
 
-/// The features `row` needs: those it requires, those they require, and
-/// so on, each once, in the order first found. No feature requires
-/// another today (the table's tests say so), so the walk goes one step;
-/// it is a loop, not a recursion, for the day one does.
-fn needs(row: &Row) -> Vec<Feature> {
+/// The features `row` needs but those in `found`: those it requires,
+/// those they require, and so on, each once, in the order first found. No
+/// feature requires another today (the table's tests say so), so the walk
+/// goes one step; it is a loop, not a recursion, for the day one does.
+fn needs(row: &Row, found: &[Feature]) -> Vec<Feature> {
     let mut needs: Vec<Feature> = Vec::new();
-    add(&mut needs, row.requires);
+    add(&mut needs, row.requires, found);
     let mut next = 0;
     while let Some(&feature) = needs.get(next) {
         next = next.saturating_add(1);
-        add(&mut needs, feature.row().requires);
+        add(&mut needs, feature.row().requires, found);
     }
     needs
 }
 
-/// Adds each of `features` that `needs` does not hold yet.
-fn add(needs: &mut Vec<Feature>, features: &[Feature]) {
+/// Adds each of `features` that neither `needs` nor `found` holds yet.
+fn add(needs: &mut Vec<Feature>, features: &[Feature], found: &[Feature]) {
     for &feature in features {
-        if !needs.contains(&feature) {
+        if !needs.contains(&feature) && !found.contains(&feature) {
             needs.push(feature);
         }
     }
@@ -194,35 +176,6 @@ fn worse(a: Status, b: Status) -> Status {
         (Status::Unsupported, _) | (_, Status::Unsupported) => Status::Unsupported,
         (Status::Unverified, _) | (_, Status::Unverified) => Status::Unverified,
         (Status::Supported, Status::Supported) => Status::Supported,
-    }
-}
-
-/// The diagnostic's application for the table's.
-fn app(app: App) -> TargetApp {
-    match app {
-        App::Excel => TargetApp::Excel,
-        App::ExcelMac => TargetApp::ExcelMac,
-        App::LibreOffice => TargetApp::LibreOffice,
-        App::GoogleSheets => TargetApp::GoogleSheets,
-        App::Numbers => TargetApp::Numbers,
-        App::OnlyOffice => TargetApp::OnlyOffice,
-    }
-}
-
-/// The diagnostic's fallback for the table's.
-fn fallback(fallback: Option<Fallback>) -> TargetFallback {
-    match fallback {
-        None => TargetFallback::Unknown,
-        Some(Fallback::Ignored) => TargetFallback::Ignored,
-        Some(Fallback::ValueOnly) => TargetFallback::ValueOnly,
-        Some(Fallback::NameError) => TargetFallback::NameError,
-        Some(Fallback::ValueError) => TargetFallback::ValueError,
-        Some(Fallback::LegacyArray) => TargetFallback::LegacyArray,
-        Some(Fallback::AsNote) => TargetFallback::AsNote,
-        Some(Fallback::PlaceholderShape) => TargetFallback::PlaceholderShape,
-        Some(Fallback::Degraded) => TargetFallback::Degraded,
-        Some(Fallback::RepairPrompt) => TargetFallback::RepairPrompt,
-        Some(Fallback::Unopenable) => TargetFallback::Unopenable,
     }
 }
 

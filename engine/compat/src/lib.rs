@@ -19,9 +19,12 @@
 //! (`excel >= 2016`, `google-sheets`) into the versions of each application
 //! a workbook must, and should, work in, and reports every entry that names
 //! none as a `target_invalid` diagnostic. [`Targets::check`] says which of
-//! those versions lack a function, or are not confirmed to have it, the
-//! features it needs included ([`Unmet`]); [`Unmet::function_diagnostic`]
-//! is the diagnostic a workbook that calls it gets.
+//! those versions lack a function or a feature, or are not confirmed to
+//! have it, the features it needs included ([`Unmet`]);
+//! [`Unmet::function_diagnostic`] is the diagnostic a workbook that calls
+//! the function gets, and [`Unmet::feature_diagnostic`] the one a workbook
+//! that uses the feature gets. [`Targets::check_besides`] leaves out the
+//! features a workbook was found to use, each reported on its own.
 //!
 //! # The data
 //!

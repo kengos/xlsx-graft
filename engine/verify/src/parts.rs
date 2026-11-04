@@ -16,11 +16,19 @@
 //! unless that part already holds it. Each part and kind is reported once,
 //! at the first place found; the package's own relationships come first,
 //! then each part in the order of [`Package::parts`].
+//!
+//! The features of the compatibility table a part holds come from its role
+//! and the elements of that role, found in the same single reading; which
+//! parts count, and where their roles come from, is for `features.rs` to
+//! say. They are handed back as [`Used`], each part counted once per
+//! feature, in the order of [`Package::parts`].
 
+mod features;
 mod kinds;
 mod scan;
 
 use crate::collect::{Collector, FormulaSink};
+use crate::used::Used;
 use crate::worksheets::Worksheets;
 use crate::{Rules, Ruling};
 #[cfg(test)]
@@ -39,7 +47,8 @@ const PACKAGE_RELATIONSHIPS: &str = "/_rels/.rels";
 /// Pushes a diagnostic for each kind of content a part of `package` holds
 /// that `rules` do not allow, reading its XML parts under `limits`,
 /// handing their formulas, kept up to `max_formula_bytes`, to `formulas`,
-/// and checking those `worksheets` holds as worksheets.
+/// and checking those `worksheets` holds as worksheets; what features of
+/// the compatibility table they hold is handed back.
 pub(crate) fn check<R: Read + Seek>(
     package: &mut Package<R>,
     limits: &XmlLimits,
@@ -48,7 +57,7 @@ pub(crate) fn check<R: Read + Seek>(
     formulas: &mut dyn FormulaSink,
     worksheets: &mut Worksheets,
     diagnostics: &mut Diagnostics,
-) -> Result<(), PackageError> {
+) -> Result<Used, PackageError> {
     let mut held = targeted(package);
     let mut scanned = Vec::new();
     for (index, part) in package.parts().iter().enumerate() {
@@ -77,10 +86,15 @@ pub(crate) fn check<R: Read + Seek>(
         }
     }
     let mut findings = Findings::default();
+    let mut used = Used::default();
+    let roles = features::Roles::of(package);
     let outside = package.relationships();
     findings.outside(None, outside, &BTreeSet::new(), PACKAGE_RELATIONSHIPS);
     let parts = package.parts().iter().enumerate().zip(held).zip(shown);
     for (((index, part), mut set), shown) in parts {
+        for feature in roles.features(index, shown.features) {
+            used.add(feature, part.name().as_str());
+        }
         set.extend(shown.kinds);
         let link = shown.dde_or_ole_link;
         set.retain(|kind| !(link && *kind == PartKind::ExternalLink));
@@ -92,7 +106,7 @@ pub(crate) fn check<R: Read + Seek>(
         findings.outside(Some(index), part.relationships(), &shown.hyperlinks, &rels);
     }
     findings.judge(rules, diagnostics);
-    Ok(())
+    Ok(used)
 }
 
 /// Hands the formulas, defined names and tables of the part at `index`

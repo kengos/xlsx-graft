@@ -1233,6 +1233,7 @@ diagnostics! {
             requires,
             fallback: *fallback,
             count: *count,
+            parts: false,
         }
         .message(),
         decided_by: Some(DecidedBy::Template {}),
@@ -1281,10 +1282,97 @@ diagnostics! {
             requires,
             fallback: *fallback,
             count: *count,
+            parts: false,
         }
         .message(),
         decided_by: Some(DecidedBy::Template {}),
         fix: Some(Fix::workbook(format!("call a function other than {name} so the workbook works in {}", crate::target::spelled(*app))));
+
+    /// The workbook uses a feature that a version the template's
+    /// `targets:` holds, where the workbook must work, lacks, or that no
+    /// source the compatibility table cites says it has, a feature it needs
+    /// counted with it. One per feature, application and list, at the first
+    /// part that holds it.
+    TargetFeatureUnsupported {
+        /// The feature's name (`dynamic_array`, `threaded_comment`).
+        name: Echo,
+        /// The application.
+        app: TargetApp,
+        /// The versions of it the list holds that lack the feature, or a
+        /// feature in `requires`, oldest first, comma-separated (`2016,
+        /// 2019`); empty when none does, and then `unverified` is not.
+        /// Google Sheets' only version is `current`.
+        unsupported: Echo,
+        /// The versions of it the list holds that no source the table
+        /// cites says have the feature, or a feature in `requires`, and
+        /// none says lack it, as `unsupported`; empty when none.
+        unverified: Echo,
+        /// The other features it needs that some of those versions lack or
+        /// are not confirmed to have, comma-separated; empty when none.
+        requires: Echo,
+        /// What a version that lacks the feature shows instead, chosen as
+        /// for a function; `unknown` when no source says.
+        fallback: TargetFallback,
+        /// How many parts hold it.
+        count: u64,
+    } => "target_feature_unsupported", Error,
+        message: crate::target::Unmet {
+            what: format!("the workbook uses {name}"),
+            list: "targets",
+            app: *app,
+            unsupported,
+            unverified,
+            requires,
+            fallback: *fallback,
+            count: *count,
+            parts: true,
+        }
+        .message(),
+        decided_by: Some(DecidedBy::Template {}),
+        fix: Some(Fix::workbook(format!("leave {name} out of the workbook so it works in {}", crate::target::spelled(*app))));
+
+    /// The workbook uses a feature that a version the template's
+    /// `bestEffort:` holds, where the workbook should work, lacks, or that no
+    /// source the compatibility table cites says it has, a feature it needs
+    /// counted with it. One per feature, application and list, at the first
+    /// part that holds it.
+    BestEffortFeatureUnsupported {
+        /// The feature's name (`dynamic_array`, `threaded_comment`).
+        name: Echo,
+        /// The application.
+        app: TargetApp,
+        /// The versions of it the list holds that lack the feature, or a
+        /// feature in `requires`, oldest first, comma-separated (`2016,
+        /// 2019`); empty when none does, and then `unverified` is not.
+        /// Google Sheets' only version is `current`.
+        unsupported: Echo,
+        /// The versions of it the list holds that no source the table
+        /// cites says have the feature, or a feature in `requires`, and
+        /// none says lack it, as `unsupported`; empty when none.
+        unverified: Echo,
+        /// The other features it needs that some of those versions lack or
+        /// are not confirmed to have, comma-separated; empty when none.
+        requires: Echo,
+        /// What a version that lacks the feature shows instead, chosen as
+        /// for a function; `unknown` when no source says.
+        fallback: TargetFallback,
+        /// How many parts hold it.
+        count: u64,
+    } => "best_effort_feature_unsupported", Warn,
+        message: crate::target::Unmet {
+            what: format!("the workbook uses {name}"),
+            list: "bestEffort",
+            app: *app,
+            unsupported,
+            unverified,
+            requires,
+            fallback: *fallback,
+            count: *count,
+            parts: true,
+        }
+        .message(),
+        decided_by: Some(DecidedBy::Template {}),
+        fix: Some(Fix::workbook(format!("leave {name} out of the workbook so it works in {}", crate::target::spelled(*app))));
 }
 
 #[cfg(test)]

@@ -38,7 +38,7 @@ use crate::{FunctionTable, Rules};
 use found::Found;
 use graph::Graph;
 use names::Scope;
-use xlsx_graft_compat::Targets;
+use xlsx_graft_compat::{Feature, Targets};
 use xlsx_graft_diagnostics::Diagnostics;
 
 /// Where a formula stands.
@@ -114,7 +114,9 @@ pub struct Place<'a> {
 /// that works. A word only the safety net saw is not checked either, nor
 /// a user-defined function or one after another workbook. Each part gets
 /// one diagnostic per defined name reached through, function, application
-/// and list, as for the other findings.
+/// and list, as for the other findings. [`verify`](crate::verify) leaves
+/// out of what a function needs the features it found the workbook to use,
+/// which it checks on their own.
 ///
 /// # One diagnostic per finding
 ///
@@ -220,7 +222,15 @@ impl<'a> FormulaJudge<'a> {
     /// Pushes a diagnostic for each finding into `diagnostics`, in the
     /// order they were first found.
     pub fn finish(self, diagnostics: &mut Diagnostics) {
-        self.found.finish(self.context.targets, diagnostics);
+        self.finish_besides(&[], diagnostics);
+    }
+
+    /// What [`FormulaJudge::finish`] does, the `features` the workbook was
+    /// found to use left out of what each function needs: each is checked
+    /// on its own ([`Targets::check_besides`]).
+    pub(crate) fn finish_besides(self, features: &[Feature], diagnostics: &mut Diagnostics) {
+        self.found
+            .finish(self.context.targets, features, diagnostics);
     }
 }
 

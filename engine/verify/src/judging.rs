@@ -23,6 +23,7 @@ use crate::book::{Book, local_sheet_id};
 use crate::collect::{FormulaSink, TableTag};
 use crate::{FormulaJudge, FunctionTable, Place, Rules, Targets};
 use std::collections::BTreeMap;
+use xlsx_graft_compat::Feature;
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, FormulaMalformedReason, Limit, Location};
 
 /// Judges the formulas a workbook's parts are read into.
@@ -69,9 +70,10 @@ impl<'a> Judging<'a> {
     }
 
     /// Pushes a diagnostic for each finding into `diagnostics`: the
-    /// judge's, then the formulas refused unread.
-    pub(crate) fn finish(self, diagnostics: &mut Diagnostics) {
-        self.judge.finish(diagnostics);
+    /// judge's, the `features` the workbook was found to use left out of
+    /// what its functions need, then the formulas refused unread.
+    pub(crate) fn finish(self, features: &[Feature], diagnostics: &mut Diagnostics) {
+        self.judge.finish_besides(features, diagnostics);
         for unread in self.unread {
             let count = unread.count;
             let diagnostic = match unread.size {

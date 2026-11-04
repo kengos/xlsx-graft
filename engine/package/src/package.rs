@@ -138,6 +138,8 @@ pub struct Package<R> {
     unknown: BTreeSet<String>,
     /// How many relationships the Relationships parts read so far declare.
     total_relationships: u64,
+    /// Whether every Relationships part was read whole.
+    graph_complete: bool,
 }
 
 impl<R: Read + Seek> Package<R> {
@@ -184,10 +186,11 @@ impl<R: Read + Seek> Package<R> {
             relationships_known: true,
             unknown: names.unknown,
             total_relationships: 0,
+            graph_complete: false,
         };
         package.assign_types(names.content_types, limits, diagnostics)?;
-        let complete = package.read_graph(limits, diagnostics)?;
-        if complete {
+        package.graph_complete = package.read_graph(limits, diagnostics)?;
+        if package.graph_complete {
             package.unreferenced(diagnostics);
         }
         Ok(Some(package))
@@ -240,6 +243,16 @@ impl<R: Read + Seek> Package<R> {
     #[must_use]
     pub fn relationships_known(&self) -> bool {
         self.relationships_known
+    }
+
+    /// Whether every Relationships part that is or may be there was read
+    /// whole, so no relationship that reaches a part was left out (one
+    /// dropped for its missing target reaches none). Only then is a part
+    /// no relationship targets ([`Part::incoming`] empty) reported
+    /// `part_unreferenced`, since one left out may have targeted it.
+    #[must_use]
+    pub fn graph_complete(&self) -> bool {
+        self.graph_complete
     }
 
     /// The zip the package is read from.
