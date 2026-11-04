@@ -173,6 +173,20 @@ reasons! {
         InvalidValue => "invalid_value",
     }
 
+    /// Why Excel does not take a sheet's name (MS-OI29500 on
+    /// ECMA-376-1:2016 §18.2.19, note a).
+    SheetNameReason {
+        /// The name is empty.
+        Empty => "empty",
+        /// The name is longer than 31 characters, counted in UTF-16 code
+        /// units.
+        TooLong => "too_long",
+        /// The name holds `[`, `]`, `:`, `*`, `?`, `/` or `\`.
+        Character => "character",
+        /// The name starts or ends with `'`.
+        Apostrophe => "apostrophe",
+    }
+
     /// The kind of content a part holds that the engine denies by default,
     /// as a template's `parts.allow` and a policy's forbid name it.
     PartKind {

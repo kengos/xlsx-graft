@@ -2,7 +2,7 @@
 
 use super::{
     EncodingReason, FormulaMalformedReason, FunctionDenial, InflateReason, PartKind,
-    PartNameReason, SchemaReason, ZipDirectoryReason, ZipHeaderField,
+    PartNameReason, SchemaReason, SheetNameReason, ZipDirectoryReason, ZipHeaderField,
 };
 use serde::Serialize;
 use std::fmt::Display;
@@ -102,6 +102,19 @@ fn every_schema_reason_prints_as_its_wire_string() {
             SchemaReason::InvalidValue,
         ],
         r#"["unexpected_element","unexpected_attribute","missing_attribute","missing_element","unexpected_text","invalid_value"]"#,
+    );
+}
+
+#[test]
+fn every_sheet_name_reason_prints_as_its_wire_string() {
+    assert_wire(
+        &[
+            SheetNameReason::Empty,
+            SheetNameReason::TooLong,
+            SheetNameReason::Character,
+            SheetNameReason::Apostrophe,
+        ],
+        r#"["empty","too_long","character","apostrophe"]"#,
     );
 }
 

@@ -4,7 +4,7 @@
 use crate::{
     Code, DecidedBy, Diagnostic, Diagnostics, Echo, EncodingReason, FormulaMalformedReason,
     FunctionDenial, InflateReason, Limit, Location, PartKind, PartNameReason, SchemaReason,
-    Severity, ZipDirectoryReason, ZipHeaderField,
+    Severity, SheetNameReason, ZipDirectoryReason, ZipHeaderField,
 };
 
 /// Every wire string a code once had and no longer has. A removed code's
@@ -381,6 +381,72 @@ fn sample(code: Code) -> (Diagnostic, Location) {
                 .with_rels_part("/xl/_rels/workbook.xml.rels")
                 .with_relationship_id("rId3"),
         ),
+        Code::SheetNameInvalid => (
+            Diagnostic::SheetNameInvalid {
+                name: Echo::new("Q1/Q2"),
+                reason: SheetNameReason::Character,
+            },
+            Location::default().with_part("/xl/workbook.xml"),
+        ),
+        Code::SheetIdDuplicate => (
+            Diagnostic::SheetIdDuplicate {
+                name: Echo::new("Summary"),
+                other: Echo::new("Data"),
+                sheet_id: 5,
+            },
+            Location::default().with_part("/xl/workbook.xml"),
+        ),
+        Code::DefinedNameInvalid => (
+            Diagnostic::DefinedNameInvalid {
+                name: Echo::new("Bad Name"),
+            },
+            Location::default().with_part("/xl/workbook.xml"),
+        ),
+        Code::DefinedNameSheetIndexInvalid => (
+            Diagnostic::DefinedNameSheetIndexInvalid {
+                name: Echo::new("Total"),
+                local_sheet_id: 99,
+                sheets: 8,
+            },
+            Location::default().with_part("/xl/workbook.xml"),
+        ),
+        Code::DefinedNameDuplicate => (
+            Diagnostic::DefinedNameDuplicate {
+                name: Echo::new("BASE_NAME"),
+                other: Echo::new("Base_Name"),
+            },
+            Location::default().with_part("/xl/workbook.xml"),
+        ),
+        Code::DefinedNameSheetMissing => (
+            Diagnostic::DefinedNameSheetMissing {
+                name: Echo::new("Base_Name"),
+                sheet: Echo::new("NoSuch"),
+            },
+            Location::default().with_part("/xl/workbook.xml"),
+        ),
+        Code::TableRangeOverlap => (
+            Diagnostic::TableRangeOverlap {
+                name: Echo::new("T_Extra"),
+                other: Echo::new("T_Data"),
+            },
+            Location::default().with_part("/xl/tables/table2.xml"),
+        ),
+        Code::TableNameDuplicate => (
+            Diagnostic::TableNameDuplicate {
+                name: Echo::new("Base_Name"),
+                other: Echo::new("Base_Name"),
+                defined_name: true,
+            },
+            Location::default().with_part("/xl/tables/table2.xml"),
+        ),
+        Code::TableIdDuplicate => (
+            Diagnostic::TableIdDuplicate {
+                name: Echo::new("T_Extra"),
+                other: Echo::new("T_Data"),
+                id: 1,
+            },
+            Location::default().with_part("/xl/tables/table2.xml"),
+        ),
         Code::SharedStringMissing => (
             Diagnostic::SharedStringMissing { index: 12 },
             Location::default().with_part("/xl/worksheets/sheet1.xml"),
@@ -684,5 +750,48 @@ fn a_malformed_formula_cites_what_decides_its_reason() {
         Some(crate::Fix::workbook(
             "nest the formula's brackets less deeply"
         ))
+    );
+}
+
+#[test]
+fn a_sheet_name_message_says_what_is_wrong_with_it() {
+    let message = |name: &str, reason| {
+        Diagnostic::SheetNameInvalid {
+            name: Echo::new(name),
+            reason,
+        }
+        .message()
+    };
+    assert_eq!(
+        message("", SheetNameReason::Empty),
+        "a sheet's name is empty"
+    );
+    assert_eq!(
+        message("abc", SheetNameReason::TooLong),
+        "the sheet name abc is longer than 31 characters, counted in UTF-16 code units"
+    );
+    assert_eq!(
+        message("'abc", SheetNameReason::Apostrophe),
+        "the sheet name 'abc starts or ends with '"
+    );
+}
+
+#[test]
+fn a_table_name_message_says_whether_the_other_is_a_table_or_a_defined_name() {
+    let message = |defined_name| {
+        Diagnostic::TableNameDuplicate {
+            name: Echo::new("t_data"),
+            other: Echo::new("T_Data"),
+            defined_name,
+        }
+        .message()
+    };
+    assert_eq!(
+        message(false),
+        "the table t_data has the same name as the table T_Data, letter case aside"
+    );
+    assert_eq!(
+        message(true),
+        "the table t_data has the same name as the defined name T_Data, letter case aside"
     );
 }
