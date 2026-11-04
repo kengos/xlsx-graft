@@ -106,6 +106,14 @@ mod rules;
     )
 )]
 mod sheet;
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "verify checks the shared strings once the checks of #13 are wired in"
+    )
+)]
+mod strings;
 mod structure;
 
 pub use formulas::{FormulaJudge, Names, Place};

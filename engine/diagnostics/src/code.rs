@@ -620,6 +620,25 @@ diagnostics! {
             Fix::workbook("split the workbook: no limit admits more than 4 GiB of shared strings")
         });
 
+    /// A string of the shared strings table is longer than the 32,767
+    /// characters, counted in UTF-16 code units, Excel keeps in a cell:
+    /// Excel for Mac asks to repair the workbook, and cuts the string there,
+    /// whether or not a cell refers to it.
+    /// Its text is its `t`, or the `t` of each of its runs together; its
+    /// phonetic runs (`rPh`) are not counted. An escape of an unpaired
+    /// surrogate (`_xD83D_`) counts as written, seven where Excel counts
+    /// one, so a string of them can be reported though Excel opens it.
+    SharedStringTooLong {
+        /// The string's index in the table, from 0, as a cell of `t="s"`
+        /// gives it.
+        index: u64,
+        /// The string's length in UTF-16 code units.
+        length: u64,
+    } => "shared_string_too_long", Error,
+        message: format!("shared string {index} is {length} UTF-16 code units long; Excel keeps 32767 and cuts the rest"),
+        decided_by: Some(DecidedBy::Default {}),
+        fix: Some(Fix::workbook("shorten the string to 32767 UTF-16 code units"));
+
     /// The styles part's cell formats (`cellXfs`) hold more `xf` records
     /// than the limit. The styles are not read.
     CellFormatsTooMany {

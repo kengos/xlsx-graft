@@ -4,13 +4,15 @@
 //! relationships that point outside the package, `opening.rs` what
 //! opening and reading the package refuses on the way, `formulas.rs`
 //! the formulas found as the parts are read, and `judging.rs` how they are
-//! judged.
+//! judged; `strings.rs` covers the length of each shared string, apart
+//! from `verify`.
 
 mod formulas;
 mod judging;
 mod links;
 mod opening;
 mod parts;
+mod strings;
 mod zip;
 
 use crate::{FunctionClass, FunctionTable, Limits, Rules, VerifyError, verify};

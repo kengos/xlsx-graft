@@ -1091,6 +1091,26 @@
     "origin": "<origin>"
   },
   {
+    "code": "shared_string_too_long",
+    "severity": "error",
+    "message": "shared string 3 is 32768 UTF-16 code units long; Excel keeps 32767 and cuts the rest",
+    "args": {
+      "index": 3,
+      "length": 32768
+    },
+    "location": {
+      "part": "/xl/sharedStrings.xml"
+    },
+    "decidedBy": {
+      "kind": "default"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "shorten the string to 32767 UTF-16 code units"
+    },
+    "origin": "<origin>"
+  },
+  {
     "code": "cell_formats_too_many",
     "severity": "error",
     "message": "the styles part holds at least 65537 cell formats; the limit is 65536",

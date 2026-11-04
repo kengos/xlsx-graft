@@ -337,6 +337,13 @@ fn sample(code: Code) -> (Diagnostic, Location) {
             },
             Location::default().with_part("/xl/sharedStrings.xml"),
         ),
+        Code::SharedStringTooLong => (
+            Diagnostic::SharedStringTooLong {
+                index: 3,
+                length: 32_768,
+            },
+            Location::default().with_part("/xl/sharedStrings.xml"),
+        ),
         Code::CellFormatsTooMany => (
             Diagnostic::CellFormatsTooMany {
                 count: 65_537,
