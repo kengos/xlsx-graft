@@ -642,6 +642,9 @@ dependencies = [
 [[package]]
 name = "xlsx-graft-compat"
 version = "0.0.0"
+dependencies = [
+ "xlsx-graft-diagnostics",
+]
 
 [[package]]
 name = "xlsx-graft-core"

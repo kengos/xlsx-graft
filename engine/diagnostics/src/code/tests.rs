@@ -4,7 +4,7 @@
 use crate::{
     Code, DecidedBy, Diagnostic, Diagnostics, Echo, EncodingReason, FormulaMalformedReason,
     FunctionDenial, InflateReason, Limit, Location, PartKind, PartNameReason, SchemaReason,
-    Severity, SheetNameReason, ZipDirectoryReason, ZipHeaderField,
+    Severity, SheetNameReason, TargetList, TargetReason, ZipDirectoryReason, ZipHeaderField,
 };
 
 /// Every wire string a code once had and no longer has. A removed code's
@@ -615,6 +615,16 @@ fn sample(code: Code) -> (Diagnostic, Location) {
                 .with_part("/xl/worksheets/sheet1.xml")
                 .with_place("C3"),
         ),
+        Code::TargetInvalid => (
+            Diagnostic::TargetInvalid {
+                list: TargetList::Targets,
+                index: 1,
+                entry: Echo::new("excel >= 2020"),
+                reason: TargetReason::UnknownVersion,
+                names: Echo::new("2007, 2010, 2013, 2016, 2019, 2021, 2024, 365"),
+            },
+            Location::default(),
+        ),
     }
 }
 
@@ -846,4 +856,52 @@ fn a_table_name_message_says_whether_the_other_is_a_table_or_a_defined_name() {
         message(true),
         "the table t_data has the same name as the defined name T_Data, letter case aside"
     );
+}
+
+#[test]
+fn a_target_message_names_the_list_and_says_what_is_wrong_with_the_entry() {
+    let message = |list, reason, names: &str| {
+        Diagnostic::TargetInvalid {
+            list,
+            index: 0,
+            entry: Echo::new("x"),
+            reason,
+            names: Echo::new(names),
+        }
+        .message()
+    };
+    let targets = |reason, names| message(TargetList::Targets, reason, names);
+    assert_eq!(
+        targets(TargetReason::Malformed, ""),
+        "targets[0] `x` is not written as `name`, `name version` or `name OP version`, OP one of >=, >, <=, <"
+    );
+    assert_eq!(
+        targets(TargetReason::UnknownApp, "excel, numbers"),
+        "targets[0] `x` names an application the engine does not know; it knows excel, numbers"
+    );
+    assert_eq!(
+        targets(TargetReason::VersionRequired, "2016, 365"),
+        "targets[0] `x` names no version, which the application needs; the versions the engine knows are 2016, 365"
+    );
+    assert_eq!(
+        targets(TargetReason::VersionNotAllowed, "google-sheets"),
+        "targets[0] `x` gives a version to an application that has none; write it as google-sheets"
+    );
+    assert_eq!(
+        targets(TargetReason::Empty, "2016, 365"),
+        "targets[0] `x` holds none of the versions the engine knows, which are 2016, 365"
+    );
+    assert_eq!(
+        message(TargetList::BestEffort, TargetReason::Overlap, "2016, 365"),
+        "bestEffort[0] `x` holds 2016, 365, which targets holds as well; a version is either required or best effort"
+    );
+    let unknown = Diagnostic::TargetInvalid {
+        list: TargetList::BestEffort,
+        index: 2,
+        entry: Echo::new("excel 2020"),
+        reason: TargetReason::UnknownVersion,
+        names: Echo::new("2016, 365"),
+    };
+    assert_eq!(unknown.decided_by(), Some(DecidedBy::Template {}));
+    assert_eq!(unknown.fix(), None);
 }

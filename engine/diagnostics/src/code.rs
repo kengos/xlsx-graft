@@ -13,8 +13,8 @@
 use crate::table::diagnostics;
 use crate::{
     DecidedBy, Echo, EncodingReason, Fix, FormulaMalformedReason, FunctionDenial, InflateReason,
-    Limit, PartKind, PartNameReason, SchemaReason, SheetNameReason, ZipDirectoryReason,
-    ZipHeaderField,
+    Limit, PartKind, PartNameReason, SchemaReason, SheetNameReason, TargetList, TargetReason,
+    ZipDirectoryReason, ZipHeaderField,
 };
 
 diagnostics! {
@@ -1151,6 +1151,43 @@ diagnostics! {
     } => "function_forbidden", Error,
         message: format!("a formula calls, or may call, {name}, which the host's policy forbids: {reason}; {count} time(s), the first here"),
         decided_by: Some(DecidedBy::Policy {}),
+        fix: None;
+
+    /// A template's `targets:` or `bestEffort:` entry names no versions the
+    /// engine can check the workbook against, or, in `bestEffort:`, versions
+    /// `targets:` names too. The engine reads every entry
+    /// and reports each one that fails.
+    TargetInvalid {
+        /// The list the entry is in.
+        list: TargetList,
+        /// The entry's position in its list, the first being 0.
+        index: u64,
+        /// The entry as written.
+        entry: Echo,
+        /// Why it names no versions.
+        reason: TargetReason,
+        /// What the message lists, comma-separated: every application name
+        /// for `unknown_app`; the versions of the application the engine
+        /// knows for `unknown_version`, `version_required` and `empty`; the
+        /// entry as it may be written for `version_not_allowed`; the
+        /// versions both lists hold for `overlap`, or the application's
+        /// name when it has no versions; empty for `malformed`. Always
+        /// present, and clipped as every echo is.
+        names: Echo,
+    } => "target_invalid", Error,
+        message: format!("{}[{index}] `{entry}` {}", match list {
+            TargetList::Targets => "targets",
+            TargetList::BestEffort => "bestEffort",
+        }, match reason {
+            TargetReason::Malformed => "is not written as `name`, `name version` or `name OP version`, OP one of >=, >, <=, <".to_owned(),
+            TargetReason::UnknownApp => format!("names an application the engine does not know; it knows {names}"),
+            TargetReason::UnknownVersion => format!("names a version the engine does not know; the versions it knows are {names}"),
+            TargetReason::VersionRequired => format!("names no version, which the application needs; the versions the engine knows are {names}"),
+            TargetReason::VersionNotAllowed => format!("gives a version to an application that has none; write it as {names}"),
+            TargetReason::Empty => format!("holds none of the versions the engine knows, which are {names}"),
+            TargetReason::Overlap => format!("holds {names}, which targets holds as well; a version is either required or best effort"),
+        }),
+        decided_by: Some(DecidedBy::Template {}),
         fix: None;
 }
 

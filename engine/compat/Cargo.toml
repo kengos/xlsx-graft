@@ -7,5 +7,9 @@ license.workspace = true
 publish.workspace = true
 repository.workspace = true
 
+[dependencies]
+# A template's targets that name no versions are reported as diagnostics.
+xlsx-graft-diagnostics = { workspace = true }
+
 [lints]
 workspace = true

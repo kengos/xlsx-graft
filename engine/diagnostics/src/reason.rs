@@ -242,6 +242,43 @@ reasons! {
         /// newer than the engine, or a name that is no function at all.
         Unknown => "unknown",
     }
+
+    /// The template list a target entry is written in. Its wire string is
+    /// snake_case like every reason's; the message names the list as the
+    /// template spells it (`bestEffort`).
+    TargetList {
+        /// `targets:`, the applications the workbook must work in.
+        Targets => "targets",
+        /// `bestEffort:`, the applications it should work in.
+        BestEffort => "best_effort",
+    }
+
+    /// Why a template's `targets:` or `bestEffort:` entry names no versions
+    /// the engine can check against: an entry is `name`, `name version` or
+    /// `name OP version`, OP one of `>=`, `>`, `<=` and `<`.
+    TargetReason {
+        /// The entry is none of the three forms: it is empty, has no name,
+        /// an operator other than the four (`=`, `<>`), an operator with no
+        /// version, or more after the version.
+        Malformed => "malformed",
+        /// The name is no application the engine knows.
+        UnknownApp => "unknown_app",
+        /// The version is not one the engine knows the application by: a
+        /// later one, or one older than the oldest it checks.
+        UnknownVersion => "unknown_version",
+        /// The entry names an application that has versions, but no version.
+        VersionRequired => "version_required",
+        /// The entry gives a version, with or without an operator, to an
+        /// application that has no versions (Google Sheets), which is
+        /// written alone.
+        VersionNotAllowed => "version_not_allowed",
+        /// The operator and version hold none of the versions the engine
+        /// knows, such as `excel < 2007`.
+        Empty => "empty",
+        /// A `bestEffort:` entry holds a version a `targets:` entry holds
+        /// too, which leaves it both required and best effort.
+        Overlap => "overlap",
+    }
 }
 
 #[cfg(test)]

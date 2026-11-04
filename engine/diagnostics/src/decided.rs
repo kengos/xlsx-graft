@@ -38,9 +38,9 @@ pub enum DecidedBy {
     /// its own rather than a standard's; and what Excel repairs as it
     /// opens a workbook where no standard says so.
     Default {},
-    /// The template's `allow` lists, which admit what the defaults deny. No
-    /// code cites it yet: it is for a notice about what a template admits
-    /// that the engine would otherwise deny.
+    /// The template: its `targets:` and `bestEffort:` lists, which say
+    /// where the workbook must work, and its `allow` lists, which admit
+    /// what the defaults deny.
     Template {},
     /// The host's policy, which forbids what no template may allow.
     Policy {},

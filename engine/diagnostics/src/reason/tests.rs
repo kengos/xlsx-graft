@@ -2,7 +2,8 @@
 
 use super::{
     EncodingReason, FormulaMalformedReason, FunctionDenial, InflateReason, PartKind,
-    PartNameReason, SchemaReason, SheetNameReason, ZipDirectoryReason, ZipHeaderField,
+    PartNameReason, SchemaReason, SheetNameReason, TargetList, TargetReason, ZipDirectoryReason,
+    ZipHeaderField,
 };
 use serde::Serialize;
 use std::fmt::Display;
@@ -157,5 +158,25 @@ fn every_function_denial_prints_as_its_wire_string() {
     assert_wire(
         &[FunctionDenial::Unreviewed, FunctionDenial::Unknown],
         r#"["unreviewed","unknown"]"#,
+    );
+}
+
+#[test]
+fn every_target_list_and_reason_prints_as_its_wire_string() {
+    assert_wire(
+        &[TargetList::Targets, TargetList::BestEffort],
+        r#"["targets","best_effort"]"#,
+    );
+    assert_wire(
+        &[
+            TargetReason::Malformed,
+            TargetReason::UnknownApp,
+            TargetReason::UnknownVersion,
+            TargetReason::VersionRequired,
+            TargetReason::VersionNotAllowed,
+            TargetReason::Empty,
+            TargetReason::Overlap,
+        ],
+        r#"["malformed","unknown_app","unknown_version","version_required","version_not_allowed","empty","overlap"]"#,
     );
 }
