@@ -472,6 +472,51 @@ fn sample(code: Code) -> (Diagnostic, Location) {
             },
             Location::default().with_part("/xl/worksheets/sheet1.xml"),
         ),
+        Code::CellStyleMissing => (
+            Diagnostic::CellStyleMissing {
+                reference: Echo::new("B2"),
+                index: 99,
+                count: 7,
+            },
+            Location::default().with_part("/xl/worksheets/sheet1.xml"),
+        ),
+        Code::ColumnStyleMissing => (
+            Diagnostic::ColumnStyleMissing {
+                columns: Echo::new("C:E"),
+                index: 99,
+                count: 7,
+            },
+            Location::default().with_part("/xl/worksheets/sheet1.xml"),
+        ),
+        Code::RowStyleMissing => (
+            Diagnostic::RowStyleMissing {
+                row: Echo::new("4"),
+                index: 99,
+                count: 7,
+            },
+            Location::default().with_part("/xl/worksheets/sheet1.xml"),
+        ),
+        Code::MergedCellsOverlap => (
+            Diagnostic::MergedCellsOverlap {
+                reference: Echo::new("H2:I3"),
+                other: Echo::new("G1:H2"),
+            },
+            Location::default().with_part("/xl/worksheets/sheet1.xml"),
+        ),
+        Code::MergedCellsTooMany => (
+            Diagnostic::MergedCellsTooMany {
+                count: 300_000,
+                limit: Limit::default_of(262_144),
+            },
+            Location::default().with_part("/xl/worksheets/sheet1.xml"),
+        ),
+        Code::InlineStringTooLong => (
+            Diagnostic::InlineStringTooLong {
+                reference: Echo::new("A1"),
+                length: 32_768,
+            },
+            Location::default().with_part("/xl/worksheets/sheet1.xml"),
+        ),
         Code::PartDenied => (
             Diagnostic::PartDenied {
                 kind: PartKind::Macro,

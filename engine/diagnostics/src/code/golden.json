@@ -1497,6 +1497,135 @@
     "origin": "<origin>"
   },
   {
+    "code": "cell_style_missing",
+    "severity": "error",
+    "message": "cell B2 uses cell format 99, but the styles part has 7",
+    "args": {
+      "reference": "B2",
+      "index": 99,
+      "count": 7
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.3.1.4, §18.8.10"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "column_style_missing",
+    "severity": "error",
+    "message": "columns C:E use cell format 99, but the styles part has 7",
+    "args": {
+      "columns": "C:E",
+      "index": 99,
+      "count": 7
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.3.1.13, §18.8.10"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "row_style_missing",
+    "severity": "notice",
+    "message": "row 4 uses cell format 99, but the styles part has 7, so Excel drops the row's format",
+    "args": {
+      "row": "4",
+      "index": 99,
+      "count": 7
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml"
+    },
+    "decidedBy": {
+      "kind": "standard",
+      "ref": "ECMA-376-1:2016 §18.3.1.73, §18.8.10"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "save the workbook again from Excel"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "merged_cells_overlap",
+    "severity": "error",
+    "message": "the merged cells H2:I3 overlap G1:H2",
+    "args": {
+      "reference": "H2:I3",
+      "other": "G1:H2"
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml"
+    },
+    "decidedBy": {
+      "kind": "default"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "unmerge one of the two ranges"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "merged_cells_too_many",
+    "severity": "error",
+    "message": "the sheet merges 300000 ranges; the limit is 262144",
+    "args": {
+      "count": 300000,
+      "limit": 262144
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml"
+    },
+    "decidedBy": {
+      "kind": "limit",
+      "name": "maxMergedCells",
+      "value": 262144,
+      "source": "default"
+    },
+    "fix": {
+      "in": "policy",
+      "line": "maxMergedCells: 300000"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "inline_string_too_long",
+    "severity": "error",
+    "message": "cell A1 holds an inline string of 32768 UTF-16 code units; Excel keeps 32767 and cuts the rest",
+    "args": {
+      "reference": "A1",
+      "length": 32768
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml"
+    },
+    "decidedBy": {
+      "kind": "default"
+    },
+    "fix": {
+      "in": "workbook",
+      "text": "shorten the cell's text to 32767 UTF-16 code units"
+    },
+    "origin": "<origin>"
+  },
+  {
     "code": "part_denied",
     "severity": "error",
     "message": "the part, or a relationship it declares, holds macro content, which is denied unless the template allows it",
