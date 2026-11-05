@@ -6,26 +6,40 @@
 //!
 //! ```text
 //! "TEXTJOIN" => s(xl(X::V2019), xl(M::V2019), on(L::V24_2), YES, le(N::V14_4), on(O::V8_0)),
-//!     requires: [], sources: S2019;
+//!     requires: [], sources: S2019, safety: unreviewed();
 //! ```
 //!
 //! The six cells are the columns of [`Support`] in order, each typed by its
-//! application's versions. A feature's row starts with its variant and its
-//! name instead: `DynamicArray "dynamic_array" => s(...), requires: [],
-//! sources: &[...];`, and the rows declare [`Feature`] itself.
+//! application's versions. `safety:` is the function's [`Safety`]:
+//! `safe(review)`, `dangerous(Danger::Network)` or `unreviewed()`. A
+//! function the table does not check against a template's targets yet
+//! goes in the `unchecked { ... }` block at the end, with its safety only:
+//! `"SUM" => safety: unreviewed();`. A feature's row starts with its
+//! variant and its name instead: `DynamicArray "dynamic_array" => s(...),
+//! requires: [], sources: &[...];`, and the rows declare [`Feature`]
+//! itself.
 
 use crate::app::{Excel, ExcelMac, GoogleSheets, LibreOffice, Numbers, OnlyOffice, Version};
 use crate::entry::{Entry, Fallback};
 use crate::row::Support;
+use crate::safety::{Danger, Dangerous, Review, Safe, Safety};
 
-/// Expands the function rows into the `FUNCTIONS` slice.
+/// Expands the function rows into the `FUNCTIONS` slice, and every
+/// function's safety, the `unchecked` block's included, into `SAFETY`.
 macro_rules! functions {
-    ($(
-        $name:literal => $support:expr,
-            requires: [$($requires:ident),* $(,)?],
-            sources: $sources:expr;
-    )*) => {
-        /// Every function the table has a row for, in the table's order.
+    (
+        $(
+            $name:literal => $support:expr,
+                requires: [$($requires:ident),* $(,)?],
+                sources: $sources:expr,
+                safety: $safety:expr;
+        )*
+        unchecked {
+            $( $unchecked:literal => safety: $unchecked_safety:expr; )*
+        }
+    ) => {
+        /// Every function the table checks against a template's targets,
+        /// in the table's order.
         pub(crate) static FUNCTIONS: &[Row] = &[$(
             Row {
                 name: $name,
@@ -34,6 +48,13 @@ macro_rules! functions {
                 sources: $sources,
             },
         )*];
+
+        /// Every function's safety: those of `FUNCTIONS` in its order,
+        /// then those of the `unchecked` block.
+        pub(crate) static SAFETY: &[SafetyRow] = &[
+            $( SafetyRow { name: $name, safety: $safety }, )*
+            $( SafetyRow { name: $unchecked, safety: $unchecked_safety }, )*
+        ];
     };
 }
 
@@ -85,7 +106,7 @@ mod functions;
 mod sources;
 
 pub use features::Feature;
-pub(crate) use functions::FUNCTIONS;
+pub(crate) use functions::{FUNCTIONS, SAFETY};
 
 /// A row's six cells, in column order.
 const fn s(
@@ -141,5 +162,33 @@ const fn unk<V: Version>() -> Entry<V> {
 /// Google Sheets has it.
 const YES: Entry<GoogleSheets> = Entry::added(GoogleSheets::Current);
 
+/// Reviewed safe by `review`, with no denial scheduled.
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "the rows are reviewed in a later change")
+)]
+const fn safe(review: Review) -> Safety {
+    Safety::ReviewedSafe(Safe {
+        review,
+        scheduled: None,
+    })
+}
+
+/// Dangerous for `danger`, denied by every version of xlsx-graft.
+const fn dangerous(danger: Danger) -> Safety {
+    Safety::Dangerous(Dangerous {
+        danger,
+        denied_since: None,
+        advisory: None,
+    })
+}
+
+/// Not reviewed yet.
+const fn unreviewed() -> Safety {
+    Safety::Unreviewed
+}
+
+#[cfg(test)]
+mod safety_tests;
 #[cfg(test)]
 mod tests;
