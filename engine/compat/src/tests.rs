@@ -2,8 +2,8 @@
 //! cells research-compat's examples give, one function at a time.
 
 use super::{
-    Added, Excel, ExcelMac, Fallback, Feature, GoogleSheets, LibreOffice, Numbers, OnlyOffice, Row,
-    Status, function, functions,
+    Added, Danger, Dangerous, Excel, ExcelMac, Fallback, Feature, GoogleSheets, LibreOffice,
+    Numbers, OnlyOffice, Row, Safety, Status, function, function_safety, functions, safeties,
 };
 
 fn row(name: &str) -> &'static Row {
@@ -21,6 +21,31 @@ fn a_function_is_looked_up_by_its_name_in_any_case() {
 fn a_function_excel_2007_had_has_no_row() {
     assert_eq!(function("SUM"), None);
     assert_eq!(function("IFERROR"), None);
+}
+
+#[test]
+fn the_safety_of_a_function_is_looked_up_by_its_name_in_any_case() {
+    // SUM has no row of compatibility, but has a safety.
+    assert_eq!(function_safety("sum"), Some(Safety::Unreviewed));
+    assert_eq!(function_safety("XLOOKUP"), Some(Safety::Unreviewed));
+    assert!(matches!(
+        function_safety("WebService"),
+        Some(Safety::Dangerous(Dangerous {
+            danger: Danger::Network,
+            ..
+        }))
+    ));
+    assert!(safeties().iter().any(|row| row.name == "REGISTER.ID"));
+    // The unchecked functions: 353 of ECMA-376, and ANCHORARRAY, SINGLE,
+    // CALL, COPILOT and REGISTER.ID.
+    assert_eq!(safeties().len(), functions().len() + 353 + 5);
+}
+
+#[test]
+fn a_name_the_table_does_not_list_has_no_safety() {
+    assert_eq!(function_safety("_xlfn.XLOOKUP"), None);
+    assert_eq!(function_safety("EVALUATE"), None);
+    assert_eq!(function_safety(""), None);
 }
 
 #[test]
