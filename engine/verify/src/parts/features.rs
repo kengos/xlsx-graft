@@ -20,11 +20,11 @@
 //!   it, counts no more than a Slicers part does.
 //! - `data_model`: a Data Model part (§2.1.6), by its media type alone:
 //!   §2.1.6 gives it no relationship type.
-//! - `sparkline`: a `sparkline` element (§2.6.9) in a worksheet (ECMA-376-1
-//!   §12.3.24), whose extension list §2.2.4.12 extends with its groups: a
-//!   group that holds no sparkline shows none.
+//! - `sparkline`: a `sparkline` element (§2.6.9) in a worksheet
+//!   (ECMA-376-1:2016 §12.3.24), whose extension list §2.2.4.12 extends with
+//!   its groups: a group that holds no sparkline shows none.
 //! - `dynamic_array`: a `dynamicArrayProperties` element (§2.4.87) whose
-//!   `fDynamic` is true, anywhere in a Metadata part (ECMA-376-1
+//!   `fDynamic` is true, anywhere in a Metadata part (ECMA-376-1:2016
 //!   §12.3.10); Excel writes it in the future metadata `XLDAPR`. It says
 //!   the workbook has formulas Excel treats as dynamic arrays, not that
 //!   one of them spills over more than one cell: a single-cell one counts
@@ -62,9 +62,9 @@ use xlsx_graft_xml::events::BytesStart;
 /// The role of a part that holds a feature, or an element of one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Role {
-    /// A worksheet (ECMA-376-1 §12.3.24).
+    /// A worksheet (ECMA-376-1:2016 §12.3.24).
     Worksheet,
-    /// The Metadata part (ECMA-376-1 §12.3.10).
+    /// The Metadata part (ECMA-376-1:2016 §12.3.10).
     Metadata,
     /// A Rich Value Structure part (§2.1.11).
     RichValueStructure,

@@ -1,7 +1,7 @@
 //! [`PartName`]: a part's name, checked against the part name grammar
 //! (ECMA-376-2:2021 §6.2.2.2) and keyed for the equivalence of §6.2.2.3.
 //!
-//! A name is held in its IRI form (§7.3.5, and 4th edition §9.1.1.3): a
+//! A name is held in its IRI form (§7.3.5, and ECMA-376-2:2012 §9.1.1.3): a
 //! percent-encoded run of bytes that decodes to non-ASCII UTF-8 is decoded,
 //! and every other percent-encoding stays as written. Two names are the same
 //! part when they are equal but for ASCII letter case, the case of their

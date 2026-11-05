@@ -67,9 +67,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # The XML parser under engine/xml. No features: `encoding` would pull in
 # encoding_rs for every legacy encoding, and package XML may only be UTF-8 or
-# UTF-16 (ECMA-376-2 §6.2.5), which the xml crate decodes with std. It never
-# expands entities or reads a DTD; it reports a DOCTYPE as an event, which the
-# xml crate refuses. Its only dependency is memchr.
+# UTF-16 (ECMA-376-2:2021 §6.2.5), which the xml crate decodes with std. It
+# never expands entities or reads a DTD; it reports a DOCTYPE as an event,
+# which the xml crate refuses. Its only dependency is memchr.
 quick-xml = { version = "0.42", default-features = false }
 # Inflates a package's deflated zip entries (engine/package). Pure Rust,
 # `forbid(unsafe_code)`, its only dependency adler2. Its streaming `inflate`

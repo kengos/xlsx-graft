@@ -21,16 +21,17 @@
 //!   whatever else is wrong with it; a byte before that which does not
 //!   decode stops reading first, as below.
 //! - **Encoding**: package XML is UTF-8 or UTF-16 and nothing else
-//!   (ECMA-376-2:2021 §6.2.5; 4th edition §9.1.4, M1.17). The byte order mark
-//!   and the XML declaration decide which; UTF-16 is decoded to UTF-8 with
-//!   `char::decode_utf16`, so quick-xml only ever sees UTF-8. Any other
+//!   (ECMA-376-2:2021 §6.2.5; ECMA-376-2:2012 §9.1.4, M1.17). The byte order
+//!   mark and the XML declaration decide which; UTF-16 is decoded to UTF-8
+//!   with `char::decode_utf16`, so quick-xml only ever sees UTF-8. Any other
 //!   encoding, a declaration that disagrees with the bytes, and bytes that do
 //!   not decode are `xml_encoding_unsupported`.
-//! - **DTDs**: a DOCTYPE, in any letter case, is `xml_doctype` (§6.2.5; M1.18
-//!   makes it an error). quick-xml never reads a DTD or expands an entity: it
-//!   reports a DOCTYPE as an event, which the reader refuses, and leaves
-//!   every reference to the caller. The reader admits only the five
-//!   predefined entities and character references to characters XML allows.
+//! - **DTDs**: a DOCTYPE, in any letter case, is `xml_doctype` (§6.2.5;
+//!   ECMA-376-2:2012 M1.18 makes it an error). quick-xml never reads a DTD
+//!   or expands an entity: it reports a DOCTYPE as an event, which the
+//!   reader refuses, and leaves every reference to the caller. The reader
+//!   admits only the five predefined entities and character references to
+//!   characters XML allows.
 //! - **Shape**: nesting deeper than `max_depth` is `xml_too_deep`; an element
 //!   with more than `max_attributes` attributes is `xml_too_many_attributes`;
 //!   more than `max_namespaces` namespace declarations in scope is

@@ -59,9 +59,9 @@
 //!
 //! # Sources
 //!
-//! - ECMA-376 Part 1, 5th edition: §18.17.2 (the formula grammar: strings,
-//!   sheet names, cell references, functions, names, error constants) and
-//!   §22.9.2.19 (`ST_Xstring`, the `_xHHHH_` escape).
+//! - ECMA-376-1:2016 §18.17.2 (the formula grammar: strings, sheet names, cell
+//!   references, functions, names, error constants) and §22.9.2.19
+//!   (`ST_Xstring`, the `_xHHHH_` escape).
 //! - [MS-XLSX] §2.2.2 Formulas: structured references (`'` escapes `[`,
 //!   `]`, `#` and `'` in a column name), the `_xlfn.` and `_xlfn._xlws.`
 //!   prefixes and the LAMBDA parameter names.
