@@ -1,4 +1,4 @@
-//! Formulas as stored: the examples of ECMA-376 Part 1 §18.17 and
+//! Formulas as stored: the examples of ECMA-376-1:2016 §18.17 and
 //! [MS-XLSX] §2.2.2, and formulas Excel for Mac saved, read whole.
 
 use super::{calls, unseen};

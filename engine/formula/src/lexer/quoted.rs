@@ -5,7 +5,7 @@
 use super::{MAX_BRACKET_DEPTH, Scan};
 use crate::{MalformedReason, TokenKind};
 
-/// A string, `"…"`, where `""` is one `"` (ECMA-376 Part 1 §18.17.2).
+/// A string, `"…"`, where `""` is one `"` (ECMA-376-1:2016 §18.17.2).
 pub(super) fn string(rest: &str) -> Scan {
     match close_doubled(rest, '"') {
         Some(len) => Scan::ok(TokenKind::String, len),

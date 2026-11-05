@@ -1,4 +1,4 @@
-//! Decodes a formula's `_xHHHH_` escapes once (ECMA-376 Part 1 §22.9.2.19,
+//! Decodes a formula's `_xHHHH_` escapes once (ECMA-376-1:2016 §22.9.2.19,
 //! `ST_Xstring`).
 
 use crate::{Malformed, MalformedReason, Span};

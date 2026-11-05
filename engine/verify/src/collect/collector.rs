@@ -5,14 +5,14 @@
 //! namespace, or the value of an unprefixed attribute of one, whatever the
 //! part:
 //!
-//! - every place SpreadsheetML types a formula (`ST_Formula`, ECMA-376-1
-//!   5th edition, `sml.xsd`): the text of `f` (also a chart's `c:f` and an
-//!   extension's `xm:f`), `definedName`, `calculatedColumnFormula` and
-//!   `totalsRowFormula` (a table column's), `formula1` and `formula2` (a
-//!   data validation's), `formula` and `oldFormula` (a conditional
-//!   format's, a revision's), and the `macro` of an `objectPr` and the
-//!   `macro`, `linkedCell` and `listFillRange` of a `controlPr` (an
-//!   embedded object's and a control's);
+//! - every place SpreadsheetML types a formula (`ST_Formula`,
+//!   ECMA-376-1:2016, `sml.xsd`): the text of `f` (also a chart's `c:f` and
+//!   an extension's `xm:f`), `definedName`, `calculatedColumnFormula` and
+//!   `totalsRowFormula` (a table column's), `formula1` and `formula2` (a data
+//!   validation's), `formula` and `oldFormula` (a conditional format's, a
+//!   revision's), and the `macro` of an `objectPr` and the `macro`,
+//!   `linkedCell` and `listFillRange` of a `controlPr` (an embedded object's
+//!   and a control's);
 //! - the places that hold a formula as a string: the `val` of a `cfvo` (a
 //!   conditional format's value), the `formula` of a `cacheField` and of a
 //!   `calculatedItem` (a pivot cache's), the `link` of an `oleObject` (a

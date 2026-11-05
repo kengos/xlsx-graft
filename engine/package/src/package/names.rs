@@ -3,12 +3,12 @@
 //!
 //! An entry is not a part when its name is the content types stream's, when
 //! it is a folder (a name ending in `/` with no data; Annex B, Table B.3),
-//! or when its name is not a part name (`entry_name_invalid`; 4th edition
-//! M2.16). Entries whose names are the same part (`part_name_duplicate`)
-//! are none of them parts: readers differ on which one they would take. A
-//! part whose name is derived from another's (`part_name_derived`) is not a
-//! part either; the shorter one is. The two content types streams of a zip
-//! that has two are refused the same way.
+//! or when its name is not a part name (`entry_name_invalid`;
+//! ECMA-376-2:2012 M2.16). Entries whose names are the same part
+//! (`part_name_duplicate`) are none of them parts: readers differ on which
+//! one they would take. A part whose name is derived from another's
+//! (`part_name_derived`) is not a part either; the shorter one is. The two
+//! content types streams of a zip that has two are refused the same way.
 //!
 //! The derived name's base may itself be a name refused as a duplicate.
 //! Each name that is not a part is kept as unknown, so what would look it

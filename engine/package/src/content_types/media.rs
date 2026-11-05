@@ -1,6 +1,6 @@
 //! [`ContentType`]: a media type as RFC 7231 §3.1.1.1 spells one, with no
 //! white space but around a parameter's `;` and no comments
-//! (ECMA-376-2:2021 §7.2.3.2.4; 4th edition M1.14, M1.15).
+//! (ECMA-376-2:2021 §7.2.3.2.4; ECMA-376-2:2012 M1.14, M1.15).
 
 /// A media type from the content types stream.
 #[derive(Debug, Clone, PartialEq, Eq)]

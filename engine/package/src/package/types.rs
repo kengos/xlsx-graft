@@ -4,9 +4,9 @@
 //! A part with none is `part_content_type_missing`, but a Relationships
 //! part, which §7.2.3.2.1 leaves out. A part whose name is a Relationships
 //! part's and whose type is not the Relationships media type, or the other
-//! way round, is `part_content_type_mismatch` (§6.5.2.1; 4th edition M1.30).
-//! When the stream is missing, that is reported once; when it is refused or
-//! cannot be read, its own diagnostic stands for every part.
+//! way round, is `part_content_type_mismatch` (§6.5.2.1; ECMA-376-2:2012
+//! M1.30). When the stream is missing, that is reported once; when it is
+//! refused or cannot be read, its own diagnostic stands for every part.
 
 use super::names::ContentTypesEntry;
 use super::{Package, xml_part};

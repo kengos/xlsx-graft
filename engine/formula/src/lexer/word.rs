@@ -4,7 +4,7 @@ use super::{Scan, run};
 use crate::TokenKind;
 use crate::token::is_word_char;
 
-/// The error constants (ECMA-376 Part 1 §18.17.2, `error-constant`), and
+/// The error constants (ECMA-376-1:2016 §18.17.2, `error-constant`), and
 /// the ones newer Excel shows. Compared without regard to letter case.
 const ERRORS: [&str; 15] = [
     "#DIV/0!",

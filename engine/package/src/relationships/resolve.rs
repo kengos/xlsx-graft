@@ -19,7 +19,7 @@ pub(crate) struct Resolved {
 /// the package's own relationships.
 ///
 /// The fragment and the query are dropped: they do not narrow a reference
-/// to a part (§6.3.2; 4th edition M1.32). A reference with a scheme or an
+/// to a part (§6.3.2; ECMA-376-2:2012 M1.32). A reference with a scheme or an
 /// authority is not relative, and an empty one names its base.
 pub(crate) fn resolve(base: &str, target: &str) -> Result<Resolved, PartNameReason> {
     let reference = target.split(['#', '?']).next().unwrap_or_default();

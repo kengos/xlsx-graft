@@ -1,5 +1,5 @@
 //! What a word is: its prefixes, and whether it is a cell, a column or a
-//! row (ECMA-376 Part 1 §18.17.2.3.1, in the bounds of a worksheet).
+//! row (ECMA-376-1:2016 §18.17.2.3.1, in the bounds of a worksheet).
 
 /// The prefixes Excel writes before a function or parameter name, compared
 /// without regard to letter case: `_xlfn.` on a function newer than the

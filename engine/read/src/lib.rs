@@ -30,12 +30,12 @@
 //! relationship to the workbook part, and [`Workbook::related`] the
 //! workbook's internal relationship of a part type, such as the shared
 //! strings table's: by relationship, never by a part name. Both the
-//! Transitional and the Strict relationship types are taken (ECMA-376-4 and
-//! ECMA-376-1:2016 §12.3). Two of them that target different parts are
-//! `relationship_type_duplicate`, since readers would differ on which to
-//! take, and neither is read; two that target the same part are one. An
-//! external relationship targets no part, so it is not one: readers that
-//! read parts pass it over. What is found is a
+//! Transitional and the Strict relationship types are taken
+//! (ECMA-376-4:2016 and ECMA-376-1:2016 §12.3). Two of them that target
+//! different parts are `relationship_type_duplicate`, since readers would
+//! differ on which to take, and neither is read; two that target the same
+//! part are one. An external relationship targets no part, so it is not
+//! one: readers that read parts pass it over. What is found is a
 //! [`Presence`](xlsx_graft_package::Presence):
 //!
 //! - none, where the relationships are all known, is
