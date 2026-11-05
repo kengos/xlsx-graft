@@ -29,6 +29,11 @@ impl Versions {
         Self(self.0 | other.0)
     }
 
+    /// The versions this set holds and `other` does not.
+    pub(super) fn without(self, other: Self) -> Self {
+        Self(self.0 & !other.0)
+    }
+
     /// Whether the set holds the version at position `at`.
     fn contains(self, at: usize) -> bool {
         self.0 & bit(at) != 0

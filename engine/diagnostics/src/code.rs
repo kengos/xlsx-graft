@@ -1155,8 +1155,9 @@ diagnostics! {
 
     /// A template's `targets:` or `bestEffort:` entry names no versions the
     /// engine can check the workbook against, or, in `bestEffort:`, versions
-    /// `targets:` names too. The engine reads every entry
-    /// and reports each one that fails.
+    /// the template's own `targets:` names too; when it has no `targets:`,
+    /// a version the default holds adds nothing and is not reported. The
+    /// engine reads every entry and reports each one that fails.
     TargetInvalid {
         /// The list the entry is in.
         list: TargetList,
@@ -1191,7 +1192,8 @@ diagnostics! {
         fix: None;
 
     /// A formula calls a function that a version the template's `targets:`
-    /// holds, where the workbook must work, lacks, or that no source the
+    /// holds (`excel >= 2024` and `excel-mac >= 2024` when it has none),
+    /// where the workbook must work, lacks, or that no source the
     /// compatibility table cites says it has, a feature it needs counted
     /// with it. One per part, defined name reached through, function,
     /// application and list.
@@ -1289,7 +1291,8 @@ diagnostics! {
         fix: Some(Fix::workbook(format!("call a function other than {name} so the workbook works in {}", crate::target::spelled(*app))));
 
     /// The workbook uses a feature that a version the template's
-    /// `targets:` holds, where the workbook must work, lacks, or that no
+    /// `targets:` holds (`excel >= 2024` and `excel-mac >= 2024` when it
+    /// has none), where the workbook must work, lacks, or that no
     /// source the compatibility table cites says it has, a feature it needs
     /// counted with it. One per feature, application and list, at the first
     /// part that holds it.

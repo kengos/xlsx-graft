@@ -41,8 +41,13 @@ fn unmet(name: &'static str, list: TargetList, app: App) -> Unmet {
 }
 
 #[test]
-fn no_targets_check_nothing() {
+fn no_targets_check_the_default() {
     assert_eq!(check(&Targets::default(), "XLOOKUP"), []);
+    let unmet: Vec<(TargetList, App)> = check(&Targets::default(), "WEBSERVICE")
+        .iter()
+        .map(|unmet| (unmet.list, unmet.app))
+        .collect();
+    assert_eq!(unmet, [(TargetList::Targets, App::ExcelMac)]);
 }
 
 #[test]

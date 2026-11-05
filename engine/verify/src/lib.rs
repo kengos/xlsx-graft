@@ -102,8 +102,9 @@
 //! function that needs it: `FILTER` in a workbook found to use dynamic
 //! arrays is checked as `FILTER` alone. Dynamic arrays are found by the
 //! metadata Excel writes for them, which a formula that only may spill, a
-//! single cell's included, is given as well. [`Targets::default`] checks
-//! nothing.
+//! single cell's included, is given as well. A template without
+//! `targets:` is checked against [`DEFAULT_TARGETS`]
+//! ([`Targets::default`] when it has no `bestEffort:` either).
 //!
 //! # What Excel repairs
 //!
@@ -177,7 +178,7 @@ pub use functions::{FunctionClass, FunctionTable};
 pub use limits::Limits;
 pub use rules::{Rules, Ruling};
 pub use structure::{NameEntry, SheetEntry, Structure, TableEntry};
-pub use xlsx_graft_compat::Targets;
+pub use xlsx_graft_compat::{DEFAULT_TARGETS, Targets};
 pub use xlsx_graft_diagnostics::PartKind;
 
 use book::Book;

@@ -1,8 +1,8 @@
 //! Unit tests for reading `targets:` and `bestEffort:`: every form of an
 //! entry, every reason one names no versions, and the overlap of the lists.
 
-use super::Targets;
 use super::versions::Versions;
+use super::{DEFAULT_TARGETS, Targets};
 use crate::{App, Excel, ExcelMac, GoogleSheets, LibreOffice, Numbers, OnlyOffice, Version};
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, TargetList, TargetReason};
 
@@ -126,10 +126,50 @@ fn best_effort_is_read_apart_from_targets() {
 }
 
 #[test]
-fn an_empty_template_checks_nothing() {
-    assert!(Targets::default().is_empty());
-    assert!(read(&[], &[]).is_empty());
-    assert!(!read(&[], &["numbers 14.4"]).is_empty());
+fn a_template_without_targets_is_checked_against_the_default() {
+    assert_eq!(read(&DEFAULT_TARGETS, &[]), Targets::default());
+    assert_eq!(read(&[], &[]), Targets::default());
+    let targets = read(&[], &["numbers 14.4"]);
+    assert_eq!(names(targets.required::<Excel>()), ["2024", "365"]);
+    assert_eq!(names(targets.required::<ExcelMac>()), ["2024", "365"]);
+    assert_eq!(targets.required::<Numbers>().count(), 0);
+    assert_eq!(names(targets.best_effort::<Numbers>()), ["14.4"]);
+}
+
+#[test]
+fn a_best_effort_version_the_default_holds_adds_nothing_unreported() {
+    // `read` holds that nothing is reported, the entries the default
+    // holds whole (`excel-mac 365`, `excel 2024`) included.
+    let targets = read(&[], &["excel >= 2021", "excel-mac 365", "excel 2024"]);
+    assert_eq!(names(targets.required::<Excel>()), ["2024", "365"]);
+    assert_eq!(names(targets.best_effort::<Excel>()), ["2021"]);
+    assert_eq!(targets.best_effort::<ExcelMac>().count(), 0);
+}
+
+#[test]
+fn a_written_targets_replaces_the_default_and_overlaps_best_effort_as_before() {
+    let targets = read(&["libreoffice 26.8"], &["excel 2024"]);
+    assert_eq!(targets.required::<Excel>().count(), 0);
+    assert_eq!(targets.required::<ExcelMac>().count(), 0);
+    assert_eq!(names(targets.best_effort::<Excel>()), ["2024"]);
+    let (targets, problems) = parse(&["excel >= 2024"], &["excel 365"]);
+    let reasons: Vec<TargetReason> = problems.iter().map(|problem| problem.3).collect();
+    assert_eq!(reasons, [TargetReason::Overlap]);
+    assert_eq!(targets, None);
+}
+
+#[test]
+fn a_best_effort_entry_problem_is_still_reported_under_the_default() {
+    let (targets, problems) = parse(&[], &["excel 2020"]);
+    let found: Vec<(TargetList, TargetReason)> = problems
+        .iter()
+        .map(|(list, _, _, reason, _)| (*list, *reason))
+        .collect();
+    assert_eq!(
+        found,
+        [(TargetList::BestEffort, TargetReason::UnknownVersion)]
+    );
+    assert_eq!(targets, None);
 }
 
 const EXCEL: &str = "2007, 2010, 2013, 2016, 2019, 2021, 2024, 365";

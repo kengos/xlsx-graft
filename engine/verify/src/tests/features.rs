@@ -194,7 +194,17 @@ fn every_feature_is_found_and_checked_against_both_lists() {
             "/xl/richData/rdrichvaluestructure.xml: bestEffort cell_image libreoffice [] [24.2] x1",
         ]
     );
-    assert_eq!(every(&Targets::default()), Vec::<String>::new());
+    assert_eq!(
+        every(&Targets::default()),
+        [
+            "/xl/worksheets/sheet1.xml: targets sparkline excel_mac [] [2024, 365] x1",
+            "/xl/threadedComments/threadedComment1.xml: targets threaded_comment excel [] [2024] x2",
+            "/xl/threadedComments/threadedComment1.xml: targets threaded_comment excel_mac [] [2024] x2",
+            "/xl/model/item.data: targets data_model excel_mac [2024, 365] [] x1",
+            "/xl/richData/rdrichvaluestructure.xml: targets cell_image excel [] [2024] x1",
+            "/xl/richData/rdrichvaluestructure.xml: targets cell_image excel_mac [] [2024] x1",
+        ]
+    );
     assert_eq!(every(&targets(&["excel 365"], &[])), Vec::<String>::new());
 }
 

@@ -4,7 +4,7 @@
 //! found by the workbook part's sheets.
 
 use super::zip::Item;
-use super::{Book, Reader, Table, VerifyError, WORKSHEET, verify};
+use super::{Book, Reader, Table, VerifyError, WORKSHEET, excel_365, verify};
 use crate::{Limits, Rules, Targets};
 use std::io::Cursor;
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Limit};
@@ -64,9 +64,10 @@ fn table(name: &str, column: &str, xml: &str) -> String {
 }
 
 /// What verifying `book` under `limits` and `rules` finds, one line each:
-/// where, through which defined name, and what.
+/// where, through which defined name, and what, the functions checked
+/// against [`excel_365`].
 fn judged_under(book: Book, limits: &Limits, rules: &Rules) -> Vec<String> {
-    judged_against(book, limits, rules, &Targets::default())
+    judged_against(book, limits, rules, &excel_365())
 }
 
 /// [`judged_under`], the functions checked against `targets`.

@@ -166,11 +166,11 @@ impl Body {
             if let Some((bucket, in_scope)) = context.names.resolve(word.name, word.scope) {
                 self.names.push(bucket);
                 let named = in_scope || context.names.is_table(word.name);
-                self.target(context, word, word.table && named);
+                self.target(word, word.table && named);
                 self.function(context, word.name, !in_scope);
             } else {
                 let table = word.table && context.names.is_table(word.name);
-                self.target(context, word, table);
+                self.target(word, table);
                 self.function(context, word.name, !table);
             }
         } else if is_user_defined(word.prefix) {
@@ -181,7 +181,7 @@ impl Body {
             }
             self.function(context, &format!("_XLUDF.{}", word.name), true);
         } else {
-            self.target(context, word, false);
+            self.target(word, false);
             self.function(context, word.name, true);
         }
     }
@@ -191,8 +191,8 @@ impl Body {
     /// it, another workbook is named before it, or it is a `named` defined
     /// name in scope or table with no `(`, which then calls no function.
     /// A call stays a call whatever names share its name.
-    fn target(&mut self, context: Context<'_>, word: &Word<'_>, named: bool) {
-        if !word.seen || word.book || named || !context.targeted {
+    fn target(&mut self, word: &Word<'_>, named: bool) {
+        if !word.seen || word.book || named {
             return;
         }
         if let Some(row) = xlsx_graft_compat::function(word.name) {

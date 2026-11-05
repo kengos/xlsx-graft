@@ -8,6 +8,7 @@ mod targets;
 mod words;
 
 use super::{FormulaJudge, Names, Place};
+use crate::tests::excel_365;
 use crate::{FunctionClass, FunctionTable, Rules, Targets};
 use xlsx_graft_diagnostics::{
     Diagnostic, Diagnostics, Echo, FormulaMalformedReason, FunctionDenial, Location, PartKind,
@@ -35,13 +36,13 @@ impl FunctionTable for Table {
 }
 
 /// What judging each formula at its place, by `rules` with `names`,
-/// reports.
+/// reports, the functions checked against [`excel_365`].
 fn judge_at(
     rules: &Rules,
     names: &Names,
     formulas: &[(Place<'_>, &str)],
 ) -> Vec<(Diagnostic, Location)> {
-    judge_against(rules, &Targets::default(), names, formulas)
+    judge_against(rules, &excel_365(), names, formulas)
 }
 
 /// What judging each formula at its place, by `rules` with `names`,
