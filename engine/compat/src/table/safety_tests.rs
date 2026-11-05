@@ -2,7 +2,7 @@
 //! safety must pass, the functions it classifies as dangerous, and the
 //! helpers its rows are written with.
 
-use super::{FUNCTIONS, SAFETY, dangerous, safe, unreviewed};
+use super::{FUNCTIONS, REVIEWED_IN, REVIEWED_ON, SAFETY, dangerous, reviewed, safe, unreviewed};
 use crate::safety::{Danger, Dangerous, Review, Safe, Safety, Scheduled};
 use std::collections::HashSet;
 
@@ -574,7 +574,7 @@ fn every_function_ecma_376_defines_has_a_row() {
 }
 
 #[test]
-fn only_the_listed_functions_are_dangerous_and_every_other_function_is_unreviewed() {
+fn only_the_listed_functions_are_dangerous() {
     let mut dangerous: Vec<(&str, Danger)> = SAFETY
         .iter()
         .filter_map(|row| match row.safety {
@@ -608,12 +608,6 @@ fn only_the_listed_functions_are_dangerous_and_every_other_function_is_unreviewe
             ("WEBSERVICE", Danger::Network),
         ]
     );
-    // Every other function is not reviewed yet; none is reviewed safe.
-    let unreviewed = SAFETY
-        .iter()
-        .filter(|row| row.safety == Safety::Unreviewed)
-        .count();
-    assert_eq!(unreviewed, SAFETY.len() - dangerous.len());
     // Every dangerous function has been denied from the first version.
     for row in SAFETY {
         if let Safety::Dangerous(found) = row.safety {
@@ -624,6 +618,51 @@ fn only_the_listed_functions_are_dangerous_and_every_other_function_is_unreviewe
                 row.name
             );
         }
+    }
+}
+
+#[test]
+fn only_the_listed_functions_are_unreviewed_and_every_other_function_is_reviewed_safe() {
+    let unreviewed: Vec<&str> = SAFETY
+        .iter()
+        .filter(|row| row.safety == Safety::Unreviewed)
+        .map(|row| row.name)
+        .collect();
+    assert_eq!(
+        unreviewed,
+        [
+            "ENCODEURL",
+            "FILTERXML",
+            "FORMULATEXT",
+            "FIELDVALUE",
+            "CHAR",
+            "CODE",
+            "GETPIVOTDATA",
+            "ANCHORARRAY"
+        ]
+    );
+    // 526 functions: 498 reviewed safe, 20 dangerous and 8 unreviewed.
+    let safe: Vec<&Safe> = SAFETY
+        .iter()
+        .filter_map(|row| match &row.safety {
+            Safety::ReviewedSafe(safe) => Some(safe),
+            _ => None,
+        })
+        .collect();
+    assert_eq!((SAFETY.len(), safe.len()), (526, 498));
+    // No reviewed-safe function is scheduled to be denied yet.
+    assert!(safe.iter().all(|safe| safe.scheduled.is_none()));
+    // The functions templates use most, and INDIRECT and OFFSET, which the
+    // approved plan of issue #15 accepts, are named one by one so that a
+    // change of their safety fails this test by name, not only by count.
+    for name in [
+        "SUM", "IF", "SUMIFS", "VLOOKUP", "INDEX", "MATCH", "TEXT", "DATE", "INDIRECT", "OFFSET",
+    ] {
+        let row = SAFETY.iter().find(|row| row.name == name);
+        assert!(
+            row.is_some_and(|row| matches!(row.safety, Safety::ReviewedSafe(_))),
+            "{name}"
+        );
     }
 }
 
@@ -830,4 +869,10 @@ fn the_helpers_build_the_safety_they_name() {
             scheduled: None,
         })
     );
+    // reviewed() gives the day and the Excel of the rows' review.
+    assert_eq!(
+        (REVIEWED_ON, REVIEWED_IN),
+        ("2026-11-05", "Excel 365, 2026-11")
+    );
+    assert_eq!(reviewed(&["ECMA-376-1:2016 §18.17.7.306"]), safe(review));
 }

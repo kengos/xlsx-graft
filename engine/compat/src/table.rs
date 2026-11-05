@@ -6,18 +6,22 @@
 //!
 //! ```text
 //! "TEXTJOIN" => s(xl(X::V2019), xl(M::V2019), on(L::V24_2), YES, le(N::V14_4), on(O::V8_0)),
-//!     requires: [], sources: S2019, safety: unreviewed();
+//!     requires: [], sources: S2019,
+//!     safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/textjoin-function"]);
 //! ```
 //!
 //! The six cells are the columns of [`Support`] in order, each typed by its
 //! application's versions. `safety:` is the function's [`Safety`]:
-//! `safe(review)`, `dangerous(Danger::Network)` or `unreviewed()`. A
-//! function the table does not check against a template's targets yet
-//! goes in the `unchecked { ... }` block at the end, with its safety only:
-//! `"SUM" => safety: unreviewed();`. A feature's row starts with its
-//! variant and its name instead: `DynamicArray "dynamic_array" => s(...),
-//! requires: [], sources: &[...];`, and the rows declare [`Feature`]
-//! itself.
+//! `reviewed(&["ECMA-376-1:2016 §18.17.7.306"])` (the sources read on
+//! [`REVIEWED_ON`]), `safe(review)` for a review whose day or Excel differs from
+//! [`REVIEWED_ON`] / [`REVIEWED_IN`],
+//! `dangerous(Danger::Network)` or `unreviewed()`. A function the table
+//! does not check against a template's targets yet goes in the
+//! `unchecked { ... }` block at the end, with its safety only:
+//! `"SUM" => safety: reviewed(&["ECMA-376-1:2016 §18.17.7.306"]);`. A
+//! feature's row starts with its variant and its name instead:
+//! `DynamicArray "dynamic_array" => s(...), requires: [], sources: &[...];`,
+//! and the rows declare [`Feature`] itself.
 
 use crate::app::{Excel, ExcelMac, GoogleSheets, LibreOffice, Numbers, OnlyOffice, Version};
 use crate::entry::{Entry, Fallback};
@@ -162,11 +166,25 @@ const fn unk<V: Version>() -> Entry<V> {
 /// Google Sheets has it.
 const YES: Entry<GoogleSheets> = Entry::added(GoogleSheets::Current);
 
+/// The day the definitions of the `reviewed(...)` rows were read.
+const REVIEWED_ON: &str = "2026-11-05";
+/// The [`Review::version`] of the `reviewed(...)` rows: Excel for Microsoft
+/// 365 in the month of [`REVIEWED_ON`]. The review read the definitions
+/// only (ECMA-376-1:2016 §18.17.7 and the pages at Microsoft); it did not
+/// compute any formula in Excel.
+const REVIEWED_IN: &str = "Excel 365, 2026-11";
+
+/// Reviewed safe by reading `sources` on [`REVIEWED_ON`], with no denial
+/// scheduled.
+const fn reviewed(sources: &'static [&'static str]) -> Safety {
+    safe(Review {
+        on: REVIEWED_ON,
+        version: REVIEWED_IN,
+        sources,
+    })
+}
+
 /// Reviewed safe by `review`, with no denial scheduled.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "the rows are reviewed in a later change")
-)]
 const fn safe(review: Review) -> Safety {
     Safety::ReviewedSafe(Safe {
         review,

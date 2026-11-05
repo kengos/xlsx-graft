@@ -26,8 +26,15 @@ fn a_function_excel_2007_had_has_no_row() {
 #[test]
 fn the_safety_of_a_function_is_looked_up_by_its_name_in_any_case() {
     // SUM has no row of compatibility, but has a safety.
-    assert_eq!(function_safety("sum"), Some(Safety::Unreviewed));
-    assert_eq!(function_safety("XLOOKUP"), Some(Safety::Unreviewed));
+    assert!(matches!(
+        function_safety("sum"),
+        Some(Safety::ReviewedSafe(_))
+    ));
+    assert!(matches!(
+        function_safety("XLOOKUP"),
+        Some(Safety::ReviewedSafe(_))
+    ));
+    assert_eq!(function_safety("filterxml"), Some(Safety::Unreviewed));
     assert!(matches!(
         function_safety("WebService"),
         Some(Safety::Dangerous(Dangerous {
