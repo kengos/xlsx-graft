@@ -112,6 +112,15 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   editing, `wc -l` the files you will touch and plan the split (`foo.rs` +
   `foo/<concern>.rs`, no `mod.rs`); never trim comments or tests to fit.
   Details: [docs/guidelines.md](docs/guidelines.md) § File length.
+- A new spec citation names, by its year, the edition
+  [README.md § Specifications](README.md#specifications) gives
+  (`ECMA-376-1:2016 §…`), and none where it gives none; an older edition
+  only to compare with it, also by its year (`ECMA-376-2:2012 §…`). That
+  section's "Which rule wins": in reading and verifying, MS-OI29500 overrides
+  ECMA-376 and Excel as seen overrides MS-OI29500 (name which Excel and the
+  note it overrides); what the writer makes (not what it carries over from
+  a template) breaks neither ECMA-376 nor MS-OI29500, and never takes a
+  form admitted only because Excel opens it.
 - No `unwrap` / `expect` / `panic!` outside tests, no `todo!` anywhere: every
   workbook is untrusted input and degrades to a diagnostic or an `Err`. A
   silenced lint carries `reason = "..."`.
