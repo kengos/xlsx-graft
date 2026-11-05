@@ -209,12 +209,21 @@ fn only_a_function_of_this_workbook_the_reader_saw_is_checked() {
 }
 
 #[test]
-fn no_targets_check_nothing() {
+fn no_targets_check_the_default() {
     let found = judge_against(
-        &Rules::default().allow_function("XLOOKUP"),
+        &Rules::default()
+            .allow_function("XLOOKUP")
+            .allow_function("WEBSERVICE"),
         &Targets::default(),
         &Names::default(),
-        &[(cell(SHEET1, "A1", 0), "_xlfn.XLOOKUP(1,A1:A3,B1:B3)")],
+        &[
+            (cell(SHEET1, "A1", 0), "_xlfn.XLOOKUP(1,A1:A3,B1:B3)"),
+            (cell(SHEET1, "A2", 0), "WEBSERVICE(\"https://x\")"),
+        ],
     );
-    assert_eq!(found, []);
+    let codes: Vec<Code> = found
+        .iter()
+        .map(|(diagnostic, _)| diagnostic.code())
+        .collect();
+    assert_eq!(codes, [Code::TargetFunctionUnsupported]);
 }

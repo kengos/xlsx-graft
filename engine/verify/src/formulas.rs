@@ -164,7 +164,9 @@ pub struct Place<'a> {
 /// judge.judge(&place, "SUM(1,2)+Fetch");
 /// let mut diagnostics = Diagnostics::new();
 /// judge.finish(&mut diagnostics);
-/// assert_eq!(diagnostics.records().len(), 1);
+/// // `WEBSERVICE` is dangerous, and Excel for Mac, which the default
+/// // targets hold, lacks it.
+/// assert_eq!(diagnostics.records().len(), 2);
 /// ```
 pub struct FormulaJudge<'a> {
     context: Context<'a>,
@@ -178,8 +180,6 @@ struct Context<'a> {
     rules: &'a Rules,
     functions: &'a dyn FunctionTable,
     targets: &'a Targets,
-    /// Whether `targets` hold any version to check against.
-    targeted: bool,
     names: &'a Names,
 }
 
@@ -198,7 +198,6 @@ impl<'a> FormulaJudge<'a> {
                 rules,
                 functions,
                 targets,
-                targeted: !targets.is_empty(),
                 names,
             },
             graph: Graph::new(names),

@@ -61,19 +61,19 @@ template is reported, not rewritten (below).
   engine's compatibility table: a function or a feature that a version
   in `targets:` lacks, or is not confirmed to have, is an error, and one in
   `bestEffort:` a warning. A function the table has no row for, one
-  Excel 2007 already had, is not checked. Today a template without
-  `targets:` is checked against its `bestEffort:` alone, and one with
-  neither against nothing; verifying is to take the writer's default
-  below. No host reads a template yet: verifying is reached only through
-  the engine's Rust API, which takes the lists from its caller.
+  Excel 2007 already had, is not checked. A template without `targets:`
+  (or with an empty one) is taken to say
+  `targets: [excel >= 2024, excel-mac >= 2024]`, whatever its
+  `bestEffort:` says; a `bestEffort:` version the default already covers
+  adds nothing (one that a written `targets:` covers stays an error,
+  `target_invalid`). No host reads a template yet: verifying is reached
+  only through the engine's Rust API, which takes the lists from its
+  caller.
 - **Writing** (not built yet; this is its policy):
   - It writes Transitional.
   - It honours the template's `targets:`, `bestEffort:` and `allow` as
-    verifying does. A template without `targets:` is taken to say
-    `targets: [excel >= 2024, excel-mac >= 2024]`, whatever its
-    `bestEffort:` says; a `bestEffort:` version the default already
-    covers adds nothing (one that a written `targets:` covers stays an
-    error, `target_invalid`).
+    verifying does, the default for a template without `targets:`
+    included.
   - It never drops what it was asked to write without saying so. Where a
     function or a feature the caller asked for is one a version in
     `targets:` lacks, or is not confirmed to have, and has an equivalent

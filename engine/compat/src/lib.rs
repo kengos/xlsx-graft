@@ -18,7 +18,8 @@
 //! [`Targets`] reads a template's `targets:` and `bestEffort:` lists
 //! (`excel >= 2016`, `google-sheets`) into the versions of each application
 //! a workbook must, and should, work in, and reports every entry that names
-//! none as a `target_invalid` diagnostic. [`Targets::check`] says which of
+//! none as a `target_invalid` diagnostic; a template without `targets:` is
+//! taken to say [`DEFAULT_TARGETS`]. [`Targets::check`] says which of
 //! those versions lack a function or a feature, or are not confirmed to
 //! have it, the features it needs included ([`Unmet`]);
 //! [`Unmet::function_diagnostic`] is the diagnostic a workbook that calls
@@ -48,7 +49,7 @@ pub use app::{App, Excel, ExcelMac, GoogleSheets, LibreOffice, Numbers, OnlyOffi
 pub use entry::{Added, Entry, Fallback, Status};
 pub use row::{Row, Support};
 pub use table::Feature;
-pub use targets::{Targets, Unmet};
+pub use targets::{DEFAULT_TARGETS, Targets, Unmet};
 
 use std::collections::HashMap;
 use std::sync::OnceLock;

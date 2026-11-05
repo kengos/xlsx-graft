@@ -30,6 +30,14 @@ const MICROSOFT: &str = "http://schemas.microsoft.com/office/2006/relationships/
 /// A worksheet's media type.
 const WORKSHEET: &str = "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
 
+/// Targets that hold Excel 365 alone, which has every function and
+/// feature the tests not about targets use: the default's other versions
+/// lack some (`WEBSERVICE` on a Mac, `STOCKHISTORY` in Excel 2024).
+pub(crate) fn excel_365() -> Targets {
+    let mut diagnostics = Diagnostics::new();
+    Targets::parse(&["excel 365"], &[] as &[&str], &mut diagnostics).unwrap()
+}
+
 /// The reader every test reads a package from: bytes in memory whose reads
 /// fail when they start in a range a test sets. One reader type for every
 /// test, since the coverage gate counts a line generic over the reader as
@@ -222,7 +230,7 @@ fn run(
         limits,
         rules,
         &Table,
-        &Targets::default(),
+        &excel_365(),
         &mut diagnostics,
     )?;
     Ok(seen(diagnostics))
