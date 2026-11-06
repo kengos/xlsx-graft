@@ -64,7 +64,7 @@ engine\:lint: ## engine/ line budget + //! headers + crate lint opt-in + fmt --c
 
 _engine-lint: _engine-budget _engine-fmt _engine-clippy
 
-engine\:budget: ## .rs line budget + //! headers + every crate opts into the workspace lints + toolchain pins (no Docker)
+engine\:budget: ## .rs line budget + //! headers + every crate opts into the workspace lints + toolchain pins + fixtures/ notes and names (no Docker)
 	@$(call gate,_engine-budget,engine:budget)
 
 _engine-budget:
@@ -74,6 +74,8 @@ _engine-budget:
 	@scripts/check-crate-lints.sh
 	@echo "== toolchain pins =="
 	@scripts/check-toolchain-pins.sh
+	@echo "== fixtures =="
+	@scripts/check-fixtures.sh
 
 engine\:fmt: ## cargo fmt --check
 	@$(call gate,_engine-fmt,engine:fmt)

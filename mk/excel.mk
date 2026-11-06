@@ -42,3 +42,20 @@ excel\:check: ## Open F='<xlsx>...' in Excel for Mac and print the dialogs and C
 	if [ -n "$$EXCEL_CHECK_CELLS" ]; then set -- --cells="$$EXCEL_CHECK_CELLS" "$$@"; fi; \
 	if [ -n "$$EXCEL_CHECK_OUT" ]; then set -- --out="$$EXCEL_CHECK_OUT" "$$@"; fi; \
 	exec python3 -I scripts/excel-check "$$@"
+
+# fixtures:scrub — removes from each workbook in F the account's name and the
+# local paths Excel for Mac saves in it, in place (scripts/fixtures-scrub),
+# before it goes into fixtures/. Runs on the host with python3, not in
+# Docker; it is not a gate. scripts/check-fixtures.sh, run by engine:budget,
+# refuses a workbook in fixtures/ that still holds them.
+
+.PHONY: fixtures\:scrub
+
+fixtures\:scrub: export FIXTURES_SCRUB_F = $(value F)
+fixtures\:scrub: ## Remove the author's name and local paths Excel saves from F='<xlsx>...', in place (before adding them to fixtures/)
+	@set -f; set -- $$FIXTURES_SCRUB_F; \
+	if [ $$# -eq 0 ]; then \
+		echo "usage: make fixtures:scrub F='<xlsx>...'" >&2; \
+		exit 2; \
+	fi; \
+	exec python3 -I scripts/fixtures-scrub "$$@"

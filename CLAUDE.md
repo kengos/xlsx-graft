@@ -54,7 +54,9 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
 - `make engine:verify` is the engine's bar: line budget + `//!` headers + every
   crate's `[lints] workspace = true` + the toolchain pins (the Makefile's
   versions equal `docker/toolchain.Dockerfile`'s, and the pinned image holds
-  the versions of its tag), fmt, clippy `-D warnings` (with the workspace
+  the versions of its tag) + `fixtures/` (every workbook there has its row
+  in `fixtures/README.md` and each row its workbook, and none holds an
+  author's name, an `absPath` or a home folder path), fmt, clippy `-D warnings` (with the workspace
   lints in `engine/Cargo.toml`), tests at **100% line coverage over the whole
   workspace**, doctests, and the C ABI check (the built shared
   library's `xlsx_graft_*` exports match `engine/capi/include/xlsx_graft.h`).

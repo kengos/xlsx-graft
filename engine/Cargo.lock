@@ -728,6 +728,7 @@ dependencies = [
  "xlsx-graft-formula",
  "xlsx-graft-package",
  "xlsx-graft-read",
+ "xlsx-graft-spool",
  "xlsx-graft-xml",
 ]
 
