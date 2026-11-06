@@ -9,7 +9,7 @@ use xlsx_graft_spool::TempFiles;
 use xlsx_graft_verify::{DefaultFunctions, Limits, Rules, Targets, verify as run_verify};
 
 /// A diagnostic as one line: its code, then each field of its location
-/// it has (`part=`, `place=`, `rel=`, `name=`), in that order.
+/// it has (`part=`, `rel=`, `place=`, `name=`), in that order.
 fn line(record: &Record) -> String {
     let location = &record.location;
     let mut out = String::from(record.diagnostic.code().as_str());
@@ -44,20 +44,30 @@ pub(crate) fn verify(bytes: &[u8]) -> Vec<String> {
     diagnostics.records().iter().map(line).collect()
 }
 
-/// A row as one line: its number, then each cell's value.
+/// A row as one line: the sheet's name and the row's number
+/// (`Sheet1!2:`), then each cell's value as [`cell`] writes it, separated
+/// by ` | `.
 fn row_line(sheet: &str, row: &Row) -> String {
     let cells: Vec<String> = row.values().map(|value| cell(&value)).collect();
     format!("{sheet}!{}: {}", row.number(), cells.join(" | "))
 }
 
-/// A cell's value as the line shows it: a string in quotes, a number as
-/// Rust prints an `f64`, and the rest as its `Debug` form.
+/// A cell's value as [`row_line`] writes it: nothing for an empty cell, a
+/// string in quotes, a number as Rust prints an `f64`, a boolean as
+/// `true` or `false`, a date, a time or a date and time in ISO 8601
+/// (`2024-01-15`), and an error value or elapsed time after its kind
+/// (`error #REF!`).
 fn cell(value: &Value) -> String {
     match value {
         Value::Empty => String::new(),
         Value::String(text) => format!("{text:?}"),
         Value::Number(number) => format!("{number}"),
-        other => format!("{other:?}"),
+        Value::Bool(flag) => format!("{flag}"),
+        Value::Date(date) => format!("{date}"),
+        Value::Time(time) => format!("{time}"),
+        Value::DateTime(date_time) => format!("{date_time}"),
+        Value::Elapsed(elapsed) => format!("elapsed {elapsed:?}"),
+        Value::Error(code) => format!("error {code}"),
     }
 }
 
@@ -79,7 +89,11 @@ pub(crate) fn read(bytes: &[u8]) -> Vec<String> {
         lines.push(format!("date system {:?}", book.date_system()));
         for (index, sheet) in book.sheets().iter().enumerate() {
             let kind = sheet.part().map(|part| format!("{:?}", part.kind()));
-            lines.push(format!("sheet {:?} {}", sheet.name(), kind.unwrap_or_default()));
+            lines.push(format!(
+                "sheet {:?} {}",
+                sheet.name(),
+                kind.unwrap_or_default()
+            ));
             let Some(mut rows) = book.rows(index) else {
                 continue;
             };
@@ -89,6 +103,11 @@ pub(crate) fn read(bytes: &[u8]) -> Vec<String> {
             }
         }
     }
-    lines.extend(diagnostics.records().iter().map(|r| format!("diagnostic {}", line(r))));
+    lines.extend(
+        diagnostics
+            .records()
+            .iter()
+            .map(|r| format!("diagnostic {}", line(r))),
+    );
     lines
 }

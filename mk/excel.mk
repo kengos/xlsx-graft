@@ -47,7 +47,7 @@ excel\:check: ## Open F='<xlsx>...' in Excel for Mac and print the dialogs and C
 # local paths Excel for Mac saves in it, in place (scripts/fixtures-scrub),
 # before it goes into fixtures/. Runs on the host with python3, not in
 # Docker; it is not a gate. scripts/check-fixtures.sh, run by engine:budget,
-# refuses a workbook in fixtures/ that still holds them.
+# fails when a workbook in fixtures/ still holds them.
 
 .PHONY: fixtures\:scrub
 

@@ -64,7 +64,7 @@ engine\:lint: ## engine/ line budget + //! headers + crate lint opt-in + fmt --c
 
 _engine-lint: _engine-budget _engine-fmt _engine-clippy
 
-engine\:budget: ## .rs line budget + //! headers + every crate opts into the workspace lints + toolchain pins + fixtures/ notes and names (no Docker)
+engine\:budget: ## .rs line budget + //! headers + every crate opts into the workspace lints + toolchain pins + fixtures/ (README rows, no names or paths) (no Docker)
 	@$(call gate,_engine-budget,engine:budget)
 
 _engine-budget:

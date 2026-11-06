@@ -4,9 +4,9 @@
 //! `expected.rs`, one entry per workbook, and `render.rs` turns the
 //! results into the lines compared.
 //!
-//! The workbooks are read from disk when the tests run, not embedded in
-//! the binary, so the crate builds without them: `cargo package` leaves
-//! `fixtures/` out, and only these tests need it.
+//! `fixtures/` is outside the crate: the tests read the workbooks from
+//! disk when they run, and do not embed them in the test binary, so the
+//! crate's library builds without that folder.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,

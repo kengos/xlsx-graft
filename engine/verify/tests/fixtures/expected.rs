@@ -12,8 +12,9 @@ pub(crate) struct Expected {
 
 /// One entry per workbook in `fixtures/`, sorted by file name.
 pub(crate) const EXPECTED: &[Expected] = &[
-    // A clustered column chart of Sheet1!A1:B4: its chart and drawing
-    // parts raise nothing, and its series formulas are judged as formulas.
+    // A clustered column chart of Sheet1!A1:B4: verify judges the formulas
+    // of its series as formulas and pushes no diagnostic for its chart and
+    // drawing parts.
     Expected {
         file: "chart.xlsx",
         verify: &[],
@@ -35,9 +36,9 @@ pub(crate) const EXPECTED: &[Expected] = &[
             "date system Base1904",
             "sheet \"Sheet1\" Worksheet",
             "Sheet1!1: \"Serial\" | \"Date\"",
-            "Sheet1!2: 0 | Date(Date { year: 1904, month: 1, day: 1 }) | Date(Date { year: 2024, month: 1, day: 15 })",
-            "Sheet1!3: 43844 | Date(Date { year: 2024, month: 1, day: 15 })",
-            "Sheet1!4: 1.5 | DateTime(DateTime { date: Date { year: 1904, month: 1, day: 2 }, time: Time { hour: 12, minute: 0, second: 0, millisecond: 0 } })",
+            "Sheet1!2: 0 | 1904-01-01 | 2024-01-15",
+            "Sheet1!3: 43844 | 2024-01-15",
+            "Sheet1!4: 1.5 | 1904-01-02T12:00:00.000",
         ],
     },
     // Formulas that spill (SEQUENCE, SORT, FILTER, UNIQUE) and a spill
@@ -94,22 +95,22 @@ pub(crate) const EXPECTED: &[Expected] = &[
             "date system Compatibility1900",
             "sheet \"Sheet1\" Worksheet",
             "Sheet1!1: 1 | 1 |  | \"a'#\" | \"a\\\"b\" | \"x[y]\" | \"calc\" | 2 |  | 1",
-            "Sheet1!2: 2 | 2 |  | 2 | 2 | 2 | Error(\"#REF!\")",
-            "Sheet1!3: 3 | 3 |  | 3 | 3 | 3 | Error(\"#REF!\")",
+            "Sheet1!2: 2 | 2 |  | 2 | 2 | 2 | error #REF!",
+            "Sheet1!3: 3 | 3 |  | 3 | 3 | 3 | error #REF!",
             "Sheet1!5:  |  |  |  |  |  |  | 1",
             "Sheet1!9:  |  |  |  |  |  |  | 2",
             "Sheet1!10:  |  |  |  |  |  |  | 2",
             "Sheet1!11:  |  |  |  |  |  |  | 2",
             "Sheet1!14:  |  |  |  |  |  |  | 2",
             "Sheet1!17:  |  |  |  |  |  |  | 2",
-            "Sheet1!18:  |  |  |  |  |  |  | Error(\"#REF!\")",
+            "Sheet1!18:  |  |  |  |  |  |  | error #REF!",
             "Sheet1!19:  |  |  |  |  |  |  | 5",
             "Sheet1!20:  |  |  |  |  |  |  | 5",
             "Sheet1!21:  |  |  |  |  |  |  | 2",
             "Sheet1!22:  |  |  |  |  |  |  | 6",
-            "Sheet1!24:  |  |  |  |  |  |  | Error(\"#NAME?\")",
+            "Sheet1!24:  |  |  |  |  |  |  | error #NAME?",
             "Sheet1!25:  |  |  |  |  |  |  | 1",
-            "Sheet1!26:  |  |  |  |  |  |  | Error(\"#VALUE!\")",
+            "Sheet1!26:  |  |  |  |  |  |  | error #VALUE!",
             "Sheet1!27:  |  |  |  |  |  |  | 3",
             "Sheet1!28:  |  |  |  |  |  |  | \"SUM(\\\"x\\\")\"",
             "Sheet1!29:  |  |  |  |  |  |  | 10",

@@ -13,9 +13,10 @@
 #                               every line it supports
 #     make verify LATEST=1      the same, each SDK on its latest line only
 #     make engine:verify        engine: budget + toolchain pins + fixtures/
-#                               notes and names + fmt + clippy + tests at 100%
-#                               line coverage + doctests + C ABI symbols, in
-#                               the pinned toolchain image
+#                               (README rows, no names or paths) + fmt +
+#                               clippy + tests at 100% line coverage +
+#                               doctests + C ABI symbols, in the pinned
+#                               toolchain image
 #     make sdk:verify           every SDK, every line it supports (LATEST=1)
 #     make sdk:verify:ruby      the Ruby SDK on every supported line (LATEST=1,
 #                               or RUBY_VER=<line> for one): rubocop + rspec at

@@ -14,12 +14,14 @@ which read every workbook here.
 | `chart.xlsx` | A clustered column chart (chart and drawing parts) | Excel for Mac 16.114.4 | [`scripts/chart.applescript`](scripts/chart.applescript) | No repair, no dialog (2026-11-06) |
 | `date1904.xlsx` | The 1904 date system (`workbookPr@date1904`), dates and a date-time under date formats | Excel for Mac 16.114.4 | [`scripts/date1904.applescript`](scripts/date1904.applescript) | No repair, no dialog (2026-11-06) |
 | `dynamic-array.xlsx` | Formulas that spill (`SEQUENCE`, `SORT`, `FILTER`, `UNIQUE`) and a spill reference (`A1#`) | Excel for Mac 16.114.4 | [`scripts/dynamic-array.applescript`](scripts/dynamic-array.applescript) | No repair, no dialog (2026-11-06) |
-| `external-link.xlsx` | Formulas that refer to another workbook, `external-source.xlsx` (an external workbook reference part) | Excel for Mac 16.114.4 | [`scripts/external-link.applescript`](scripts/external-link.applescript), then `make fixtures:scrub` removed the linked workbook's absolute path | No repair; Excel asks whether to update the link, answered "Don't Update" (2026-11-06) |
+| `external-link.xlsx` | Formulas that refer to another workbook, `external-source.xlsx` (an external workbook reference part) | Excel for Mac 16.114.4 | [`scripts/external-link.applescript`](scripts/external-link.applescript) | No repair; Excel asks whether to update the link, answered "Don't Update" (2026-11-06) |
 | `external-source.xlsx` | The workbook `external-link.xlsx` refers to | Excel for Mac 16.114.4 | [`scripts/external-link.applescript`](scripts/external-link.applescript) | No repair, no dialog (2026-11-06) |
-| `formulas.xlsx` | Formulas the formula lexer was checked against: defined names, `LAMBDA`, a table's structured references, quoted sheet names, `WEBSERVICE` | Excel for Mac 16 (the release was not recorded), 2026-11-02 | [Below](#formulasxlsx) | No repair, no dialog (2026-11-06) |
+| `formulas.xlsx` | Formulas the formula lexer was checked against: defined names, `LAMBDA`, a table's structured references, quoted sheet names, `WEBSERVICE` | Excel for Mac 16 (the release was not recorded) | [Below](#formulasxlsx) | No repair, no dialog (2026-11-06) |
 | `table.xlsx` | A table with a calculated column and a totals row, and a formula outside it that refers to a column of it | Excel for Mac 16.114.4 | [`scripts/table.applescript`](scripts/table.applescript) | No repair, no dialog (2026-11-06) |
 
-"No repair" means `make excel:check` gave `repair_dialog: false` and
+Every workbook went through `make fixtures:scrub` before it was added
+([Adding a workbook](#adding-a-workbook)). "No repair" means
+`make excel:check` gave `repair_dialog: false` and
 `error: null`; "no dialog" that it also gave `dialogs: []`.
 
 ## Adding a workbook
@@ -39,8 +41,12 @@ which read every workbook here.
 
 `make engine:budget` (part of `make engine:verify`) runs
 `scripts/check-fixtures.sh`, which fails when a workbook here has no row
-above, a row names a workbook that is not here, or a workbook still holds
-an author's name, an `absPath` or a home folder path.
+above, a row names a workbook that is not here, a file here is neither a
+workbook, this README nor an AppleScript in `scripts/`, or a workbook still
+holds an account's name (in `docProps/core.xml`, `docProps/app.xml`, a
+comment's author or a person), an `absPath` or a home folder path. The
+script says which; `make fixtures:scrub` removes the ones in
+`docProps/core.xml`, the `absPath` and a linked workbook's absolute path.
 
 ## The AppleScripts
 
@@ -59,7 +65,8 @@ osascript fixtures/scripts/table.applescript ~/Library/Containers/com.microsoft.
   saved as a legacy formula that does not spill, and a table's calculated
   column is not filled. `dynamic-array.applescript` and
   `table.applescript` paste those formulas from the clipboard instead,
-  which Excel takes as typed, and restore the clipboard's text at the end.
+  which Excel takes as typed, and restore the clipboard's text after the
+  last paste (what else it held, such as an image, is lost).
   Excel comes to the front while they run.
 - `external-link.applescript` saves both workbooks in the folder it is
   given, so the link's target is the file name alone. Excel also writes the

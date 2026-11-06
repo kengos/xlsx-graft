@@ -15,14 +15,18 @@ so before it is added, this script rewrites each BOOK so that
     reads first), and its .rels file no relationship that only those
     alternate URLs named.
 
-Every other entry is copied unchanged, in the same order and with the same
-compression. The script then reads every entry of the rewritten BOOK and
-exits 1, leaving that BOOK as it was, when one of them still holds the
-home folder of the account that runs it (os.path.expanduser("~")).
+Every other entry keeps its bytes, its order and its compression method;
+the compressed bytes are Python's, not Excel's. Before it writes a BOOK,
+the script looks for the home folder of the account that runs it
+(os.path.expanduser("~")) in every rewritten entry, and when one still
+holds it, prints the entries and leaves that BOOK as it was. A BOOK with
+two entries of the same name is left as it was too. Either exits 1.
 
-scripts/check-fixtures.sh checks the same things of every workbook in
-fixtures/ as part of `make engine:budget`. Run this script through
-`make fixtures:scrub`, or directly for a path that contains a space.
+scripts/check-fixtures.sh, run by `make engine:budget`, fails on a
+workbook in fixtures/ that still holds these names and paths, and on a few
+more this script does not remove (see that script). Run this script
+through `make fixtures:scrub`, or directly for a path that contains a
+space.
 """
 
 import os
@@ -86,6 +90,8 @@ def rewrite(path):
     with zipfile.ZipFile(path) as zf:
         infos = zf.infolist()
         entries = {info.filename: zf.read(info) for info in infos}
+    if len(entries) != len(infos):
+        return f"{path}: two entries share a name"
     scrubbed = scrub(entries)
     home = os.path.expanduser("~").encode()
     left = [name for name, data in scrubbed.items() if home in data]
@@ -95,6 +101,7 @@ def rewrite(path):
     fd, tmp = tempfile.mkstemp(dir=folder, suffix=".xlsx")
     os.close(fd)
     try:
+        os.chmod(tmp, os.stat(path).st_mode & 0o777)
         with zipfile.ZipFile(tmp, "w") as zf:
             for info in infos:
                 zf.writestr(info, scrubbed[info.filename], compress_type=info.compress_type)
