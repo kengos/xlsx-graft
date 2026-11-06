@@ -19,12 +19,30 @@ pub struct SafetyRow {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Safety {
-    /// Its definition was read, and its result depends only on its
-    /// arguments, the workbook's cells and names, the clock (NOW, TODAY),
-    /// random numbers (RAND) and the application's locale settings (the
-    /// decimal separator TEXT and VALUE use). None of these sends anything
-    /// out of the workbook, and none names the machine or the file: those
-    /// are [`Danger::MachineInfo`].
+    /// The review read the pages the function's row in the function table
+    /// cites, and found that the function's result depends only on values
+    /// in workbooks, the clock, random numbers and the application's locale
+    /// settings. Values in workbooks are, for example, the function's
+    /// arguments, the cells a reference points to, the values of the
+    /// defined names the formula uses, the sheets of the workbook that
+    /// holds the formula (SHEETS) and the position of the cell that holds
+    /// the formula (ROW and COLUMN without arguments). NOW and TODAY read
+    /// the clock, RAND returns random numbers, and the locale settings
+    /// change how a function such as TEXT or VALUE writes numbers and dates
+    /// as text or reads them from text.
+    ///
+    /// The function does none of the things a [`Danger`] names: it does not
+    /// use a service on the network ([`Danger::Network`]), read data from a
+    /// source other than workbooks, such as a real-time data server or an
+    /// OLAP cube ([`Danger::ExternalData`]), run code outside the workbook
+    /// ([`Danger::ExternalCode`]), return information about the machine
+    /// that computes it or the path of the workbook's file
+    /// ([`Danger::MachineInfo`]), or make its cell open, when clicked, a
+    /// link whose target the formula computes ([`Danger::OpensLink`]).
+    ///
+    /// The review does not judge which cells a reference points to, nor
+    /// whether the cells are in another workbook: verify judges the
+    /// reference.
     ReviewedSafe(Safe),
     /// It is denied for the kind of [`Danger`] given.
     Dangerous(Dangerous),
@@ -113,7 +131,7 @@ pub struct Dangerous {
 pub enum Danger {
     /// It sends data to, or reads data from, a service on the network.
     Network,
-    /// It reads data from a source outside the workbook, such as a
+    /// It reads data from a source other than workbooks, such as a
     /// real-time data server or an OLAP cube.
     ExternalData,
     /// It runs code outside the workbook: a procedure of a dynamic link
