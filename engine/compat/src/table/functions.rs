@@ -23,15 +23,24 @@
 //! Every function but the dangerous ones and the unreviewed ones below is
 //! `reviewed(sources)`: on [`REVIEWED_ON`](super::REVIEWED_ON), its
 //! definition was read, and the definition says its result depends only on
-//! what [`crate::Safety::ReviewedSafe`] lists. A function ECMA-376-1:2016
-//! §18.17.7 defines cites its own section; any other function cites its
-//! page at Microsoft, or for SINGLE the page on the operator Excel saves
-//! as SINGLE. Eight functions stay `unreviewed()`, each with the reason in
-//! a comment above its row: seven (CHAR, CODE, FORMULATEXT, FILTERXML,
-//! FIELDVALUE, GETPIVOTDATA and ANCHORARRAY) whose definitions leave in
-//! doubt whether the result depends only on that list, or which no
-//! definition was found for, and ENCODEURL, whose page gives encoding the
-//! URL WEBSERVICE requests as its only use.
+//! its arguments, the cells and names its references point to, and the
+//! clock, random numbers and locale settings
+//! [`crate::Safety::ReviewedSafe`] lists. A reference may point to the
+//! cells of another workbook; that does not make a function dangerous,
+//! since verify judges a reference to another workbook written in a formula
+//! as `external_link` content, denied unless the template allows it,
+//! whatever function takes it, and gives a notice for INDIRECT and OFFSET,
+//! which compute the reference whose cells they read. A function
+//! ECMA-376-1:2016 §18.17.7 defines cites its own section; any other
+//! function cites its page at Microsoft, or for SINGLE and ANCHORARRAY the
+//! page on the operator Excel saves as SINGLE or ANCHORARRAY. The page on
+//! `@` says that `@` is saved as SINGLE; that `#` is saved as ANCHORARRAY
+//! is known from workbooks Excel for Mac saved, as the comment above
+//! ANCHORARRAY's row says. Seven functions stay `unreviewed()`, each with
+//! the reason in a comment above its row: six (CHAR, CODE, FORMULATEXT,
+//! FILTERXML, FIELDVALUE and GETPIVOTDATA) whose definitions leave in doubt
+//! whether the result depends only on these, and ENCODEURL, whose page
+//! gives encoding the URL WEBSERVICE requests as its only use.
 //!
 //! The columns are excel, excel-mac, libreoffice, google-sheets, numbers,
 //! onlyoffice. A cell no cited source
@@ -766,13 +775,23 @@ functions! {
         // it on 2026-09-14, as COPILOT's page says; a workbook saved before
         // that day may still call it, and verify is to deny it.
 
-        // Unreviewed: no page at Microsoft that defines ANCHORARRAY was found;
-        // the page on the spilled range operator
-        // (https://support.microsoft.com/en-us/excel/spilled-range-operator)
-        // describes `#` without naming ANCHORARRAY. That `J1#` is saved as
-        // `_xlfn.ANCHORARRAY(J1)` is known from a workbook Excel for Mac saved
-        // (the formula crate's tests of saved formulas), not from a definition.
-        "ANCHORARRAY" => safety: unreviewed();
+        // No specification and no page at Microsoft defines ANCHORARRAY. That
+        // Excel saves the spilled range operator `#` as ANCHORARRAY is known
+        // from workbooks Excel for Mac saved: the formula crate's tests of
+        // saved formulas read `SUM(_xlfn.ANCHORARRAY(J1))`, and Excel for Mac
+        // 16.114.4 saved `=B1#` as `_xlfn.ANCHORARRAY(B1)` on 2026-11-06. So
+        // ANCHORARRAY cites the page on `#`, read on REVIEWED_ON with the
+        // other pages, as SINGLE cites the page on `@`. The page on `#` says
+        // that `A2#` is the whole spilled range of the formula in A2. In
+        // Excel for Mac 16.114.4, ANCHORARRAY gave the values of its
+        // argument's spilled range; for the other arguments tried (a text, a
+        // number, a cell that does not spill, an empty cell, a range of two
+        // cells) it gave #REF!, or Excel repaired the workbook by removing
+        // the formula; and Excel was not seen to read anything outside the
+        // workbook. A reference to another workbook as the argument was not
+        // tried; verify judges it as `external_link` content as for any
+        // function, as the module's documentation says.
+        "ANCHORARRAY" => safety: reviewed(&["https://support.microsoft.com/en-us/excel/spilled-range-operator"]);
         "SINGLE" => safety: reviewed(&["https://support.microsoft.com/en-us/excel/implicit-intersection-operator"]);
         // https://support.microsoft.com/en-us/office/call-function-32d58445-e646-4ffd-8d5e-b45077a5e995
         "CALL" => safety: dangerous(Danger::ExternalCode);
