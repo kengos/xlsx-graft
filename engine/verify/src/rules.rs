@@ -3,12 +3,16 @@
 //!
 //! A template only allows and a policy only forbids. Where both name the
 //! same thing, the policy wins: the host sets the ceiling a template works
-//! under.
+//! under. The one exception is [`Rules::deny_scheduled`]: the policy
+//! denies now the functions a later version of xlsx-graft is to deny, and a
+//! template that allows such a function still passes it, as that version
+//! will.
 
 use std::collections::{BTreeMap, BTreeSet};
 use xlsx_graft_diagnostics::PartKind;
 
-/// The template's `allow` lists and the policy's forbids.
+/// The template's `allow` lists, and the policy's forbids and whether it
+/// denies the scheduled functions now.
 ///
 /// # Examples
 ///
@@ -36,6 +40,9 @@ pub struct Rules {
     forbidden_functions: BTreeMap<String, String>,
     /// The part kinds the policy forbids, with why.
     forbidden_parts: BTreeMap<PartKind, String>,
+    /// Whether the policy denies now the functions a later version of
+    /// xlsx-graft is to deny.
+    deny_scheduled: bool,
 }
 
 /// What [`Rules`] say of a part kind or a function.
@@ -82,6 +89,28 @@ impl Rules {
     pub fn forbid_function(mut self, name: &str, reason: impl Into<String>) -> Self {
         (self.forbidden_functions).insert(name.to_ascii_uppercase(), reason.into());
         self
+    }
+
+    /// These rules, with the policy denying now, as dangerous, every
+    /// function the table schedules a later version of xlsx-graft to deny
+    /// ([`FunctionClass::Scheduled`](crate::FunctionClass::Scheduled)),
+    /// as that version will: a template that allows the function still
+    /// passes it. Such a function is reported as `function_dangerous`, with
+    /// the code and the `decidedBy` (`default`) that the version denying it
+    /// will report. Its reason adds the version and says that the host's
+    /// policy denies the function now. A host sets it to find, before
+    /// upgrading, the workbooks that version will refuse.
+    #[must_use]
+    pub fn deny_scheduled(mut self) -> Self {
+        self.deny_scheduled = true;
+        self
+    }
+
+    /// Whether the policy denies now the functions a later version of
+    /// xlsx-graft is to deny ([`Rules::deny_scheduled`]).
+    #[must_use]
+    pub fn denies_scheduled(&self) -> bool {
+        self.deny_scheduled
     }
 
     /// What these rules say of content of `kind`.

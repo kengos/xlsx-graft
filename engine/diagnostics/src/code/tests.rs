@@ -616,6 +616,26 @@ fn sample(code: Code) -> (Diagnostic, Location) {
                 .with_part("/xl/worksheets/sheet1.xml")
                 .with_place("C3"),
         ),
+        Code::FunctionDenyScheduled => (
+            Diagnostic::FunctionDenyScheduled {
+                name: Echo::new("FETCHDATA"),
+                from: Echo::new("0.3.0"),
+                reason: Echo::new("it reads data from a source outside the workbook"),
+                count: 2,
+            },
+            Location::default()
+                .with_part("/xl/worksheets/sheet1.xml")
+                .with_place("D4"),
+        ),
+        Code::FunctionReferenceUnchecked => (
+            Diagnostic::FunctionReferenceUnchecked {
+                name: Echo::new("INDIRECT"),
+                count: 3,
+            },
+            Location::default()
+                .with_part("/xl/worksheets/sheet1.xml")
+                .with_place("E5"),
+        ),
         Code::TargetInvalid => (
             Diagnostic::TargetInvalid {
                 list: TargetList::Targets,

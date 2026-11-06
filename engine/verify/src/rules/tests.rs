@@ -60,3 +60,9 @@ fn a_later_forbid_replaces_the_reason_of_an_earlier_one() {
         Ruling::Forbidden { reason: "second" }
     );
 }
+
+#[test]
+fn the_policy_denies_scheduled_functions_now_only_when_it_says_so() {
+    assert!(!Rules::default().denies_scheduled());
+    assert!(Rules::default().deny_scheduled().denies_scheduled());
+}

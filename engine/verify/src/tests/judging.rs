@@ -5,9 +5,11 @@
 
 use super::zip::Item;
 use super::{Book, Reader, Table, VerifyError, WORKSHEET, excel_365, verify};
-use crate::{Limits, Rules, Targets};
+use crate::{FunctionTable, Limits, Rules, Targets};
 use std::io::Cursor;
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Limit};
+
+mod defaults;
 
 /// The SpreadsheetML namespace.
 const MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -72,12 +74,23 @@ fn judged_under(book: Book, limits: &Limits, rules: &Rules) -> Vec<String> {
 
 /// [`judged_under`], the functions checked against `targets`.
 fn judged_against(book: Book, limits: &Limits, rules: &Rules, targets: &Targets) -> Vec<String> {
+    judged_by(book, limits, rules, &Table, targets)
+}
+
+/// [`judged_against`], the functions classified by `functions`.
+fn judged_by(
+    book: Book,
+    limits: &Limits,
+    rules: &Rules,
+    functions: &dyn FunctionTable,
+    targets: &Targets,
+) -> Vec<String> {
     let reader = Reader {
         inner: Cursor::new(book.zip()),
         poisoned: (0, 0),
     };
     let mut diagnostics = Diagnostics::new();
-    verify(reader, limits, rules, &Table, targets, &mut diagnostics).unwrap();
+    verify(reader, limits, rules, functions, targets, &mut diagnostics).unwrap();
     (diagnostics.finish().into_iter())
         .map(|record| {
             let location = record.location;
@@ -105,6 +118,13 @@ fn judged(book: Book) -> Vec<String> {
 fn brief(diagnostic: &Diagnostic) -> String {
     match diagnostic {
         Diagnostic::FunctionDangerous { name, count, .. } => format!("dangerous {name} x{count}"),
+        Diagnostic::FunctionForbidden { name, count, .. } => format!("forbidden {name} x{count}"),
+        Diagnostic::FunctionDenyScheduled {
+            name, from, count, ..
+        } => format!("scheduled {name} {from} x{count}"),
+        Diagnostic::FunctionReferenceUnchecked { name, count } => {
+            format!("unchecked {name} x{count}")
+        }
         Diagnostic::FunctionDenied {
             name,
             denial,
@@ -349,11 +369,7 @@ fn the_policy_forbids_a_function_the_table_finds_safe() {
     let book = cells("", [&["SUM(1)"], &[]]);
     let rules = Rules::default().forbid_function("SUM", "no sums");
     let seen = judged_under(book, &Limits::default(), &rules);
-    assert_eq!(seen.len(), 1);
-    assert!(
-        seen[0].starts_with("/xl/worksheets/sheet1.xml A1: FunctionForbidden"),
-        "{seen:?}"
-    );
+    assert_eq!(seen, ["/xl/worksheets/sheet1.xml A1: forbidden SUM x1"]);
 }
 
 #[test]

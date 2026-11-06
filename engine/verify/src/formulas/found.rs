@@ -2,7 +2,7 @@
 //! finding, each with the first place it was found and how many times.
 
 use super::Place;
-use super::body::{Finding, Target, Verdict};
+use super::body::{Finding, Scheduled, Target, Verdict};
 use std::collections::HashMap;
 use xlsx_graft_compat::{Feature, Targets};
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Echo, Location};
@@ -98,6 +98,16 @@ fn diagnostics_of(
         Finding::Forbidden(kind, reason) => Diagnostic::FormulaForbidden {
             kind,
             reason: Echo::new(&reason),
+            count,
+        },
+        Finding::Scheduled(Scheduled { name, from, reason }) => Diagnostic::FunctionDenyScheduled {
+            name: Echo::new(&name),
+            from: Echo::new(&from),
+            reason: Echo::new(&reason),
+            count,
+        },
+        Finding::Unchecked(name) => Diagnostic::FunctionReferenceUnchecked {
+            name: Echo::new(&name),
             count,
         },
         Finding::Function(name, verdict) => {

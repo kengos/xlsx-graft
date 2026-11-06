@@ -1861,6 +1861,48 @@
     "origin": "<origin>"
   },
   {
+    "code": "function_deny_scheduled",
+    "severity": "notice",
+    "message": "a formula calls, or may call, FETCHDATA, which the engine accepts until xlsx-graft 0.3.0 denies it as dangerous (it reads data from a source outside the workbook); to keep using it after that version, list it in the template's functions.allow; 2 time(s), the first here",
+    "args": {
+      "name": "FETCHDATA",
+      "from": "0.3.0",
+      "reason": "it reads data from a source outside the workbook",
+      "count": 2
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml",
+      "place": "D4"
+    },
+    "decidedBy": {
+      "kind": "default"
+    },
+    "fix": {
+      "in": "template",
+      "list": "functions.allow",
+      "add": "FETCHDATA"
+    },
+    "origin": "<origin>"
+  },
+  {
+    "code": "function_reference_unchecked",
+    "severity": "notice",
+    "message": "a formula calls, or may call, INDIRECT, whose result is a reference computed as the workbook is calculated, so verify does not see which cells it points to; 3 time(s), the first here",
+    "args": {
+      "name": "INDIRECT",
+      "count": 3
+    },
+    "location": {
+      "part": "/xl/worksheets/sheet1.xml",
+      "place": "E5"
+    },
+    "decidedBy": {
+      "kind": "default"
+    },
+    "fix": null,
+    "origin": "<origin>"
+  },
+  {
     "code": "target_invalid",
     "severity": "error",
     "message": "targets[1] `excel >= 2020` names a version the engine does not know; the versions it knows are 2007, 2010, 2013, 2016, 2019, 2021, 2024, 365",
