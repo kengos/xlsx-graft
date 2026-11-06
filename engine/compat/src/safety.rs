@@ -78,6 +78,17 @@ pub struct Scheduled {
     pub danger: Danger,
 }
 
+impl Scheduled {
+    /// A [`Scheduled`] saying that the version `from` of xlsx-graft is to
+    /// deny a function for `danger`. The table's tests check that `from` is
+    /// later than the crate's version only for the rows of the table;
+    /// `Scheduled::new` does not check `from`.
+    #[must_use]
+    pub const fn new(from: &'static str, danger: Danger) -> Self {
+        Self { from, danger }
+    }
+}
+
 /// A dangerous function's reason, and when xlsx-graft began to deny a
 /// function an older version let through.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

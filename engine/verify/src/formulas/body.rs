@@ -3,7 +3,7 @@
 
 use super::Context;
 use super::names::{Bucket, Scope};
-use crate::{FunctionClass, Ruling};
+use crate::Ruling;
 use std::hash::{Hash, Hasher};
 use xlsx_graft_compat::Row;
 use xlsx_graft_diagnostics::{FormulaMalformedReason, FunctionDenial, PartKind};
@@ -30,6 +30,12 @@ pub(super) enum Finding {
     Forbidden(PartKind, String),
     /// It may call this function, which is denied.
     Function(String, Verdict),
+    /// It may call this function, which is accepted until a later version
+    /// of xlsx-graft denies it.
+    Scheduled(Scheduled),
+    /// It may call this function, which is accepted and returns a
+    /// reference the formula computes as the workbook is calculated.
+    Unchecked(String),
     /// It calls this function, which the compatibility table has a row
     /// for, to check against the targets.
     Target(Target),
@@ -52,6 +58,17 @@ impl Hash for Target {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.name.hash(state);
     }
+}
+
+/// A function a later version of xlsx-graft is to deny.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(super) struct Scheduled {
+    /// The function, upper-cased.
+    pub(super) name: String,
+    /// The version of xlsx-graft that is to deny it.
+    pub(super) from: String,
+    /// Why that version is to deny it.
+    pub(super) reason: String,
 }
 
 /// Why a function is denied.
@@ -199,24 +216,6 @@ impl Body {
             self.findings.push(Finding::Target(Target(row)));
         }
     }
-
-    /// The function `name`, judged by the rules, then by the table; one
-    /// the table does not know is denied when `unknown` says so.
-    fn function(&mut self, context: Context<'_>, name: &str, unknown: bool) {
-        let verdict = match context.rules.function(name) {
-            Ruling::Forbidden { reason } => Verdict::Forbidden(reason.to_owned()),
-            Ruling::Allowed => return,
-            Ruling::Unruled => match context.functions.classify(name) {
-                Some(FunctionClass::ReviewedSafe) => return,
-                Some(FunctionClass::Dangerous { reason }) => Verdict::Dangerous(reason.to_owned()),
-                Some(FunctionClass::Unreviewed) => Verdict::Denied(FunctionDenial::Unreviewed),
-                None if unknown => Verdict::Denied(FunctionDenial::Unknown),
-                None => return,
-            },
-        };
-        self.findings
-            .push(Finding::Function(name.to_owned(), verdict));
-    }
 }
 
 /// Which defined names a word at `location` may mean, `scope` when no
@@ -251,3 +250,5 @@ fn malformed(reason: MalformedReason) -> FormulaMalformedReason {
         MalformedReason::StraySheetName => FormulaMalformedReason::StraySheetName,
     }
 }
+
+mod function;

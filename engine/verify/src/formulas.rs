@@ -18,6 +18,12 @@
 //!   reviewed safe (`function_dangerous`, `function_denied`), and one the
 //!   policy forbids whatever the template says (`function_forbidden`).
 //!
+//! It accepts with a notice a function the table schedules a later
+//! version of xlsx-graft to deny (`function_deny_scheduled`), unless the
+//! policy denies such functions now, as dangerous. It accepts INDIRECT and
+//! OFFSET with a notice that it does not see which cells the reference
+//! they compute points to (`function_reference_unchecked`).
+//!
 //! It also checks each function a formula calls against the versions the
 //! template's [`Targets`] hold, by the compatibility table: one some of
 //! them lack, or are not confirmed to have, is an error for `targets:`

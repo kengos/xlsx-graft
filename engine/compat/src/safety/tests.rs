@@ -1,7 +1,7 @@
-//! Unit tests for the kinds of danger: each has a stable name and a
-//! reason in English of its own.
+//! Unit tests for the kinds of danger, each with a stable name and a
+//! reason in English of its own, and for building a scheduled denial.
 
-use super::Danger;
+use super::{Danger, Scheduled};
 use std::collections::HashSet;
 
 #[test]
@@ -47,4 +47,11 @@ fn every_kind_of_danger_is_in_the_list_of_all_once() {
     };
     let places: Vec<usize> = Danger::ALL.iter().map(|&danger| place(danger)).collect();
     assert_eq!(places, [0, 1, 2, 3, 4]);
+}
+
+#[test]
+fn a_scheduled_denial_built_by_new_holds_the_version_and_the_kind_given() {
+    let scheduled = Scheduled::new("0.5.0", Danger::Network);
+    assert_eq!(scheduled.from, "0.5.0");
+    assert_eq!(scheduled.danger, Danger::Network);
 }

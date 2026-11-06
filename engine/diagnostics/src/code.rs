@@ -1126,7 +1126,12 @@ diagnostics! {
         fix: Some(Fix::template("functions.allow", name.to_string()));
 
     /// A formula calls, or may call, a function the engine's table finds
-    /// dangerous, and the template does not allow.
+    /// dangerous, and the template does not allow; or a function the table
+    /// schedules a later version of xlsx-graft to deny, when the host's
+    /// policy denies the scheduled functions now. Such a function has the
+    /// code and the `decidedBy` (`default`) that the version denying it
+    /// will report. Its reason adds the version and says that the host's
+    /// policy denies the function now.
     FunctionDangerous {
         /// The function, upper-cased.
         name: Echo,
@@ -1151,6 +1156,43 @@ diagnostics! {
     } => "function_forbidden", Error,
         message: format!("a formula calls, or may call, {name}, which the host's policy forbids: {reason}; {count} time(s), the first here"),
         decided_by: Some(DecidedBy::Policy {}),
+        fix: None;
+
+    /// A formula calls, or may call, a function the engine's table marks
+    /// reviewed safe but schedules to deny from a later version of
+    /// xlsx-graft, and the template does not allow, while the host's policy
+    /// neither forbids it nor denies the scheduled functions now. The
+    /// function is accepted until that version.
+    FunctionDenyScheduled {
+        /// The function, upper-cased.
+        name: Echo,
+        /// The version of xlsx-graft that is to deny the function, as
+        /// `MAJOR.MINOR.PATCH`.
+        from: Echo,
+        /// Why that version is to deny it.
+        reason: Echo,
+        /// How many times it was found.
+        count: u64,
+    } => "function_deny_scheduled", Notice,
+        message: format!("a formula calls, or may call, {name}, which the engine accepts until xlsx-graft {from} denies it as dangerous ({reason}); to keep using it after that version, list it in the template's functions.allow; {count} time(s), the first here"),
+        decided_by: Some(DecidedBy::Default {}),
+        fix: Some(Fix::template("functions.allow", name.to_string()));
+
+    /// A formula calls, or may call, a function whose result is a
+    /// reference the formula computes as the workbook is calculated
+    /// (INDIRECT, OFFSET), and the function is accepted. Verify does not
+    /// see which cells that reference points to. The text INDIRECT reads may
+    /// name a cell in another workbook. Verify refuses a reference to another
+    /// workbook only when the formula writes that reference out, and the
+    /// template's `parts.allow` does not admit it.
+    FunctionReferenceUnchecked {
+        /// The function, upper-cased.
+        name: Echo,
+        /// How many times it was found.
+        count: u64,
+    } => "function_reference_unchecked", Notice,
+        message: format!("a formula calls, or may call, {name}, whose result is a reference computed as the workbook is calculated, so verify does not see which cells it points to; {count} time(s), the first here"),
+        decided_by: Some(DecidedBy::Default {}),
         fix: None;
 
     /// A template's `targets:` or `bestEffort:` entry names no versions the

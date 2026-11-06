@@ -1,9 +1,11 @@
 //! Tests for the formula judge, driven through [`FormulaJudge`] with a
 //! small table. `words.rs` covers what a word in a formula is taken for
 //! (a function, a table, a reference, a prefixed or user-defined function),
-//! and `names.rs` the defined names a formula reaches.
+//! `names.rs` the defined names a formula reaches, and `scheduled.rs` a
+//! function a later version of xlsx-graft is to deny.
 
 mod names;
+mod scheduled;
 mod targets;
 mod words;
 
@@ -53,7 +55,19 @@ fn judge_against(
     names: &Names,
     formulas: &[(Place<'_>, &str)],
 ) -> Vec<(Diagnostic, Location)> {
-    let mut judge = FormulaJudge::new(rules, &Table, targets, names);
+    judge_by(rules, &Table, targets, names, formulas)
+}
+
+/// What judging each formula at its place, by `rules` and `functions`
+/// with `names`, checking the functions against `targets`, reports.
+fn judge_by(
+    rules: &Rules,
+    functions: &dyn FunctionTable,
+    targets: &Targets,
+    names: &Names,
+    formulas: &[(Place<'_>, &str)],
+) -> Vec<(Diagnostic, Location)> {
+    let mut judge = FormulaJudge::new(rules, functions, targets, names);
     for (place, formula) in formulas {
         judge.judge(place, formula);
     }

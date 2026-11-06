@@ -57,7 +57,10 @@
 //! its names resolved against the workbook's ([`Names`]), by [`Rules`]
 //! (their part side for a DDE link or another workbook, so `parts.allow`
 //! admits those in a formula too; their function side for a function) and
-//! a [`FunctionTable`].
+//! a [`FunctionTable`]. [`DefaultFunctions`] is the engine's own table,
+//! the safety column of `xlsx-graft-compat`'s function table: it passes
+//! only a function reviewed safe, so a function nobody reviewed is denied
+//! until a review marks it safe.
 //!
 //! [`verify`] finds the formulas as it reads the parts and judges each
 //! at its place: those of cells, defined names, data validations,
@@ -67,8 +70,13 @@
 //! table parts' tables, read first. A DDE link or an external reference
 //! written in a formula (`=cmd|' /C calc'!A0`, `'C:\x\[b.xlsx]S'!A1`) is
 //! refused as that kind of content, and a function as the rules and the
-//! table say. A formula longer than `max_formula_bytes`
-//! (`formula_too_long`), or with an element inside it
+//! table say. A function the table schedules a later version of
+//! xlsx-graft to deny is accepted with a notice
+//! (`function_deny_scheduled`), unless the policy denies such functions
+//! now ([`Rules::deny_scheduled`]). INDIRECT and OFFSET are accepted with a
+//! notice that verify does not see which cells the reference they compute
+//! points to (`function_reference_unchecked`). A formula longer than
+//! `max_formula_bytes` (`formula_too_long`), or with an element inside it
 //! (`formula_malformed`), is refused unread, and a workbook part that
 //! defines more names than `max_defined_names` is refused
 //! (`defined_names_too_many`).
@@ -174,7 +182,7 @@ mod used;
 mod worksheets;
 
 pub use formulas::{FormulaJudge, Names, Place};
-pub use functions::{FunctionClass, FunctionTable};
+pub use functions::{DefaultFunctions, FunctionClass, FunctionTable};
 pub use limits::Limits;
 pub use rules::{Rules, Ruling};
 pub use structure::{NameEntry, SheetEntry, Structure, TableEntry};
