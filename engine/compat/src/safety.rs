@@ -50,8 +50,9 @@ pub struct Safe {
 pub struct Review {
     /// The day the definition was read, as `YYYY-MM-DD`.
     pub on: &'static str,
-    /// The Excel whose behaviour the definition was compared with, as
-    /// `Excel 365, YYYY-MM` (the month it was compared).
+    /// The Excel for Microsoft 365 current in the month the definition was
+    /// read, as `Excel 365, YYYY-MM`. The field does not say that a formula
+    /// was computed in that Excel.
     pub version: &'static str,
     /// The definitions read, never empty. A function ECMA-376-1:2016
     /// §18.17.7 defines cites its own section
