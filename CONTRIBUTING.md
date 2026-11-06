@@ -129,3 +129,29 @@ removes the volumes that layout left behind (`xlsx-graft-cargo-<version>`,
 `xlsx-graft-rustup-<version>`). The `rust:<version>-slim-bookworm` image it
 ran in is only listed, since other projects may use it; remove it with the
 `docker rmi` printed next to it if nothing else does.
+
+## Opening a workbook in Excel
+
+Whether Excel opens a workbook without a repair prompt is checked by hand, on
+a Mac with Microsoft Excel installed; CI does not run it and `make verify`
+does not include it. Run `make excel:check` when you add a workbook to the
+tests, or to see what Excel does with a workbook for which the engine reports
+a diagnostic:
+
+```sh
+make excel:check F='book.xlsx other.xlsx' CELLS='Sheet1!A1:C3' OUT=result.json
+```
+
+It opens a copy of each workbook in Excel (never the file itself), records
+every dialog Excel shows while opening and closing the copy and the displayed
+text of `CELLS`, closes the copy without saving, and writes JSON:
+`repair_dialog` is `true` when a dialog Excel showed mentions repair or
+recovery. Close every workbook in Excel first, since the check refuses to run
+while Excel has any workbook open, and do not open one while it runs.
+
+The terminal or editor that runs it needs two permissions under System
+Settings > Privacy & Security: Accessibility, which `scripts/excel-check`
+needs to read and click Excel's dialogs through System Events, and
+Automation for Microsoft Excel and System Events, which macOS asks for on the
+first run. `python3 -I scripts/excel-check --help` lists the options;
+`--cells` can be repeated to read more than one range.

@@ -96,6 +96,15 @@
 #                               tools/go.sum after a go.mod edit (then: git
 #                               add sdk/go)
 #
+#   Open in Excel for Mac (on the host, not in Docker; not a gate, not in
+#   verify, never in CI)
+#     make excel:check F='<xlsx>...' [CELLS='Sheet1!A1:C3'] [OUT=<file>]
+#                               open a copy of each workbook in Excel, record
+#                               every dialog (a repair prompt included) and
+#                               the displayed text of CELLS, close the copy
+#                               without saving, and print JSON
+#                               (scripts/excel-check)
+#
 #   Housekeeping (removes things, proves nothing)
 #     make clean:all            this tree's engine/target, lcov.info, dist/,
 #                               sdk/ruby/coverage/ and .make-logs/ (incl. a
@@ -288,6 +297,7 @@ include mk/sdk/js.mk
 include mk/sdk/php.mk
 include mk/sdk/go.mk
 include mk/docker.mk
+include mk/excel.mk
 
 .PHONY: _verify ci\:matrix help quiet verify clean clean\:all clean\:target
 
