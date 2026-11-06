@@ -15,31 +15,25 @@
 //!
 //! The dangerous functions are those that use the network (WEBSERVICE,
 //! IMAGE, STOCKHISTORY, TRANSLATE, DETECTLANGUAGE, PY, COPILOT), read a
-//! source outside the workbook (RTD and the CUBE functions), run code
+//! source other than workbooks (RTD and the CUBE functions), run code
 //! outside the workbook (CALL, REGISTER.ID), return information about the
-//! machine or the workbook's file (INFO, CELL) or open a link
-//! (HYPERLINK).
+//! machine or the workbook's file (INFO, CELL) or open a link (HYPERLINK).
 //!
 //! Every function but the dangerous ones and the unreviewed ones below is
-//! `reviewed(sources)`: on [`REVIEWED_ON`](super::REVIEWED_ON), its
-//! definition was read, and the definition says its result depends only on
-//! its arguments, the cells and names its references point to, and the
-//! clock, random numbers and locale settings
-//! [`crate::Safety::ReviewedSafe`] lists. A reference may point to the
-//! cells of another workbook; that does not make a function dangerous,
-//! since verify judges a reference to another workbook written in a formula
-//! as `external_link` content, denied unless the template allows it,
-//! whatever function takes it, and gives a notice for INDIRECT and OFFSET,
-//! which compute the reference whose cells they read. A function
-//! ECMA-376-1:2016 §18.17.7 defines cites its own section; any other
-//! function cites its page at Microsoft, or for SINGLE and ANCHORARRAY the
-//! page on the operator Excel saves as SINGLE or ANCHORARRAY. The page on
-//! `@` says that `@` is saved as SINGLE; that `#` is saved as ANCHORARRAY
-//! is known from workbooks Excel for Mac saved, as the comment above
-//! ANCHORARRAY's row says. Seven functions stay `unreviewed()`, each with
-//! the reason in a comment above its row: six (CHAR, CODE, FORMULATEXT,
-//! FILTERXML, FIELDVALUE and GETPIVOTDATA) whose definitions leave in doubt
-//! whether the result depends only on these, and ENCODEURL, whose page
+//! `reviewed(sources)`: on [`REVIEWED_ON`](super::REVIEWED_ON), the pages
+//! its row cites were read, and the review found that its result depends
+//! only on what [`crate::Safety::ReviewedSafe`] says a reviewed-safe
+//! function's result may depend on. A function ECMA-376-1:2016 §18.17.7
+//! defines cites its own section; any other function cites its page at
+//! Microsoft, or for SINGLE and ANCHORARRAY the page on the operator that
+//! Excel saves as SINGLE or ANCHORARRAY. The page on `@` says that `@` is
+//! saved as SINGLE; that `#` is saved as ANCHORARRAY is known from
+//! workbooks Excel for Mac saved, as the comment above ANCHORARRAY's row
+//! says. Seven functions stay `unreviewed()`, each with the reason in a
+//! comment above its row: six (CHAR, CODE, FORMULATEXT, FILTERXML,
+//! FIELDVALUE and GETPIVOTDATA) whose definitions leave in doubt whether
+//! the result depends only on what [`crate::Safety::ReviewedSafe`] says a
+//! reviewed-safe function's result may depend on, and ENCODEURL, whose page
 //! gives encoding the URL WEBSERVICE requests as its only use.
 //!
 //! The columns are excel, excel-mac, libreoffice, google-sheets, numbers,
@@ -566,13 +560,23 @@ functions! {
         "IMSUB" => safety: reviewed(&["ECMA-376-1:2016 §18.17.7.164"]);
         "IMSUM" => safety: reviewed(&["ECMA-376-1:2016 §18.17.7.165"]);
         "INDEX" => safety: reviewed(&["ECMA-376-1:2016 §18.17.7.166"]);
-        // INDIRECT and OFFSET compute from their arguments the reference whose
-        // cells they read. INDIRECT's ref-text may name the cells of another
-        // workbook that is open (ECMA-376-1:2016 §18.17.7.167), which the
-        // cells listed by Safety::ReviewedSafe do not include. Issue #15
-        // accepts both functions, and the last pull request of issue #15 makes
-        // verify report a notice that the cells INDIRECT and OFFSET read
-        // cannot be known before Excel computes the formula.
+        // INDIRECT and OFFSET compute a reference from their arguments, and
+        // Excel reads the cells of the computed reference when it computes the
+        // formula. INDIRECT returns the reference a text value names (a text
+        // written in the formula, the value of a cell, or a text the formula
+        // computes), which may name the cells of another workbook that is open
+        // (ECMA-376-1:2016 §18.17.7.167). OFFSET returns a reference in the
+        // workbook of its reference argument, moved by the numbers of rows and
+        // columns its arguments give (ECMA-376-1:2016 §18.17.7.245). The
+        // values of the cells the computed reference points to are values in
+        // workbooks, which Safety::ReviewedSafe gives as inputs a
+        // reviewed-safe function's result may depend on. The review of the
+        // definitions does not judge which cells the computed reference points
+        // to, nor, for INDIRECT, whether they are in another workbook. verify
+        // does not judge the cells the computed reference points to either: it
+        // reads no reference out of a text value (INDIRECT) and computes no
+        // numbers of rows and columns (OFFSET), and reports the notice
+        // `function_reference_unchecked` for both functions.
         "INDIRECT" => safety: reviewed(&["ECMA-376-1:2016 §18.17.7.167"]);
         // INFO("directory") and INFO("osversion") return the current directory and the operating
         // system's version (ECMA-376-1:2016 §18.17.7.168).
@@ -775,22 +779,22 @@ functions! {
         // it on 2026-09-14, as COPILOT's page says; a workbook saved before
         // that day may still call it, and verify is to deny it.
 
-        // No specification and no page at Microsoft defines ANCHORARRAY. That
-        // Excel saves the spilled range operator `#` as ANCHORARRAY is known
-        // from workbooks Excel for Mac saved: the formula crate's tests of
-        // saved formulas read `SUM(_xlfn.ANCHORARRAY(J1))`, and Excel for Mac
-        // 16.114.4 saved `=B1#` as `_xlfn.ANCHORARRAY(B1)` on 2026-11-06. So
-        // ANCHORARRAY cites the page on `#`, read on REVIEWED_ON with the
-        // other pages, as SINGLE cites the page on `@`. The page on `#` says
-        // that `A2#` is the whole spilled range of the formula in A2. In
-        // Excel for Mac 16.114.4, ANCHORARRAY gave the values of its
-        // argument's spilled range; for the other arguments tried (a text, a
-        // number, a cell that does not spill, an empty cell, a range of two
-        // cells) it gave #REF!, or Excel repaired the workbook by removing
-        // the formula; and Excel was not seen to read anything outside the
-        // workbook. A reference to another workbook as the argument was not
-        // tried; verify judges it as `external_link` content as for any
-        // function, as the module's documentation says.
+        // Neither a specification nor a page at Microsoft that defines
+        // ANCHORARRAY was found on REVIEWED_ON. That Excel saves the spilled
+        // range operator `#` as ANCHORARRAY is known from workbooks Excel for
+        // Mac saved: the formula crate's tests of saved formulas read
+        // `SUM(_xlfn.ANCHORARRAY(J1))`, and Excel for Mac 16.114.4 saved
+        // `=B1#` as `_xlfn.ANCHORARRAY(B1)` on 2026-11-06. So ANCHORARRAY
+        // cites the page on `#`, read on REVIEWED_ON with the other pages, as
+        // SINGLE cites the page on `@`. The page on `#` says that `A2#` is the
+        // whole spilled range of the formula in A2. In Excel for Mac 16.114.4,
+        // ANCHORARRAY gave the values of its argument's spilled range; for the
+        // other arguments tried (a text, a number, a cell that does not spill,
+        // an empty cell, a range of two cells) it gave #REF!, or Excel
+        // repaired the workbook by removing the formula; and Excel was not
+        // seen to read anything outside the workbook. A reference to another
+        // workbook as the argument was not tried; verify judges such a
+        // reference, as Safety::ReviewedSafe says.
         "ANCHORARRAY" => safety: reviewed(&["https://support.microsoft.com/en-us/excel/spilled-range-operator"]);
         "SINGLE" => safety: reviewed(&["https://support.microsoft.com/en-us/excel/implicit-intersection-operator"]);
         // https://support.microsoft.com/en-us/office/call-function-32d58445-e646-4ffd-8d5e-b45077a5e995
