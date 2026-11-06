@@ -274,3 +274,12 @@ fn a_dde_link_and_another_workbook_are_judged_as_their_kinds() {
         )]
     );
 }
+
+#[test]
+fn a_reference_to_another_workbook_is_denied_as_the_argument_of_a_reviewed_safe_function() {
+    let denied = Diagnostic::FormulaDenied {
+        kind: PartKind::ExternalLink,
+        count: 1,
+    };
+    assert_eq!(one("_xlfn.ANCHORARRAY([1]Sheet1!A1)"), [(denied, at("A1"))]);
+}

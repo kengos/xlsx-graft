@@ -637,11 +637,10 @@ fn only_the_listed_functions_are_unreviewed_and_every_other_function_is_reviewed
             "FIELDVALUE",
             "CHAR",
             "CODE",
-            "GETPIVOTDATA",
-            "ANCHORARRAY"
+            "GETPIVOTDATA"
         ]
     );
-    // 526 functions: 498 reviewed safe, 20 dangerous and 8 unreviewed.
+    // 526 functions: 499 reviewed safe, 20 dangerous and 7 unreviewed.
     let safe: Vec<&Safe> = SAFETY
         .iter()
         .filter_map(|row| match &row.safety {
@@ -649,7 +648,7 @@ fn only_the_listed_functions_are_unreviewed_and_every_other_function_is_reviewed
             _ => None,
         })
         .collect();
-    assert_eq!((SAFETY.len(), safe.len()), (526, 498));
+    assert_eq!((SAFETY.len(), safe.len()), (526, 499));
     // No reviewed-safe function is scheduled to be denied yet.
     assert!(safe.iter().all(|safe| safe.scheduled.is_none()));
     // The functions templates use most, and INDIRECT and OFFSET, which the

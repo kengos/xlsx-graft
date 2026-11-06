@@ -69,7 +69,7 @@ pub trait FunctionTable {
 /// use xlsx_graft_verify::{DefaultFunctions, FunctionClass, FunctionTable};
 ///
 /// assert_eq!(DefaultFunctions.classify("SUM"), Some(FunctionClass::ReviewedSafe));
-/// assert_eq!(DefaultFunctions.classify("ANCHORARRAY"), Some(FunctionClass::Unreviewed));
+/// assert_eq!(DefaultFunctions.classify("FILTERXML"), Some(FunctionClass::Unreviewed));
 /// assert!(matches!(
 ///     DefaultFunctions.classify("WEBSERVICE"),
 ///     Some(FunctionClass::Dangerous { .. })

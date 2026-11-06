@@ -157,7 +157,7 @@ const SAVED: &[&str] = &[
 ];
 
 #[test]
-fn the_formulas_excel_saved_are_denied_only_for_webservice_and_anchorarray() {
+fn the_formulas_excel_saved_are_denied_only_for_webservice() {
     let names = r#"<definedName name="MyLambda">_xlfn.LAMBDA(_xlpm.x,_xlpm.x*2)</definedName><definedName name="Rate">S1!$A$1</definedName>"#;
     let book = cells(names, [SAVED, &[]]).of_s1(
         "table",
@@ -166,12 +166,10 @@ fn the_formulas_excel_saved_are_denied_only_for_webservice_and_anchorarray() {
         &table("T", "a&quot;b", ""),
     );
     // WEBSERVICE reaches the network. ANCHORARRAY, which Excel saves for
-    // a reference to a spilled range (`J1#`), is not reviewed: no
-    // definition of it was found to cite.
-    let expected = [
-        "/xl/worksheets/sheet1.xml A16: dangerous WEBSERVICE x1",
-        "/xl/worksheets/sheet1.xml A17: unreviewed ANCHORARRAY x1",
-    ];
+    // a reference to a spilled range (`J1#`), is reviewed safe: the
+    // compat crate's function table gives the reasons in a comment above
+    // its row.
+    let expected = ["/xl/worksheets/sheet1.xml A16: dangerous WEBSERVICE x1"];
     assert_eq!(judged_by_default(book, &Rules::default()), expected);
 }
 
