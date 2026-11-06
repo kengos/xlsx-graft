@@ -1,0 +1,451 @@
+#!/usr/bin/env python3
+"""Open xlsx workbooks in Excel for Mac and record what Excel showed, as JSON.
+
+    python3 -I scripts/excel-check [--cells 'Sheet1!A1:C3']... [--out FILE] BOOK...
+
+For each BOOK the script
+  1. copies the file into a new temporary folder, so Excel never opens or
+     writes the original file,
+  2. opens the copy with `open -a "Microsoft Excel"` (the AppleScript `open`
+     command is not used: a workbook opened by it does not run the
+     refresh-on-open of its pivot tables),
+  3. records the text and buttons of every dialog Excel shows while opening
+     and closing the copy, and answers it by the rules in `choose_button`,
+  4. reads the displayed text (Excel's `string value`) of each --cells range,
+  5. closes the workbook without saving and deletes the temporary folder.
+
+Excel's repair log is not recorded. Excel writes it to its tmp folder only
+when the "View" button of the dialog after the repair is clicked, and then
+opens it in another application; the script clicks "Delete" instead.
+
+The JSON holds one object per BOOK, in the order given:
+  file, path        the file name and the path as given on the command line
+  excel_version     the version of Excel that opened the copy
+  repair_dialog     true when a dialog Excel showed mentions repair or recovery
+  dialogs           [{text, buttons, clicked}] in the order Excel showed them;
+                    clicked is the button clicked, "Escape", or null when the
+                    click failed
+  window            the title of the workbook's window, or null
+  cells             {range: rows of displayed text, or null when the range
+                    could not be read} for each --cells range
+  error             why the file could not be copied, opened, read or closed,
+                    or a click on a dialog failed, reasons joined by "; ";
+                    null when nothing failed
+
+The exit status is 0 when every BOOK has a null error (a repair dialog is a
+result, not a failure), 1 otherwise, and 2 when the script cannot run: not
+macOS, no Excel, Excel not answering, a workbook already open in Excel, or
+one of the two permissions in the next paragraph not given. When the
+script stops with 2 after some BOOKs, the JSON holds only the BOOKs checked
+before the one it stopped at.
+
+The application that runs this script (Terminal, an editor) needs two
+permissions in System Settings > Privacy & Security: Accessibility, to read
+and click Excel's dialogs through System Events, and Automation for
+Microsoft Excel and System Events, which macOS asks for on the first run.
+
+The script refuses to start a BOOK while Excel has a workbook open, so that
+the dialogs it answers and the window it looks for belong to the copy; do
+not open a workbook in Excel while it runs. It closes only the copy, a
+workbook whose file is in the temporary folder, and leaves Excel running
+when it ends.
+
+Run it through `make excel:check`, or directly for a path that contains a
+space. It is not part of `make verify` and CI never runs it.
+"""
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+EXCEL = "Microsoft Excel"
+OPEN_SECONDS = 90
+# How long close_copy waits for the copy to close; one listing of the
+# workbooks that starts before this time is up can take 30 more seconds.
+CLOSE_SECONDS = 30
+POLL_SECONDS = 1.5
+# After the workbook window has appeared and after the workbook is closed,
+# dialogs are looked for during SETTLE_POLLS more polls, since Excel can show a
+# dialog after the window has appeared or after the workbook has closed.
+SETTLE_POLLS = 3
+
+# The buttons of the dialogs Excel for Mac shows, in Japanese and English.
+YES = ("はい(Y)", "Yes")
+DELETE = ("削除", "Delete")
+VIEW = ("表示", "View")
+DONT_UPDATE = ("更新しない(N)", "Don't Update")
+DISABLE_MACROS = ("マクロを無効にする", "Disable Macros")
+CLOSE_ONLY = ("OK", "閉じる", "Close")
+DECLINE = ("キャンセル", "Cancel", "いいえ(N)", "No")
+REPAIR_WORDS = ("回復", "修復", "recover", "repair")
+
+# WINDOWS returns each window of Excel as "subrole ⟂ name ⟂ static texts ⟂
+# button titles", windows separated by ␞ and texts and titles by ¶.
+WINDOWS = r'''
+tell application "System Events" to tell process "Microsoft Excel"
+  set AppleScript's text item delimiters to " ¶ "
+  set out to ""
+  repeat with w in windows
+    set t to ""
+    try
+      set t to (value of every static text of w) as string
+    end try
+    set bl to {}
+    try
+      repeat with x in (buttons of w)
+        try
+          set bt to title of x
+          if bt is not missing value and bt is not "" then set end of bl to (bt as string)
+        end try
+      end repeat
+    end try
+    set out to out & (subrole of w as string) & " ⟂ " & (name of w as string) & " ⟂ " & t & " ⟂ " & (bl as string) & "␞"
+  end repeat
+  return out
+end tell
+'''
+
+CLICK = '''on run argv
+  tell application "System Events" to tell process "Microsoft Excel"
+    click (first button of (first window whose subrole is "AXDialog") whose title is (item 1 of argv))
+  end tell
+end run'''
+
+# A key code goes to the frontmost application, so Excel is brought to the front first.
+ESCAPE = '''tell application "System Events" to tell process "Microsoft Excel"
+  set frontmost to true
+  key code 53
+end tell'''
+
+# Prints [[name, full name], ...] of the workbooks open in Excel as JSON;
+# workbooks.name() and fullName() return null, not an empty list, when no
+# workbook is open.
+WORKBOOKS = '''function run() {
+  var books = Application("Microsoft Excel").workbooks;
+  var names = books.name() || [], paths = books.fullName() || [];
+  return JSON.stringify(names.map(function (n, i) { return [n, paths[i]]; }));
+}'''
+
+# The close command is sent without waiting for Excel's reply, since Excel
+# does not reply to it until a dialog Excel shows while closing is answered.
+CLOSE = '''on run argv
+  ignoring application responses
+    tell application "Microsoft Excel" to close workbook (item 1 of argv) saving no
+  end ignoring
+end run'''
+
+# argv: workbook name, sheet name, range address. Prints the range's
+# displayed text as JSON; Excel returns a one-cell range as a string.
+READ_RANGE = '''function run(argv) {
+  var book = Application("Microsoft Excel").workbooks.byName(argv[0]);
+  // byName() of a sheet name the workbook does not have refers to the active sheet
+  if (book.worksheets.name().indexOf(argv[1]) < 0) throw new Error("no sheet named " + argv[1]);
+  var v = book.worksheets.byName(argv[1]).ranges.byName(argv[2]).stringValue();
+  return JSON.stringify(Array.isArray(v) ? v : [[v]]);
+}'''
+
+
+class CannotRun(Exception):
+    """The script cannot run on this machine (the message says what is missing)."""
+
+
+def osa(script, args=(), language="AppleScript", timeout=30):
+    """Run a script with osascript; args are passed as argv to its run handler.
+
+    Returns (stdout, stderr); when osascript does not finish within timeout
+    seconds, stdout is empty and stderr says so. Raises CannotRun when macOS
+    refuses one of the two permissions the script needs.
+    """
+    cmd = ["osascript", "-l", language, "-e", script, *args]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return "", f"osascript did not finish within {timeout} seconds"
+    # A refused Accessibility permission is detected by the text "assistive
+    # access" or by -25211, not by -1719: a window that closes while WINDOWS
+    # runs also gives -1719 ("Invalid index").
+    if "assistive access" in r.stderr or "-25211" in r.stderr:
+        raise CannotRun(
+            "System Events cannot read Excel's windows: allow the application that runs "
+            "this script under System Settings > Privacy & Security > Accessibility")
+    # -1743: the application that runs this script is not allowed to send
+    # Apple events to Excel or System Events
+    if "-1743" in r.stderr:
+        raise CannotRun(
+            "macOS refused to let this script control Excel or System Events: allow it under "
+            "System Settings > Privacy & Security > Automation")
+    return r.stdout.strip(), r.stderr.strip()
+
+
+def add_error(rec, message):
+    """Append message to the book's error, unless the error already holds it."""
+    if not rec["error"]:
+        rec["error"] = message
+    elif message not in rec["error"].split("; "):
+        rec["error"] = f"{rec['error']}; {message}"
+
+
+def windows():
+    out, _ = osa(WINDOWS)
+    rows = []
+    for line in out.split("␞"):
+        if not line.strip():
+            continue
+        parts = (line.split(" ⟂ ") + ["", "", "", ""])[:4]
+        buttons = [b for b in parts[3].split(" ¶ ") if b]
+        rows.append({"subrole": parts[0].strip(), "name": parts[1], "text": parts[2], "buttons": buttons})
+    return rows
+
+
+def first_of(names, buttons):
+    return next((b for b in names if b in buttons), None)
+
+
+def choose_button(text, buttons):
+    """The button for a dialog, or None to press Escape.
+
+    The repair prompt gets Yes, the dialog after the repair gets Delete, an
+    external-link prompt gets Don't Update and a macro prompt Disable Macros.
+    Any other dialog gets its only button when that is OK or Close, and
+    otherwise Cancel or No, so that no other question is answered yes.
+    """
+    if first_of(VIEW, buttons) and first_of(DELETE, buttons):
+        return first_of(DELETE, buttons)
+    if any(word in text.lower() for word in REPAIR_WORDS) and first_of(YES, buttons):
+        return first_of(YES, buttons)
+    for names in (DONT_UPDATE, DISABLE_MACROS):
+        if first_of(names, buttons):
+            return first_of(names, buttons)
+    if len(buttons) == 1 and buttons[0] in CLOSE_ONLY:
+        return buttons[0]
+    return first_of(DECLINE, buttons)
+
+
+def record_dialogs(rec):
+    """Record and answer the first dialog Excel shows now; return whether Excel showed a dialog."""
+    dialogs = [w for w in windows() if w["subrole"] == "AXDialog"]
+    if not dialogs:
+        return False
+    text, buttons = dialogs[0]["text"].strip(" ¶"), dialogs[0]["buttons"]
+    button = choose_button(text, buttons)
+    _, err = osa(CLICK, [button]) if button else osa(ESCAPE)
+    clicked = None if err else (button or "Escape")
+    last = rec["dialogs"][-1] if rec["dialogs"] else None
+    # the same dialog still showing at the next poll is recorded once
+    if not last or (last["text"], last["buttons"], last["clicked"]) != (text, buttons, clicked):
+        rec["dialogs"].append({"text": text, "buttons": buttons, "clicked": clicked})
+    if err:
+        add_error(rec, f"clicking {button or 'Escape'} on a dialog failed: {err}")
+    if any(word in text.lower() for word in REPAIR_WORDS):
+        rec["repair_dialog"] = True
+    return True
+
+
+def book_window(name):
+    """The title of the workbook's window, or None when Excel shows none.
+
+    The title is the file name with or without its extension (as Finder
+    shows it), followed after a repair by a suffix that starts with a space
+    ("  -  修復済み" in the Japanese Excel 16.114).
+    """
+    stem = os.path.splitext(name)[0]
+    for w in windows():
+        title = w["name"]
+        if w["subrole"] == "AXStandardWindow" and any(
+                title == n or title.startswith(n + " ") for n in (name, stem)):
+            return title
+    return None
+
+
+def open_copy(copy, name, rec):
+    """Open the copy and answer its dialogs until its window appears."""
+    # Not `open -g`: System Events lists no window of an Excel opened in the background.
+    subprocess.run(["open", "-a", EXCEL, copy], check=True, capture_output=True)
+    deadline = time.monotonic() + OPEN_SECONDS
+    while time.monotonic() < deadline:
+        time.sleep(POLL_SECONDS)
+        if record_dialogs(rec):
+            continue
+        rec["window"] = book_window(name)
+        if rec["window"]:
+            break
+    if not rec["window"]:
+        add_error(rec, f"the workbook window did not appear within {OPEN_SECONDS} seconds")
+        return
+    for _ in range(SETTLE_POLLS):
+        time.sleep(POLL_SECONDS)
+        record_dialogs(rec)
+
+
+def parse_range(spec):
+    """Split 'Sheet1!A1:C3' or "'a b'!A1" into (spec, sheet, address)."""
+    sheet, sep, address = spec.rpartition("!")
+    if not sep or not sheet or not address:
+        raise argparse.ArgumentTypeError(f"--cells {spec!r} is not of the form Sheet!A1:C3")
+    if len(sheet) >= 2 and sheet[0] == sheet[-1] == "'":
+        sheet = sheet[1:-1].replace("''", "'")
+    return spec, sheet, address
+
+
+def read_cells(name, ranges, rec):
+    for spec, sheet, address in ranges:
+        out, err = osa(READ_RANGE, [name, sheet, address], language="JavaScript")
+        try:
+            rec["cells"][spec] = None if err else json.loads(out)
+        except ValueError:
+            rec["cells"][spec], err = None, f"Excel returned {out!r}"
+        if err:
+            add_error(rec, f"{spec}: {err}")
+
+
+def open_workbooks(timeout=30):
+    """[(name, full name)] of the workbooks open in Excel, or (None, why) when Excel did not answer."""
+    out, err = osa(WORKBOOKS, language="JavaScript", timeout=timeout)
+    try:
+        books = None if err else json.loads(out)
+    except ValueError:
+        books, err = None, f"Excel returned {out!r}"
+    if not isinstance(books, list):
+        return None, f"cannot list the workbooks open in Excel: {err}"
+    return [(b[0], b[1]) for b in books if isinstance(b, list) and len(b) == 2], None
+
+
+def in_folder(full_name, folder):
+    """Whether a workbook's full name is a file in folder (a new workbook's full name has no folder)."""
+    if not isinstance(full_name, str):
+        return False
+    return os.path.dirname(os.path.realpath(full_name)) == os.path.realpath(folder)
+
+
+def close_copy(folder, rec):
+    """Close the copy without saving; return whether Excel no longer has a workbook from folder open.
+
+    The copy is distinguished from a workbook the user opened during the run by
+    its full name, a file in folder; Excel keeps the copy's name and full
+    name after a repair (seen in Excel 16.114).
+    """
+    # The close command is sent again at every poll, since Excel may not have
+    # answered the listing (a dialog was showing, or Excel was still opening
+    # the copy).
+    # CLOSE does not wait for Excel's reply, so a workbook that closed in the
+    # meantime gives no error.
+    deadline = time.monotonic() + CLOSE_SECONDS
+    while True:
+        books, err = open_workbooks()
+        left = [name for name, full_name in books or [] if in_folder(full_name, folder)]
+        if (books is not None and not left) or time.monotonic() >= deadline:
+            break
+        for name in left:
+            osa(CLOSE, [name])
+        time.sleep(POLL_SECONDS)
+        record_dialogs(rec)
+    if err:
+        record_dialogs(rec)
+        add_error(rec, err)
+        return False
+    if left:
+        add_error(rec, f"Excel still has {', '.join(left)} open; close it without saving")
+        return False
+    for _ in range(SETTLE_POLLS):
+        time.sleep(POLL_SECONDS)
+        record_dialogs(rec)
+    return True
+
+
+def check(path, ranges, version):
+    rec = {"file": os.path.basename(path), "path": path, "excel_version": version,
+           "repair_dialog": False, "dialogs": [], "window": None, "cells": {}, "error": None}
+    name = rec["file"]
+    if not os.path.isfile(path):
+        add_error(rec, "no such file")
+        return rec
+    books, err = open_workbooks()
+    if err:
+        raise CannotRun(err)
+    if books:
+        names = ", ".join(full_name or name for name, full_name in books)
+        raise CannotRun(f"Excel has workbooks open ({names}); close them without saving first "
+                        "(a copy left by an earlier BOOK is in a folder named excel-check-*)")
+    folder = tempfile.mkdtemp(prefix="excel-check-")
+    closed = False
+    try:
+        copy = os.path.join(folder, name)
+        shutil.copyfile(path, copy)
+        open_copy(copy, name, rec)
+        if rec["window"]:
+            read_cells(name, ranges, rec)
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
+        add_error(rec, f"{type(e).__name__}: {e}")
+    finally:
+        # The copy is closed also when its window did not appear in time, in
+        # case Excel lists the copy after the wait.
+        try:
+            closed = close_copy(folder, rec)
+        finally:
+            # The temporary folder is kept while Excel has the copy open, so
+            # that the file of Excel's open window still exists on disk.
+            if closed:
+                shutil.rmtree(folder, ignore_errors=True)
+    return rec
+
+
+def excel_version():
+    if sys.platform != "darwin":
+        raise CannotRun(f"excel-check runs only on macOS (this is {sys.platform})")
+    if subprocess.run(["open", "-Ra", EXCEL], capture_output=True).returncode != 0:
+        raise CannotRun("Microsoft Excel is not installed (open -Ra 'Microsoft Excel' failed)")
+    out, err = osa(f'get version of application "{EXCEL}"')
+    if not out:
+        raise CannotRun(f"cannot ask Microsoft Excel for its version: {err}")
+    # Listing the workbooks starts Excel. On the first run macOS asks for the
+    # Automation permission for Excel during open_workbooks and for System
+    # Events during the WINDOWS call below, so both calls wait 120 seconds
+    # for the user to answer. Reading Excel's windows raises CannotRun before
+    # any copy is opened when the Accessibility permission is missing.
+    _, err = open_workbooks(timeout=120)
+    if err:
+        raise CannotRun(err)
+    _, err = osa(WINDOWS, timeout=120)
+    if err:
+        raise CannotRun(f"cannot read Excel's windows through System Events: {err}")
+    return out
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="excel-check", description=__doc__.splitlines()[0])
+    parser.add_argument("--cells", action="append", default=[], type=parse_range, metavar="RANGE",
+                        help="a range such as 'Sheet1!A1:C3' to read from every book; "
+                             "repeat the option to read more than one range")
+    parser.add_argument("--out", metavar="FILE",
+                        help="write the JSON to FILE instead of standard output")
+    parser.add_argument("books", nargs="+", metavar="BOOK", help="an .xlsx file to open")
+    args = parser.parse_args()
+    if args.out and (os.path.isdir(args.out)
+                     or not os.path.isdir(os.path.dirname(os.path.abspath(args.out)))):
+        parser.error(f"--out {args.out}: not a file in an existing folder")
+    results = []
+    try:
+        version = excel_version()
+        for path in args.books:
+            results.append(check(path, args.cells, version))
+    except CannotRun as e:
+        print(f"excel-check: {e}", file=sys.stderr)
+        code = 2
+    else:
+        code = 1 if any(r["error"] for r in results) else 0
+    text = json.dumps(results, ensure_ascii=False, indent=2) + "\n"
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as f:
+            f.write(text)
+    else:
+        sys.stdout.write(text)
+    return code
+
+
+if __name__ == "__main__":
+    sys.exit(main())
