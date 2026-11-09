@@ -40,7 +40,7 @@ engine\:update: ## Bump engine/ deps within their Cargo.toml ranges (then: git a
 # before the first pull; toolchain comes next, since every member after it is
 # only worth as much as the image it ran in. budget runs once, not again
 # inside lint: make builds a prerequisite once per run.
-engine\:verify: ## Verify engine/ — budget + toolchain pins + fmt + clippy + tests at 100% line coverage + doctests + C ABI symbols
+engine\:verify: ## Verify engine/ — budget + toolchain pins + fixtures/ (README rows, only workbooks, the README and AppleScripts and no links, allowed parts, account fields and HyperlinkBase empty or absent, no absPath, alternateUrls, refreshedBy, fileSharing, securityDescriptor or home folder paths, external targets file names, Office Script list placeholder, VBA project only macro.xlsm's reviewed one, the one part allowed a home folder path) + fmt + clippy + tests at 100% line coverage + doctests + C ABI symbols
 	@$(call gate,_engine-verify,engine:verify)
 
 _engine-verify: _engine-budget _engine-toolchain _engine-lint _engine-capi-abi _engine-coverage \
@@ -64,7 +64,7 @@ engine\:lint: ## engine/ line budget + //! headers + crate lint opt-in + fmt --c
 
 _engine-lint: _engine-budget _engine-fmt _engine-clippy
 
-engine\:budget: ## .rs line budget + //! headers + every crate opts into the workspace lints + toolchain pins (no Docker)
+engine\:budget: ## .rs line budget + //! headers + every crate opts into the workspace lints + toolchain pins + fixtures/ (README rows, only workbooks, the README and AppleScripts and no links, allowed parts, account fields and HyperlinkBase empty or absent, no absPath, alternateUrls, refreshedBy, fileSharing, securityDescriptor or home folder paths, external targets file names, Office Script list placeholder, VBA project only macro.xlsm's reviewed one, the one part allowed a home folder path) (no Docker)
 	@$(call gate,_engine-budget,engine:budget)
 
 _engine-budget:
@@ -74,6 +74,8 @@ _engine-budget:
 	@scripts/check-crate-lints.sh
 	@echo "== toolchain pins =="
 	@scripts/check-toolchain-pins.sh
+	@echo "== fixtures =="
+	@scripts/check-fixtures.sh
 
 engine\:fmt: ## cargo fmt --check
 	@$(call gate,_engine-fmt,engine:fmt)

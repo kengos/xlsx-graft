@@ -28,6 +28,12 @@ xlsx-graft-xml = { workspace = true }
 [dev-dependencies]
 # The CRC-32 of each entry of the zips the tests build.
 crc32fast = { workspace = true }
+# The scratch storage `Book::open` takes, for the tests that read the
+# workbooks in the repository's fixtures/ folder (tests/fixtures).
+xlsx-graft-spool = { workspace = true }
+# The arguments of each diagnostic, as the JSON the engine reports, in the
+# lines the tests in tests/fixtures compare.
+serde_json = { workspace = true }
 
 [lints]
 workspace = true

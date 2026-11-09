@@ -12,9 +12,20 @@
 #                               engine:verify and sdk:verify), every SDK on
 #                               every line it supports
 #     make verify LATEST=1      the same, each SDK on its latest line only
-#     make engine:verify        engine: budget + toolchain pins + fmt + clippy +
-#                               tests at 100% line coverage + doctests + C ABI
-#                               symbols, in the pinned toolchain image
+#     make engine:verify        engine: budget + toolchain pins + fixtures/
+#                               (README rows, only workbooks, the README
+#                               and AppleScripts and no links, allowed
+#                               parts, account fields and HyperlinkBase
+#                               empty or absent, no absPath,
+#                               alternateUrls, refreshedBy, fileSharing,
+#                               securityDescriptor or home folder paths,
+#                               external targets file names, Office
+#                               Script list placeholder, VBA project only
+#                               macro.xlsm's reviewed one, the one part
+#                               allowed a home folder path) + fmt + clippy +
+#                               tests at 100% line coverage + doctests +
+#                               C ABI symbols, in the pinned toolchain
+#                               image
 #     make sdk:verify           every SDK, every line it supports (LATEST=1)
 #     make sdk:verify:ruby      the Ruby SDK on every supported line (LATEST=1,
 #                               or RUBY_VER=<line> for one): rubocop + rspec at
@@ -104,6 +115,10 @@
 #                               the displayed text of CELLS, close the copy
 #                               without saving, and print JSON
 #                               (scripts/excel-check)
+#     make fixtures:scrub F='<xlsx>...'
+#                               remove the account's name and the local paths
+#                               Excel saves in each workbook, in place, before
+#                               it goes into fixtures/ (scripts/fixtures-scrub)
 #
 #   Housekeeping (removes things, proves nothing)
 #     make clean:all            this tree's engine/target, lcov.info, dist/,
