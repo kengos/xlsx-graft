@@ -14,6 +14,7 @@ on:
     paths:
       - docker/toolchain.Dockerfile
       - scripts/check-toolchain-pins.sh
+      - scripts/check-toolchain-image.sh
       - .github/workflows/toolchain-image.yml
   workflow_dispatch:
 
@@ -46,7 +47,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # The versions come from the Makefile, the file the gates read. The
+      # The pins come from the Makefile, the file the gates read. The
       # script fails when the Dockerfile's defaults say otherwise, so a bump
       # that edited only one of them stops here instead of publishing. A
       # Makefile-only bump does not start this workflow; engine:budget runs
@@ -58,8 +59,9 @@ jobs:
 
       # Both architectures from this one amd64 runner, arm64 under QEMU. The
       # image only installs the toolchain, so emulation costs one
-      # `cargo install` of cargo-llvm-cov, and a single build pushes a single
-      # multi-arch manifest with no per-architecture digests to stitch.
+      # `cargo install` of cargo-llvm-cov (cargo-about and cargo-deny are
+      # release binaries), and a single build pushes a single multi-arch
+      # manifest with no per-architecture digests to stitch.
       - uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
@@ -72,8 +74,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The pins tag says what the image holds; the sha tag says which commit
-      # built it, since a rebuild under the same pins moves the pins tag.
+      # The pins tag names the rust and cargo-llvm-cov the image holds; the
+      # sha tag says which commit built it, since a rebuild under the same
+      # pins, or a bump of cargo-about or cargo-deny alone, moves the pins tag.
       - uses: docker/metadata-action@v6
         id: meta
         with:
@@ -90,15 +93,27 @@ jobs:
           context: docker
           file: docker/toolchain.Dockerfile
           platforms: linux/amd64,linux/arm64
-          build-args: |
-            RUST_VERSION=${{ steps.pins.outputs.rust }}
-            LLVM_COV_VERSION=${{ steps.pins.outputs.llvm_cov }}
+          build-args: ${{ steps.pins.outputs.build_args }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha,scope=toolchain-image
           cache-to: type=gha,scope=toolchain-image,mode=max
+
+      # Each architecture (linux/amd64, linux/arm64) of the pushed image holds
+      # the Makefile's versions. The tags already point at the pushed image by
+      # now; what this step protects is the pin: an image missing a tool
+      # fails this run, so its digest is never copied into TOOLCHAIN_DIGEST,
+      # and the gates (which pull by digest) never run it. arm64 runs under
+      # the QEMU set up above.
+      - name: Check the pushed image
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          for platform in linux/amd64 linux/arm64; do
+            scripts/check-toolchain-image.sh "${IMAGE}@${DIGEST}" "$platform"
+          done
 
       # The digest of the multi-arch manifest: what the Makefile pins, since a
       # tag can be moved and a digest cannot.
