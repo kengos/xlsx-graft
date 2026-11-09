@@ -1,5 +1,9 @@
 //! Unit tests for the tools: the `version` descriptor and result, and the
-//! calls that are refused.
+//! calls that are refused. The reference tools and the check of each tool's
+//! page are in the submodules.
+
+mod pages;
+mod reference;
 
 use super::{call, list};
 use crate::rpc::INVALID_PARAMS;
@@ -7,21 +11,19 @@ use serde_json::json;
 use xlsx_graft_core::version;
 
 #[test]
-fn version_is_the_one_tool_with_its_input_and_output_schema() {
-    let tools = list();
-    let tools = tools["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 1);
-    assert_eq!(tools[0]["name"], "version");
+fn tools_list_returns_the_version_descriptor_with_every_field_as_its_first_entry() {
     assert_eq!(
-        tools[0]["inputSchema"],
-        json!({ "type": "object", "properties": {} })
-    );
-    assert_eq!(
-        tools[0]["outputSchema"],
+        list()["tools"][0],
         json!({
-            "type": "object",
-            "properties": { "version": { "type": "string" } },
-            "required": ["version"],
+            "name": "version",
+            "title": "Engine version",
+            "description": "The xlsx-graft engine version. Reference page: xlsx-graft://reference/version",
+            "inputSchema": { "type": "object", "properties": {} },
+            "outputSchema": {
+                "type": "object",
+                "properties": { "version": { "type": "string" } },
+                "required": ["version"],
+            },
         })
     );
 }
