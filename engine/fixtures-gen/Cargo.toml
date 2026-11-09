@@ -1,0 +1,31 @@
+[package]
+name = "xlsx-graft-fixtures-gen"
+description = "Writes the large workbooks `make fixtures:generate` puts in fixtures/generated/"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+# A tool for this repository's tests and benchmarks, never published.
+publish = false
+repository.workspace = true
+
+[[bin]]
+name = "xlsx-graft-fixtures-gen"
+path = "src/main.rs"
+
+[dependencies]
+# Writes each workbook, a row at a time (`constant_memory`).
+rust_xlsxwriter = { workspace = true }
+# FixturesGenError.
+thiserror = { workspace = true }
+
+[dev-dependencies]
+# Each test writes its workbooks into a directory of its own.
+tempfile = { workspace = true }
+# The tests read each workbook written back with the engine's reader.
+xlsx-graft-diagnostics = { workspace = true }
+xlsx-graft-package = { workspace = true }
+xlsx-graft-read = { workspace = true }
+xlsx-graft-spool = { workspace = true }
+
+[lints]
+workspace = true

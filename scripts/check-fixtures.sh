@@ -13,8 +13,14 @@
 # file directly in fixtures/; any other file there, an untracked Finder
 # .DS_Store directly in fixtures/ or fixtures/scripts/ aside, fails the
 # check, and so does a symbolic link, so a workbook cannot pass unchecked
-# under another extension, in a subfolder or outside fixtures/. Every
+# under another extension, in a subfolder or outside fixtures/; the
+# gitignored fixtures/generated/ is the one subfolder skipped (below). Every
 # workbook has a row, and every row names a workbook there.
+#
+# fixtures/generated/ holds the workbooks `make fixtures:generate` writes,
+# which git ignores (.gitignore). The check reads nothing in it, and fails
+# when git tracks a file in it (or, without git or outside a git work
+# tree, when it exists), so a workbook there is never committed unchecked.
 #
 # The check covers what Excel writes when it saves a workbook: the parts
 # and fields below, in the forms Excel writes them (UTF-8 XML, any
@@ -187,7 +193,20 @@ all_empty() {
 }
 
 violations=$(
-    find "$dir" ! -type d | sed "s|^$dir/||" | LC_ALL=C sort | while IFS= read -r f; do
+    # git ls-files exits 0 with the tracked files under fixtures/generated/
+    # (none, when git tracks none), and another status without git or
+    # outside a git work tree.
+    tracked=$(git -C "$root" ls-files -- fixtures/generated 2>/dev/null) || tracked=-
+    if [ "$tracked" = - ]; then
+        if [ -e "$dir/generated" ] || [ -L "$dir/generated" ]; then
+            printf '%s\n' "generated/ cannot be told untracked without git or outside a git work tree; remove it"
+        fi
+    elif [ -n "$tracked" ]; then
+        printf '%s\n' "$tracked" | while IFS= read -r f; do
+            printf '%s\n' "${f#fixtures/} is tracked by git; fixtures/generated/ holds the workbooks make fixtures:generate writes, which are not committed"
+        done
+    fi
+    find "$dir" -path "$dir/generated" -prune -o ! -type d -print | sed "s|^$dir/||" | LC_ALL=C sort | while IFS= read -r f; do
         if [ -L "$dir/$f" ]; then
             printf '%s\n' "$f is a symbolic link; fixtures/ holds files only"
             continue

@@ -6,6 +6,7 @@ members = [
     "compat",
     "core",
     "diagnostics",
+    "fixtures-gen",
     "formula",
     "mcp",
     "napi",
@@ -106,6 +107,24 @@ thiserror = "2"
 napi = "3"
 napi-derive = "3"
 napi-build = "2"
+# The writer of the large workbooks `make fixtures:generate` writes into
+# fixtures/generated/ (engine/fixtures-gen, which is not published): a
+# writer other than xlsx-graft, so that the reader can be checked against
+# workbooks the xlsx-graft writer did not write. No default features;
+# `constant_memory` writes each row to a temporary file as it is written,
+# so a million rows take no more memory than ten, and brings tempfile with
+# its default features (getrandom, which seeds the temporary file names).
+# rust_xlsxwriter also brings zip, and every other crate this adds to the
+# lockfile comes from zip: its `deflate` feature brings flate2 over zlib-rs
+# and zopfli (with bumpalo, log and simd-adler32); zip itself always brings
+# constant_time_eq, indexmap (with hashbrown and equivalent), typed-path
+# and zeroize, whose zeroize_derive brings a second syn 2; on macOS and
+# the BSDs it brings nix (with cfg_aliases), and on wasm targets getrandom
+# brings js-sys and the wasm-bindgen crates. Only engine/fixtures-gen
+# depends on rust_xlsxwriter, so none of these reaches a published crate.
+rust_xlsxwriter = { version = "0.102", default-features = false, features = [
+    "constant_memory",
+] }
 
 # Every lint below fails `make engine:verify`: the "warn" ones through clippy
 # -D warnings, unsafe_code by itself ("deny"). The rules: docs/guidelines.md.
