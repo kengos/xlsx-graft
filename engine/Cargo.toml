@@ -12,6 +12,7 @@ members = [
     "napi",
     "package",
     "read",
+    "reference",
     "spool",
     "verify",
     "xml",
@@ -41,6 +42,8 @@ xlsx-graft-package = { path = "package" }
 xlsx-graft-spool = { path = "spool" }
 # A workbook's shared strings, read on the package (engine/read).
 xlsx-graft-read = { path = "read" }
+# The reference pages compiled into the binary (engine/reference).
+xlsx-graft-reference = { path = "reference" }
 # Which application version has each function and feature (engine/compat).
 xlsx-graft-compat = { path = "compat" }
 # Refuses what an untrusted workbook may not carry (engine/verify).
