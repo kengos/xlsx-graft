@@ -1,0 +1,3 @@
+# The reference pages are compiled in with include_str!, so a checkout that
+# converted their line endings would change what the server sends.
+engine/reference/pages/*.md text eol=lf

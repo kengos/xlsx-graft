@@ -889,6 +889,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "xlsx-graft-reference"
+version = "0.0.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "xlsx-graft-spool"
 version = "0.0.0"
 dependencies = [

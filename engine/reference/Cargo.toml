@@ -1,0 +1,15 @@
+[package]
+name = "xlsx-graft-reference"
+description = "xlsx-graft reference: the reference pages compiled into the binary, listed and looked up by URI"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[dependencies]
+# ReferenceError.
+thiserror = { workspace = true }
+
+[lints]
+workspace = true
