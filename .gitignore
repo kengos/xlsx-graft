@@ -3,6 +3,9 @@
 # Rust build output
 /engine/target/
 
+# The large workbooks `make fixtures:generate` writes
+/fixtures/generated/
+
 # Coverage report written by `make engine:coverage`
 /engine/lcov.info
 

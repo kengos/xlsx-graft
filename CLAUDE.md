@@ -57,8 +57,10 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   the versions of its tag) + `fixtures/` (every workbook there has its
   row in `fixtures/README.md` and each row its workbook, the folder holds
   only the workbooks, the README and AppleScripts (an untracked Finder
-  `.DS_Store` aside) and no symbolic link, each workbook holds only the
-  kinds of part the check lists, the account fields (`creator`,
+  `.DS_Store` and the gitignored `generated/` aside; a file git tracks in
+  `generated/` fails, and without git or outside a git work tree
+  `generated/` existing fails) and no symbolic link, each workbook holds
+  only the kinds of part the check lists, the account fields (`creator`,
   `lastModifiedBy`, `Company`, `Manager`) and `HyperlinkBase` are empty
   or absent, `absPath`, `alternateUrls`, `refreshedBy`, `fileSharing`,
   `securityDescriptor` and home folder paths are absent, each external

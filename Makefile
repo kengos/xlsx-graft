@@ -120,6 +120,11 @@
 #                               Excel saves in each workbook, in place, before
 #                               it goes into fixtures/ (scripts/fixtures-scrub)
 #
+#   Generate workbooks (in Docker; not a gate, not in verify)
+#     make fixtures:generate    write rows-100000.xlsx and rows-1000000.xlsx
+#                               into fixtures/generated/ (gitignored) with
+#                               rust_xlsxwriter (engine/fixtures-gen)
+#
 #   Housekeeping (removes things, proves nothing)
 #     make clean:all            this tree's engine/target, lcov.info, dist/,
 #                               sdk/ruby/coverage/ and .make-logs/ (incl. a

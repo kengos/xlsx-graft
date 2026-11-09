@@ -27,6 +27,12 @@ Every workbook went through `make fixtures:scrub` before it was added
 `make excel:check` gave `repair_dialog: false` and
 `error: null`; "no dialog" that it also gave `dialogs: []`.
 
+`make fixtures:generate` writes workbooks too large to commit into
+`generated/`, which git ignores: `rows-100000.xlsx` and
+`rows-1000000.xlsx`, written by rust_xlsxwriter
+([`engine/fixtures-gen/src/book.rs`](../engine/fixtures-gen/src/book.rs)
+says what each holds), not by Excel.
+
 ## Adding a workbook
 
 1. Save it in Excel, with neutral sheet names and values (`Sheet1`, `Data`,
@@ -60,6 +66,9 @@ Every workbook went through `make fixtures:scrub` before it was added
   `.DS_Store` directly in this folder or in `scripts/` that git does not
   track aside; without git, or outside a git work tree, any `.DS_Store`
   fails), or this README or an AppleScript holds a home folder path;
+- git tracks a file in `generated/` (without git, or outside a git work
+  tree, `generated/` exists); the script does not read the workbooks in
+  `generated/`;
 - a workbook holds a part of a kind the script does not list, such as
   `docProps/custom.xml`, comments, persons or `docMetadata/LabelInfo.xml`,
   where Excel writes accounts;
