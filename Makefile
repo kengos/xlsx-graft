@@ -199,21 +199,29 @@ endif
 #                     (scripts/check-toolchain-pins.sh), and the workflow fails
 #                     when the image it pushed reports other tool versions
 #                     (scripts/check-toolchain-image.sh)
-#   TOOLCHAIN_TAG     the tag TOOLCHAIN_DIGEST was published under,
-#                     <rust>-llvmcov<cargo-llvm-cov>. engine:verify fails when
-#                     the image does not hold those versions. The tag names
-#                     only those two; a bump of cargo-about or cargo-deny alone
-#                     publishes under the same tag (the sha tag tells the
-#                     builds apart), and the digest is what the gates run
 #   TOOLCHAIN_DIGEST  that build's multi-arch index (amd64 + arm64)
+#   TOOLCHAIN_HOLDS   the versions the image at TOOLCHAIN_DIGEST holds, in the
+#                     form scripts/check-toolchain-image.sh prints after
+#                     `holds:`. engine:verify fails when the image holds other
+#                     versions. It is not compared with RUST_VERSION,
+#                     LLVM_COV_VERSION, CARGO_ABOUT_VERSION or
+#                     CARGO_DENY_VERSION: during a bump, from step 1 until
+#                     step 2 below, those name the new image while
+#                     TOOLCHAIN_DIGEST still names the previous one. The value
+#                     contains commas, so do
+#                     not pass it as an argument of $(call), which splits its
+#                     arguments at commas
 #
 # Bumping takes two pull requests, because the image is published from main:
 #   1. Change the pins here and the ARG defaults in the Dockerfile, and merge.
 #      The workflow pushes the new image and checks both architectures of it.
-#   2. Copy the digest from that run's job summary into TOOLCHAIN_DIGEST, set
-#      TOOLCHAIN_TAG to the new pins, and merge.
-# Until step 2 the gates still run the previous image. Nothing fails when step
-# 2 is forgotten: the pins above would then name an image nobody runs.
+#   2. Replace the TOOLCHAIN_HOLDS and TOOLCHAIN_DIGEST lines with the two
+#      lines under "Paste into the Makefile" in that run's job summary, and
+#      merge.
+# Until step 2 the gates still run the previous image, and engine:verify still
+# passes: it compares the image with TOOLCHAIN_HOLDS, not with the pins above.
+# Nothing fails when step 2 is forgotten: the pins above would then name an
+# image nobody runs.
 # Afterwards `make docker:clean:images` drops the previous image locally.
 RUST_VERSION     := 1.99.0
 LLVM_COV_VERSION := 0.9.1
@@ -226,8 +234,8 @@ CARGO_ABOUT_SHA256_aarch64 := eb4d9ff6ebd2518152a8308729431a04b3836e71d2bd5ead7a
 CARGO_DENY_VERSION := 0.20.2
 CARGO_DENY_SHA256_x86_64 := 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
 CARGO_DENY_SHA256_aarch64 := 995c82be0defc7a025cae49a2aa2644ce8245c9a3318fc4103907c6a285e8c7d
-TOOLCHAIN_TAG    := 1.99.0-llvmcov0.9.1
-TOOLCHAIN_DIGEST := sha256:05819e6c259e11dd9d8b0cdcd178eb959dbaccb90923d56cf98a6b66885e4fe0
+TOOLCHAIN_HOLDS  := rust 1.99.0, cargo-llvm-cov 0.9.1, cargo-about 0.9.3, cargo-deny 0.20.2
+TOOLCHAIN_DIGEST := sha256:4354ada8a72e68de98282d2a0692d23b24a98750bb85f4ae6d0f975ddc66014e
 RUST_IMAGE       := ghcr.io/kengos/xlsx-graft-toolchain@$(TOOLCHAIN_DIGEST)
 
 # One gate at a time per working tree (scripts/gate-lock.sh explains why).
