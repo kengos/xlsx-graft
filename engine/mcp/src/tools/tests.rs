@@ -1,27 +1,27 @@
-//! Unit tests for the tools: the `version` descriptor and result, and the
-//! calls that are refused.
+//! Unit tests for the tools: the `version` descriptor and result, the calls
+//! that are refused, and the descriptor of a tool with no output schema.
 
-use super::{call, list};
+use super::{Tool, call, descriptor, list};
 use crate::rpc::INVALID_PARAMS;
-use serde_json::json;
+use serde_json::{Value, json};
 use xlsx_graft_core::version;
 
 #[test]
-fn version_is_the_one_tool_with_its_input_and_output_schema() {
-    let tools = list();
-    let tools = tools["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 1);
-    assert_eq!(tools[0]["name"], "version");
+fn tools_list_returns_only_the_version_descriptor_with_every_field() {
     assert_eq!(
-        tools[0]["inputSchema"],
-        json!({ "type": "object", "properties": {} })
-    );
-    assert_eq!(
-        tools[0]["outputSchema"],
+        list(),
         json!({
-            "type": "object",
-            "properties": { "version": { "type": "string" } },
-            "required": ["version"],
+            "tools": [{
+                "name": "version",
+                "title": "Engine version",
+                "description": "The xlsx-graft engine version.",
+                "inputSchema": { "type": "object", "properties": {} },
+                "outputSchema": {
+                    "type": "object",
+                    "properties": { "version": { "type": "string" } },
+                    "required": ["version"],
+                },
+            }],
         })
     );
 }
@@ -65,4 +65,32 @@ fn a_call_without_a_string_name_is_invalid_params() {
         assert_eq!(err.code, INVALID_PARAMS);
         assert_eq!(err.message, "tools/call needs a string `name`");
     }
+}
+
+#[test]
+fn a_tool_without_an_output_schema_has_no_output_schema_key_in_its_descriptor() {
+    fn no_arguments() -> Value {
+        json!({ "type": "object", "properties": {} })
+    }
+    fn run(_arguments: &Value) -> Result<Value, crate::rpc::RpcError> {
+        Ok(json!({}))
+    }
+    let tool = Tool {
+        name: "plain",
+        title: "Plain",
+        description: "A tool whose result carries no structuredContent.",
+        input_schema: no_arguments,
+        output_schema: None,
+        run,
+    };
+    assert_eq!(run(&Value::Null), Ok(json!({})));
+    assert_eq!(
+        descriptor(&tool),
+        json!({
+            "name": "plain",
+            "title": "Plain",
+            "description": "A tool whose result carries no structuredContent.",
+            "inputSchema": { "type": "object", "properties": {} },
+        })
+    );
 }
