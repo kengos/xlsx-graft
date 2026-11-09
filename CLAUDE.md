@@ -54,10 +54,21 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
 - `make engine:verify` is the engine's bar: line budget + `//!` headers + every
   crate's `[lints] workspace = true` + the toolchain pins (the Makefile's
   versions equal `docker/toolchain.Dockerfile`'s, and the pinned image holds
-  the versions of its tag), fmt, clippy `-D warnings` (with the workspace
-  lints in `engine/Cargo.toml`), tests at **100% line coverage over the whole
-  workspace**, doctests, and the C ABI check (the built shared
-  library's `xlsx_graft_*` exports match `engine/capi/include/xlsx_graft.h`).
+  the versions of its tag) + `fixtures/` (every workbook there has its
+  row in `fixtures/README.md` and each row its workbook, the folder holds
+  only the workbooks, the README and AppleScripts (an untracked Finder
+  `.DS_Store` aside) and no symbolic link, each workbook holds only the
+  kinds of part the check lists, the account fields (`creator`,
+  `lastModifiedBy`, `Company`, `Manager`) and `HyperlinkBase` are empty
+  or absent, `absPath`, `alternateUrls`, `refreshedBy`, `fileSharing`,
+  `securityDescriptor` and home folder paths are absent, each external
+  target is a file name alone, an Office Script list is the reviewed
+  placeholder, and a VBA project is only `macro.xlsm`'s, by the SHA-256 of
+  the reviewed one, which holds the one home folder path allowed), fmt,
+  clippy `-D warnings` (with the workspace lints in `engine/Cargo.toml`),
+  tests at **100% line coverage over the whole workspace**, doctests, and
+  the C ABI check (the built shared library's `xlsx_graft_*` exports match
+  `engine/capi/include/xlsx_graft.h`).
 - `make sdk:verify:ruby` is the Ruby SDK's bar on every line in `RUBY_LINES`
   (`mk/sdk/ruby.mk`, the floor first and the latest last; `LATEST=1` or
   `RUBY_VER=<line>` narrows it): rubocop + rspec at **100% line

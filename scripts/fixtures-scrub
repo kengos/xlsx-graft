@@ -1,0 +1,172 @@
+#!/usr/bin/env python3
+"""Remove the names and local paths Excel saves in a workbook, in place.
+
+    python3 -I scripts/fixtures-scrub BOOK...
+
+Excel for Mac writes into every workbook it saves the account's name and
+the folder it saved the workbook in. A workbook in fixtures/ is published,
+so before it is added, this script rewrites each BOOK so that
+
+  - docProps/core.xml has an empty dc:creator and cp:lastModifiedBy, and
+    docProps/app.xml an empty Company, Manager and HyperlinkBase, a value
+    in CDATA included,
+  - xl/workbook.xml has no x15ac:absPath (the folder the workbook was saved
+    in), together with the mc:AlternateContent element that holds it,
+  - each xl/externalLinks/externalLinkN.xml has no xxl21:alternateUrls (the
+    absolute path of the linked workbook, beside the relative one Excel
+    reads first), and its .rels file no relationship that only those
+    alternate URLs named,
+  - each xl/pivotCache/pivotCacheDefinitionN.xml has no refreshedBy
+    attribute (the account that last refreshed the pivot cache).
+
+Every other entry keeps its bytes, its order and its compression method;
+the compressed bytes are Python's, not Excel's. Before it writes a BOOK,
+the script looks for the home folder of the account that runs it
+(os.path.expanduser("~")) in every entry of the scrubbed BOOK but a VBA
+project (xl/vbaProject.bin), and when one still holds it, prints the
+entries and leaves that BOOK as it was. Excel for Mac writes the home
+folder into every VBA project (fixtures/README.md, macro.xlsm), which this
+script does not change, so a person reads that project instead. A
+BOOK with two entries of the same name, a BOOK that is a symbolic link and
+a BOOK that is not a zip or cannot be read are left as they were too.
+For each of these the script prints the reason and goes on with the next
+BOOK, and it exits with status 1 at the end.
+
+scripts/check-fixtures.sh, run by `make engine:budget`, fails on a
+workbook in fixtures/ that still holds these names and paths, and on a few
+more this script does not remove (see that script). Run this script
+through `make fixtures:scrub`, or directly for a path that contains a
+space.
+"""
+
+import os
+import re
+import sys
+import tempfile
+import zipfile
+import zlib
+
+# Entry names are matched in any letter case, as OPC compares part names.
+CORE = re.compile(r"^docProps/core\.xml$", re.I)
+APP = re.compile(r"^docProps/app\.xml$", re.I)
+WORKBOOK = re.compile(r"^xl/workbook\.xml$", re.I)
+EXTERNAL_LINK = re.compile(r"^xl/externalLinks/externalLink\d+\.xml$", re.I)
+PIVOT_CACHE = re.compile(r"^xl/pivotCache/pivotCacheDefinition\d+\.xml$", re.I)
+
+# The text of an element: characters other than `<`, and CDATA sections.
+TEXT = rb"(?:[^<]|<!\[CDATA\[.*?\]\]>)*"
+# A dc:creator or cp:lastModifiedBy element with any text, with or without
+# attributes.
+NAME = re.compile(rb"<((?:[\w.-]+:)?(?:creator|lastModifiedBy))\b([^>]*)>" + TEXT + rb"</\1>", re.S)
+# A Company, Manager or HyperlinkBase element with any text, with or
+# without attributes.
+APP_NAME = re.compile(
+    rb"<((?:[\w.-]+:)?(?:Company|Manager|HyperlinkBase))\b([^>]*)>" + TEXT + rb"</\1>", re.S
+)
+# The mc:AlternateContent element Excel wraps x15ac:absPath in.
+ABS_PATH = re.compile(
+    rb"<mc:AlternateContent\b[^>]*>(?:(?!</mc:AlternateContent>).)*?"
+    rb"<x15ac:absPath\b.*?</mc:AlternateContent>",
+    re.S,
+)
+ALTERNATE_URLS = re.compile(rb"<xxl21:alternateUrls\b.*?</xxl21:alternateUrls>", re.S)
+REL_ID = re.compile(rb'r:id="([^"]+)"')
+# The refreshedBy attribute of a pivotCacheDefinition element.
+REFRESHED_BY = re.compile(rb'\srefreshedBy="[^"]*"')
+
+
+def rels_name(name):
+    """The name of the .rels entry of the part `name`."""
+    folder, file = name.rsplit("/", 1)
+    return f"{folder}/_rels/{file}.rels"
+
+
+def drop_relationships(rels, ids):
+    """`rels` without the Relationship elements whose Id is in `ids`."""
+    for rel_id in ids:
+        pattern = rb'<Relationship\b[^>]*\bId="' + re.escape(rel_id) + rb'"[^>]*/>'
+        rels = re.sub(pattern, b"", rels)
+    return rels
+
+
+def scrub(entries):
+    """`entries` ({name: bytes}) with the names and paths removed."""
+    out = dict(entries)
+    for name in entries:
+        if CORE.match(name):
+            out[name] = NAME.sub(rb"<\1\2></\1>", out[name])
+        if APP.match(name):
+            out[name] = APP_NAME.sub(rb"<\1\2></\1>", out[name])
+        if WORKBOOK.match(name):
+            out[name] = ABS_PATH.sub(b"", out[name])
+        if PIVOT_CACHE.match(name):
+            out[name] = REFRESHED_BY.sub(b"", out[name])
+        if not EXTERNAL_LINK.match(name):
+            continue
+        dropped = [m.group(0) for m in ALTERNATE_URLS.finditer(out[name])]
+        out[name] = ALTERNATE_URLS.sub(b"", out[name])
+        rels = rels_name(name)
+        if dropped and rels in out:
+            ids = {i for block in dropped for i in REL_ID.findall(block)}
+            still = set(REL_ID.findall(out[name]))
+            out[rels] = drop_relationships(out[rels], ids - still)
+    return out
+
+
+def rewrite(path):
+    """Scrubs the workbook at `path`; returns an error message or None."""
+    if os.path.islink(path):
+        return f"{path}: is a symbolic link; scrub the file it points to"
+    try:
+        with zipfile.ZipFile(path) as zf:
+            infos = zf.infolist()
+            entries = {info.filename: zf.read(info) for info in infos}
+    except zipfile.BadZipFile:
+        return f"{path}: is not a zip"
+    except OSError as error:
+        return f"{path}: cannot be read ({error.strerror})"
+    except (RuntimeError, NotImplementedError, EOFError, zlib.error) as error:
+        return f"{path}: cannot be read ({error})"
+    if len(entries) != len(infos):
+        return f"{path}: two entries share a name"
+    scrubbed = scrub(entries)
+    home = os.path.expanduser("~").encode()
+    left = [
+        name
+        for name, data in scrubbed.items()
+        if home in data and name.lower() != "xl/vbaproject.bin"
+    ]
+    if left:
+        return f"{path}: still holds {home.decode()} in {', '.join(left)}"
+    folder = os.path.dirname(os.path.abspath(path))
+    fd, tmp = tempfile.mkstemp(dir=folder, suffix=os.path.splitext(path)[1])
+    os.close(fd)
+    try:
+        os.chmod(tmp, os.stat(path).st_mode & 0o777)
+        with zipfile.ZipFile(tmp, "w") as zf:
+            for info in infos:
+                zf.writestr(info, scrubbed[info.filename], compress_type=info.compress_type)
+        os.replace(tmp, path)
+    except BaseException:
+        os.unlink(tmp)
+        raise
+    return None
+
+
+def main(argv):
+    if not argv:
+        print("usage: python3 -I scripts/fixtures-scrub BOOK...", file=sys.stderr)
+        return 2
+    status = 0
+    for path in argv:
+        error = rewrite(path)
+        if error:
+            print(f"fixtures-scrub: {error}", file=sys.stderr)
+            status = 1
+        else:
+            print(f"fixtures-scrub: {path}")
+    return status
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

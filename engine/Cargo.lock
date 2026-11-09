@@ -722,12 +722,14 @@ name = "xlsx-graft-verify"
 version = "0.0.0"
 dependencies = [
  "crc32fast",
+ "serde_json",
  "thiserror",
  "xlsx-graft-compat",
  "xlsx-graft-diagnostics",
  "xlsx-graft-formula",
  "xlsx-graft-package",
  "xlsx-graft-read",
+ "xlsx-graft-spool",
  "xlsx-graft-xml",
 ]
 
