@@ -1,26 +1,56 @@
 #!/bin/sh
-# A toolchain image holds the versions the Makefile pins.
+# A toolchain image holds the versions the Makefile pins, or the versions
+# TOOLCHAIN_HOLDS says the pinned digest holds.
 #
-#   scripts/check-toolchain-image.sh <image> [<platform>]
+#   scripts/check-toolchain-image.sh [--holds '<versions>'] <image> [<platform>]
 #
-# Runs the image once and compares what each tool reports with RUST_VERSION,
-# LLVM_COV_VERSION, CARGO_ABOUT_VERSION and CARGO_DENY_VERSION in the
-# Makefile. <platform> (linux/amd64, linux/arm64) picks one architecture of
-# a multi-arch image; without it docker runs the host's architecture.
+# Runs the image once and compares what each tool reports. Without --holds the
+# versions are compared with RUST_VERSION, LLVM_COV_VERSION,
+# CARGO_ABOUT_VERSION and CARGO_DENY_VERSION in the Makefile. With --holds they
+# are compared with the given text, in the form this script prints after
+# `holds:` (rust X, cargo-llvm-cov X, cargo-about X, cargo-deny X).
+# engine:verify passes TOOLCHAIN_HOLDS as this text when it checks the image
+# at TOOLCHAIN_DIGEST.
+# engine:verify does not compare with the pins, because a bump changes the
+# pins one pull request before TOOLCHAIN_DIGEST, and the gates would fail in
+# between.
+# <platform> (linux/amd64, linux/arm64) picks one architecture of a multi-arch
+# image; without it docker runs the host's architecture.
 #
-# .github/workflows/toolchain-image.yml runs it over each architecture of the
-# image it has just pushed, so an image missing a tool fails that run before
+# Without --holds the image must also have the git command (cargo-deny runs it
+# to fetch the advisory database); its version is not compared. With --holds
+# git is not checked: the digest engine:verify runs may predate the image that
+# first had git, and a gate that runs `cargo deny check advisories` fails with
+# cargo-deny's own error when git is missing.
+#
+# .github/workflows/toolchain-image.yml runs it over each architecture of
+# the image it has just pushed, so an image missing a tool fails that run before
 # anyone copies its digest into TOOLCHAIN_DIGEST.
 # scripts/check-toolchain-pins.sh checks that the Makefile and the Dockerfile
-# agree; this script checks that the built image holds the Makefile's
-# versions.
+# agree; this script checks what the built image holds.
 #
 # Read-only POSIX sh + sed + docker; no toolchain required on the host.
 set -eu
 
-if [ $# -lt 1 ] || [ $# -gt 2 ]; then
-    echo "usage: $0 <image> [<platform>]" >&2
+usage() {
+    echo "usage: $0 [--holds '<versions>'] <image> [<platform>]" >&2
     exit 2
+}
+
+mode=pins
+holds=
+if [ "${1:-}" = --holds ]; then
+    [ $# -ge 2 ] || usage
+    if [ -z "$2" ]; then
+        echo "toolchain-image: --holds got an empty value (is TOOLCHAIN_HOLDS in the Makefile empty?)" >&2
+        exit 2
+    fi
+    mode=holds
+    holds=$2
+    shift 2
+fi
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+    usage
 fi
 image=$1
 platform=${2:-}
@@ -35,22 +65,36 @@ have=$(docker run --rm ${platform:+--platform "$platform"} "$image" sh -c '
     echo "RUST_VERSION=$(v rustc --version | cut -d" " -f2)"
     echo "LLVM_COV_VERSION=$(v cargo llvm-cov --version | cut -d" " -f2)"
     echo "CARGO_ABOUT_VERSION=$(v cargo about --version | cut -d" " -f2)"
-    echo "CARGO_DENY_VERSION=$(v cargo deny --version | cut -d" " -f2)"')
+    echo "CARGO_DENY_VERSION=$(v cargo deny --version | cut -d" " -f2)"
+    echo "GIT_VERSION=$(v git --version | cut -d" " -f3)"')
 
 field() { printf '%s\n' "$have" | sed -n "s/^$1=//p"; }
 
+where="$image${platform:+ ($platform)}"
 status=0
-for name in RUST_VERSION LLVM_COV_VERSION CARGO_ABOUT_VERSION CARGO_DENY_VERSION; do
-    want=$(make_pin "$name")
-    got=$(field "$name")
-    if [ -z "$want" ]; then
-        echo "toolchain-image: $name not found in the Makefile" >&2
-        status=1
-    elif [ "$got" != "$want" ]; then
-        echo "toolchain-image: $name is '$got' in $image${platform:+ ($platform)}, want '$want'" >&2
+text="rust $(field RUST_VERSION), cargo-llvm-cov $(field LLVM_COV_VERSION), cargo-about $(field CARGO_ABOUT_VERSION), cargo-deny $(field CARGO_DENY_VERSION)"
+if [ "$mode" = holds ]; then
+    if [ "$text" != "$holds" ]; then
+        echo "toolchain-image: $where holds '$text', but TOOLCHAIN_HOLDS says '$holds'" >&2
         status=1
     fi
-done
+else
+    if [ -z "$(field GIT_VERSION)" ]; then
+        echo "toolchain-image: git is missing from $where" >&2
+        status=1
+    fi
+    for name in RUST_VERSION LLVM_COV_VERSION CARGO_ABOUT_VERSION CARGO_DENY_VERSION; do
+        want=$(make_pin "$name")
+        got=$(field "$name")
+        if [ -z "$want" ]; then
+            echo "toolchain-image: $name not found in the Makefile" >&2
+            status=1
+        elif [ "$got" != "$want" ]; then
+            echo "toolchain-image: $name is '$got' in $where, want '$want'" >&2
+            status=1
+        fi
+    done
+fi
 [ "$status" -eq 0 ] || exit 1
 
-echo "toolchain-image: OK ($image${platform:+ $platform}: rust $(field RUST_VERSION), cargo-llvm-cov $(field LLVM_COV_VERSION), cargo-about $(field CARGO_ABOUT_VERSION), cargo-deny $(field CARGO_DENY_VERSION))"
+echo "toolchain-image: OK ($image${platform:+ $platform}) holds: $text"

@@ -46,14 +46,15 @@ engine\:verify: ## Verify engine/ — budget + toolchain pins + fixtures/ (READM
 _engine-verify: _engine-budget _engine-toolchain _engine-lint _engine-capi-abi _engine-coverage \
                 _engine-doctest
 
-# The pinned digest holds the versions TOOLCHAIN_TAG names. A digest copied
-# from the wrong run, or a tag left behind when the digest moved, fails here
-# rather than passing every gate on a toolchain the Makefile does not name.
+# The pinned digest holds the versions TOOLCHAIN_HOLDS names. A digest copied
+# from the wrong run, or a TOOLCHAIN_HOLDS not updated when TOOLCHAIN_DIGEST
+# changed, fails here rather than passing every gate on a toolchain the
+# Makefile does not name. This recipe calls the script without CARGO_IN_DOCKER,
+# because the script runs `docker run` itself (it writes no file, so the
+# container needs no repository mount).
 _engine-toolchain:
 	@echo "== toolchain image =="
-	$(CARGO_IN_DOCKER) 'have="$$(rustc --version | cut -d" " -f2)-llvmcov$$(cargo llvm-cov --version | cut -d" " -f2)"; \
-		[ "$$have" = "$(TOOLCHAIN_TAG)" ] \
-			|| { echo "toolchain: the pinned image holds $$have, but TOOLCHAIN_TAG says $(TOOLCHAIN_TAG)" >&2; exit 1; }'
+	@scripts/check-toolchain-image.sh --holds '$(TOOLCHAIN_HOLDS)' $(RUST_IMAGE)
 
 _engine-doctest:
 	@echo "== doctest =="

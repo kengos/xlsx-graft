@@ -31,7 +31,7 @@ which is faster; run the whole `make verify` before asking for a review.
 `make engine:verify` is the engine's: the line budget, the check that every
 crate opts into the workspace lints, the check that the toolchain versions in
 the `Makefile` and in `docker/toolchain.Dockerfile` agree and that the pinned
-image holds the versions its tag names, `cargo fmt --check`,
+image holds the versions `TOOLCHAIN_HOLDS` names, `cargo fmt --check`,
 `cargo clippy -D warnings`, the tests at 100% line coverage, the doctests, and
 the check that the C ABI library exports exactly the `xlsx_graft_*` functions
 its header declares, and nothing else. It prints one PASS/FAIL line; on a failure the
@@ -99,9 +99,9 @@ it only adds `V=1` for the raw output.
 `sdk:lock:php`, `sdk:lock:go`).
 
 The first run pulls the toolchain image (about 1 GB), which already holds
-Rust, rustfmt, clippy and `cargo-llvm-cov`, and downloads the crates into the
-Docker volume `xlsx-graft-cargo-cache`; later runs reuse both. The SDK gates
-also pull their language's base image (`ruby:<version>-slim-bookworm`,
+Rust, rustfmt, clippy, `cargo-llvm-cov`, `cargo-about` and `cargo-deny`, and
+downloads the crates into the Docker volume `xlsx-graft-cargo-cache`; later
+runs reuse both. The SDK gates also pull their language's base image (`ruby:<version>-slim-bookworm`,
 `python:<version>-slim-bookworm`,
 `mcr.microsoft.com/dotnet/sdk:<version>-noble`,
 `node:<version>-bookworm-slim`, `php:<version>-cli-bookworm`,

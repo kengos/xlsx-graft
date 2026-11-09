@@ -2,8 +2,9 @@ name: Publish toolchain image
 
 # Builds docker/toolchain.Dockerfile and pushes it to
 # ghcr.io/<owner>/xlsx-graft-toolchain. The gates run it pinned by digest
-# (TOOLCHAIN_DIGEST in the Makefile), which this run writes to its job summary;
-# a new image reaches the gates only when that pin is changed.
+# (TOOLCHAIN_DIGEST in the Makefile) and checks it against the versions the
+# image holds (TOOLCHAIN_HOLDS), both of which this run writes to its job
+# summary; a new image reaches the gates only when those two are changed.
 #
 # On a push to main only when the image's own inputs change, so an unrelated
 # merge does not replace the image. workflow_dispatch rebuilds it by hand, for
@@ -107,19 +108,41 @@ jobs:
       # fails this run, so its digest is never copied into TOOLCHAIN_DIGEST,
       # and the gates (which pull by digest) never run it. arm64 runs under
       # the QEMU set up above.
+      #
+      # This step also reads the versions the image holds (the text after `holds:`),
+      # which the next step writes to the job summary as TOOLCHAIN_HOLDS. The
+      # two architectures must hold the same versions.
       - name: Check the pushed image
+        id: check
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
+          holds=
+          first=
           for platform in linux/amd64 linux/arm64; do
-            scripts/check-toolchain-image.sh "${IMAGE}@${DIGEST}" "$platform"
+            line=$(scripts/check-toolchain-image.sh "${IMAGE}@${DIGEST}" "$platform")
+            echo "$line"
+            this=${line#*) holds: }
+            if [ "$this" = "$line" ]; then
+              echo "no 'holds: ' in the output of scripts/check-toolchain-image.sh" >&2
+              exit 1
+            fi
+            if [ -n "$first" ] && [ "$holds" != "$this" ]; then
+              echo "$first holds '$holds' but $platform holds '$this'" >&2
+              exit 1
+            fi
+            first=$platform
+            holds=$this
           done
+          echo "holds=$holds" >> "$GITHUB_OUTPUT"
 
-      # The digest of the multi-arch manifest: what the Makefile pins, since a
-      # tag can be moved and a digest cannot.
-      - name: Write the digest to the job summary
+      # The digest of the multi-arch manifest (a digest, not a tag, because a
+      # tag can be moved) and the versions it holds: the two lines the Makefile
+      # pins as TOOLCHAIN_DIGEST and TOOLCHAIN_HOLDS.
+      - name: Write the digest and the versions to the job summary
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
+          HOLDS: ${{ steps.check.outputs.holds }}
           TAGS: ${{ steps.meta.outputs.tags }}
         run: |
           {
@@ -127,6 +150,13 @@ jobs:
             echo
             echo '```'
             echo "${IMAGE}@${DIGEST}"
+            echo '```'
+            echo
+            echo 'Paste into the Makefile:'
+            echo
+            echo '```'
+            echo "TOOLCHAIN_HOLDS  := ${HOLDS}"
+            echo "TOOLCHAIN_DIGEST := ${DIGEST}"
             echo '```'
             echo
             echo 'Tags:'

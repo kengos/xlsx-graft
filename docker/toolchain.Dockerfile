@@ -1,6 +1,6 @@
 # The toolchain image the gates run in: rust with the components and the cargo
-# subcommands the gates need, and the license tools (cargo-about, cargo-deny),
-# installed once here instead of into a cache volume on each machine.
+# subcommands the gates need, the license tools (cargo-about, cargo-deny) and
+# git, installed once here instead of into a cache volume on each machine.
 # .github/workflows/toolchain-image.yml publishes it as
 # ghcr.io/<owner>/xlsx-graft-toolchain.
 #
@@ -69,3 +69,18 @@ RUN set -eu; \
         "$deny_sha" "${deny}/cargo-deny"; \
     apt-get purge -y -qq --auto-remove curl >/dev/null; \
     rm -rf /var/lib/apt/lists/*
+
+# git, for `cargo deny check advisories`: the cargo-deny release binary
+# downloads the RustSec advisory database by running the git command, and
+# fails without it (checked with cargo-deny 0.20.2, also with
+# `git-fetch-with-cli = false`). The version is whatever Debian bookworm ships
+# and is not pinned: git only downloads the database, so the result of a gate
+# depends on the database's contents and not on the git version, and a pin
+# would need a bump for every Debian security update. ca-certificates is
+# installed by name because `--no-install-recommends` leaves out what git only
+# recommends, and so that this layer does not depend on the layer above (which
+# installs and removes curl). This is the last layer, so a change here keeps
+# the layers above in the build cache.
+RUN apt-get update -qq \
+    && apt-get install -y -qq --no-install-recommends git ca-certificates >/dev/null \
+    && rm -rf /var/lib/apt/lists/*

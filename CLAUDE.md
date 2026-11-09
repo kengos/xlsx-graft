@@ -54,8 +54,8 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
 - `make engine:verify` is the engine's bar: line budget + `//!` headers + every
   crate's `[lints] workspace = true` + the toolchain pins (the Makefile's
   versions equal `docker/toolchain.Dockerfile`'s, and the pinned image holds
-  the versions of its tag) + `fixtures/` (every workbook there has its
-  row in `fixtures/README.md` and each row its workbook, the folder holds
+  the versions `TOOLCHAIN_HOLDS` names) + `fixtures/` (every workbook there
+  has its row in `fixtures/README.md` and each row its workbook, the folder holds
   only the workbooks, the README and AppleScripts (an untracked Finder
   `.DS_Store` and the gitignored `generated/` aside; a file git tracks in
   `generated/` fails, and without git or outside a git work tree
