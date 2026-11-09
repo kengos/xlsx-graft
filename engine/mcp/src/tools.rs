@@ -1,13 +1,20 @@
 //! The MCP tools: what `tools/list` describes and what `tools/call` runs.
 //!
-//! Every tool is one row of [`TOOLS`]: its descriptor and the function that
-//! runs it. Adding a tool is adding a row (and the module that holds the
-//! row); `list` and `call` read the table and name no tool themselves.
+//! Every tool is one row of [`TOOLS`]: its descriptor, the function that
+//! runs it and the reference page that documents it. Adding a tool is
+//! adding a row (and the module that holds the row), naming the tool in
+//! its page's `tools`, and writing a `tools/call` example for the tool in
+//! that page. A new page is a file `engine/reference/pages/<page>.md` and a
+//! `page!("<page>")` line, in name order, in the `PAGES` list of
+//! `engine/reference/src/embed.rs`. `list` and `call` read the table and
+//! name no tool themselves.
 
+mod reference;
 mod version;
 
 use crate::rpc::{INVALID_PARAMS, RpcError, clip};
 use serde_json::{Map, Value, json};
+use xlsx_graft_reference::URI_PREFIX;
 
 /// One MCP tool: the descriptor `tools/list` returns and the function
 /// `tools/call` runs.
@@ -35,10 +42,17 @@ pub(crate) struct Tool {
     /// response. A failure while the tool runs is an `Ok` result with
     /// `isError: true`, as MCP 2025-06-18 separates the two.
     pub(crate) run: fn(&Value) -> Result<Value, RpcError>,
+    /// The name of the reference page that documents the tool:
+    /// `engine/reference/pages/<page>.md`, whose front matter names the
+    /// tool in its `tools`. `tools/list` ends the description with the
+    /// page's URI. `tools/tests/pages.rs` checks that the page is embedded
+    /// and names the tool in its `tools`; `server/tests/examples.rs` checks
+    /// that the page has a `tools/call` example for the tool.
+    pub(crate) page: &'static str,
 }
 
 /// Every tool, in the order `tools/list` returns them.
-pub(crate) const TOOLS: &[Tool] = &[version::TOOL];
+pub(crate) const TOOLS: &[Tool] = &[version::TOOL, reference::LIST, reference::GET];
 
 /// The `tools/list` result.
 pub(crate) fn list() -> Value {
@@ -51,7 +65,11 @@ fn descriptor(tool: &Tool) -> Value {
     let mut entry = Map::new();
     entry.insert("name".into(), tool.name.into());
     entry.insert("title".into(), tool.title.into());
-    entry.insert("description".into(), tool.description.into());
+    let description = format!(
+        "{} Reference page: {URI_PREFIX}{}",
+        tool.description, tool.page
+    );
+    entry.insert("description".into(), description.into());
     entry.insert("inputSchema".into(), (tool.input_schema)());
     if let Some(output_schema) = tool.output_schema {
         entry.insert("outputSchema".into(), output_schema());
@@ -77,6 +95,28 @@ pub(crate) fn call(params: &Value) -> Result<Value, RpcError> {
         ));
     };
     (tool.run)(params.get("arguments").unwrap_or(&Value::Null))
+}
+
+/// An input schema that declares no properties. A tool with this schema
+/// ignores any `arguments` a call passes.
+fn no_arguments() -> Value {
+    json!({ "type": "object", "properties": {} })
+}
+
+/// The `isError` of a tool result: whether the tool failed while it ran.
+#[derive(Clone, Copy)]
+enum IsError {
+    Yes,
+    No,
+}
+
+/// A tool result whose `content` is one text part holding `body`, with no
+/// `structuredContent`.
+fn text_result(body: &str, is_error: IsError) -> Value {
+    json!({
+        "content": [{ "type": "text", "text": body }],
+        "isError": matches!(is_error, IsError::Yes),
+    })
 }
 
 /// A successful tool result carrying `value` as `structuredContent`, and the

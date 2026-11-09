@@ -18,7 +18,8 @@ const PROTOCOL_VERSION: &str = "2025-06-18";
 /// changelog has been read against this loop: 2025-03-26, for one, requires
 /// a server to accept JSON-RPC batches, which this loop answers with
 /// INVALID_REQUEST (batching was removed in 2025-06-18), and has no
-/// `structuredContent`, which every tool here answers with.
+/// `structuredContent`, which every tool that declares an `outputSchema`
+/// answers with.
 const SUPPORTED_PROTOCOL_VERSIONS: &[&str] = &[PROTOCOL_VERSION];
 
 /// Answers newline-delimited JSON-RPC requests from `reader` on `writer`

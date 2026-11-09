@@ -5,9 +5,17 @@
 //! A page is a markdown file in this crate's `pages/` directory. Its front
 //! matter names its `title`, a one-line `summary` and the `tools` it
 //! documents (see [`Page`]); the markdown body after it says how to call
-//! each tool and what the call returns. The pages are inside the crate
-//! because `include_str!` embeds them when the crate is compiled, and
-//! `cargo package` leaves out every file outside the crate's directory.
+//! each tool and what the call returns.
+//!
+//! The MCP server's tests (`engine/mcp/src/server/tests/examples.rs`) run
+//! every ```` ```json ```` block of every page as an example: a block with
+//! a `method` key is a request, and a block without one is the whole
+//! `result` of the request block just before it. Any other JSON in a page
+//! goes in a fence with another language name, such as ```` ```text ````.
+//!
+//! The pages are inside the crate because `include_str!` embeds them when
+//! the crate is compiled, and `cargo package` leaves out every file outside
+//! the crate's directory.
 //!
 //! [`pages`] lists every page; [`page`] looks one up by its URI,
 //! `xlsx-graft://reference/<page>`. A URI is matched against the embedded
@@ -43,7 +51,8 @@ pub const MAX_PAGE_BYTES: usize = 64 * 1024;
 pub const HOW_TO_READ: &str = "Each page is markdown about the tools named in that page's \
      `tools` in this list: how to call each one, with an example call, and what the call \
      returns. Read the page of a tool before calling it. Fetch a page with get_reference, \
-     passing its `uri`.";
+     passing its `uri`. Each tool's description in tools/list ends with the `uri` of its \
+     page.";
 
 /// Every embedded page whose front matter has the form [`Page`] describes
 /// and whose file is within [`MAX_PAGE_BYTES`], ordered by name.

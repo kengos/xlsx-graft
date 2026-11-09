@@ -1,7 +1,7 @@
 //! A client's whole session: initialize, the initialized notification, then
-//! listing and calling `version`. The `structuredContent` case pins the
-//! contract: the whole object is compared, so a renamed, added or retyped
-//! key fails here.
+//! listing the tools and calling `version`. The `structuredContent` case
+//! pins the contract: the whole object is compared, so a renamed, added or
+//! retyped key fails here.
 
 use crate::{responses, stderr, talk_to, xlsx_graft_mcp};
 use serde_json::json;
@@ -35,8 +35,8 @@ fn a_session_lists_and_calls_version() {
 
     assert_eq!(responses[1]["id"], 2);
     let tools = responses[1]["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 1);
     assert_eq!(tools[0]["name"], "version");
+    assert!(tools.iter().any(|tool| tool["name"] == "get_reference"));
     assert_eq!(tools[0]["outputSchema"]["required"], json!(["version"]));
 
     assert_eq!(responses[2]["id"], 3);

@@ -1,27 +1,29 @@
-//! Unit tests for the tools: the `version` descriptor and result, the calls
-//! that are refused, and the descriptor of a tool with no output schema.
+//! Unit tests for the tools: the `version` descriptor and result, and the
+//! calls that are refused. The reference tools and the check of each tool's
+//! page are in the submodules.
 
-use super::{Tool, call, descriptor, list};
+mod pages;
+mod reference;
+
+use super::{call, list};
 use crate::rpc::INVALID_PARAMS;
-use serde_json::{Value, json};
+use serde_json::json;
 use xlsx_graft_core::version;
 
 #[test]
-fn tools_list_returns_only_the_version_descriptor_with_every_field() {
+fn tools_list_returns_the_version_descriptor_with_every_field_as_its_first_entry() {
     assert_eq!(
-        list(),
+        list()["tools"][0],
         json!({
-            "tools": [{
-                "name": "version",
-                "title": "Engine version",
-                "description": "The xlsx-graft engine version.",
-                "inputSchema": { "type": "object", "properties": {} },
-                "outputSchema": {
-                    "type": "object",
-                    "properties": { "version": { "type": "string" } },
-                    "required": ["version"],
-                },
-            }],
+            "name": "version",
+            "title": "Engine version",
+            "description": "The xlsx-graft engine version. Reference page: xlsx-graft://reference/version",
+            "inputSchema": { "type": "object", "properties": {} },
+            "outputSchema": {
+                "type": "object",
+                "properties": { "version": { "type": "string" } },
+                "required": ["version"],
+            },
         })
     );
 }
@@ -65,32 +67,4 @@ fn a_call_without_a_string_name_is_invalid_params() {
         assert_eq!(err.code, INVALID_PARAMS);
         assert_eq!(err.message, "tools/call needs a string `name`");
     }
-}
-
-#[test]
-fn a_tool_without_an_output_schema_has_no_output_schema_key_in_its_descriptor() {
-    fn no_arguments() -> Value {
-        json!({ "type": "object", "properties": {} })
-    }
-    fn run(_arguments: &Value) -> Result<Value, crate::rpc::RpcError> {
-        Ok(json!({}))
-    }
-    let tool = Tool {
-        name: "plain",
-        title: "Plain",
-        description: "A tool whose result carries no structuredContent.",
-        input_schema: no_arguments,
-        output_schema: None,
-        run,
-    };
-    assert_eq!(run(&Value::Null), Ok(json!({})));
-    assert_eq!(
-        descriptor(&tool),
-        json!({
-            "name": "plain",
-            "title": "Plain",
-            "description": "A tool whose result carries no structuredContent.",
-            "inputSchema": { "type": "object", "properties": {} },
-        })
-    );
 }

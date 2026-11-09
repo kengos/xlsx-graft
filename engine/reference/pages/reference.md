@@ -11,7 +11,8 @@ about the tools named in that page's `tools` in the `list_reference`
 result: how to call each one, with an example call, and what the call
 returns.
 
-Read the page of a tool before calling it.
+Read the page of a tool before calling it. Each tool's description in
+`tools/list` ends with the `uri` of its page.
 
 ## list_reference
 
@@ -34,7 +35,8 @@ only `content`. `isError` is `false`.
 ## get_reference
 
 Returns one page's markdown. The one argument, `uri`, is a page's `uri`
-from `list_reference`: `xlsx-graft://reference/<page>`.
+from `list_reference` or from the end of a tool's description in
+`tools/list`: `xlsx-graft://reference/<page>`.
 
 ```json
 {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_reference","arguments":{"uri":"xlsx-graft://reference/version"}}}

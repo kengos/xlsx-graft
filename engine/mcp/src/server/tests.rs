@@ -1,6 +1,8 @@
 //! Unit tests for `serve`: the shared conversation driver and the transport
-//! failures here, the handshake and the protocol errors in the submodules.
+//! failures here; the handshake, the protocol errors and the reference
+//! pages' example calls in the submodules.
 
+mod examples;
 mod handshake;
 mod protocol;
 

@@ -851,6 +851,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "xlsx-graft-core",
+ "xlsx-graft-reference",
 ]
 
 [[package]]
