@@ -21,8 +21,9 @@ accepted = [
     "Unlicense",
 ]
 
-# The workspace's own crates are under the project's license (LICENSE-MIT,
-# LICENSE-APACHE, LICENSE-BSD), not listed.
+# A crate that says `publish = false` (capi, napi, fixtures-gen) is not listed.
+# The workspace's crates that are published to crates.io are listed, under
+# the project's own license text (their LICENSE-MIT).
 private = { ignore = true }
 
 # Only the crates behind the libraries and binaries are listed: the tests'

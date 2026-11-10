@@ -9,9 +9,17 @@
 #
 #   Is it correct?            one PASS/FAIL line, non-zero exit on FAIL, log kept
 #     make verify               the whole bar: every scope's verify (today
-#                               engine:verify and sdk:verify), every SDK on
-#                               every line it supports
+#                               engine:verify and sdk:verify) and
+#                               release:dry-run, every SDK on every line it
+#                               supports
 #     make verify LATEST=1      the same, each SDK on its latest line only
+#     make version:check        the crates' path dependencies and the SDK
+#                               manifests carry the workspace's version (no
+#                               Docker)
+#     make release:dry-run      version:check and each registry's dry run (the
+#                               registry's own package checks and the license
+#                               files in each package); nothing is published
+#                               (today crates.io: release:dry-run:crates)
 #     make engine:verify        engine: budget + toolchain pins + fixtures/
 #                               (README rows, only workbooks, the README
 #                               and AppleScripts and no links, allowed
@@ -371,6 +379,7 @@ include mk/sdk/go.mk
 include mk/docker.mk
 include mk/excel.mk
 include mk/release.mk
+include mk/release/dry-run.mk
 
 .PHONY: _verify ci\:matrix help quiet verify clean clean\:all clean\:target
 
@@ -435,15 +444,15 @@ quiet: ## Run ANY target this way: make quiet T=engine:test (same PASS/FAIL line
 # .github/workflows/ci.yml's required `make verify` job passes only when all of
 # them do. A scope that joins `_verify` joins CI_MATRIX too.
 
-verify: ## The whole bar: every scope's verify, every SDK on every supported line (LATEST=1: the latest line only)
+verify: ## The whole bar: every scope's verify, release:dry-run, every SDK on every supported line (LATEST=1: the latest line only)
 	@$(call gate,_verify,verify)
 
-_verify: _engine-verify _sdk-verify
+_verify: _engine-verify _sdk-verify _release-dry-run
 
-CI_MATRIX = {"include":[{"target":"engine:verify","args":""}$(SDK_CI_JOBS)]}
+CI_MATRIX = {"include":[{"target":"engine:verify","args":""},{"target":"release:dry-run","args":""}$(SDK_CI_JOBS)]}
 
 # Not a gate: it checks nothing and prints one line of JSON, which CI reads.
-ci\:matrix: ## Print verify's members as CI's job matrix (JSON, one job for the engine and one per SDK line)
+ci\:matrix: ## Print verify's members as CI's job matrix (JSON, one job for the engine, one for release:dry-run and one per SDK line)
 	@echo '$(CI_MATRIX)'
 
 ## ---- housekeeping ------------------------------------------------------

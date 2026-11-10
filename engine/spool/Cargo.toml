@@ -4,7 +4,6 @@ description = "xlsx-graft spool: append-only scratch storage, in memory or in a 
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish.workspace = true
 repository.workspace = true
 
 [dependencies]

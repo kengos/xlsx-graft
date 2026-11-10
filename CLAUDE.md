@@ -28,7 +28,7 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   missing, add a target rather than typing a one-off.
 - Each gate target (`verify`, `engine:verify` / `lint` / `budget` /
   `fmt` / `clippy` / `test` / `coverage` / `capi-abi` / `capi-lib` / `napi` /
-  `cli-bin` / `deny` / `licenses` / `advisories`, and `sdk:verify` / `test` /
+  `cli-bin` / `deny` / `licenses` / `advisories`, `release:dry-run` / `release:dry-run:crates` and `version:check`, and `sdk:verify` / `test` /
   `lint`, each also `:ruby`, `:python`, `:dotnet`, `:jvm`, `:js`, `:php` and `:go`) prints ONE PASS/FAIL line, exits
   0 on PASS and non-zero on FAIL (the gate's own code is in the FAIL line and
   the `# exit` header of `last-error.log`), and keeps the full log in
@@ -47,11 +47,12 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   commit `THIRD-PARTY-LICENSES` (`engine:licenses` is a member of
   `engine:verify`).
 - `make verify` is the whole bar: every scope's `<scope>:verify` (today
-  `engine:verify` and `sdk:verify`), **every SDK on every supported line**,
+  `engine:verify` and `sdk:verify`), `release:dry-run`, **every SDK on every
+  supported line**,
   the floor included. `LATEST=1` narrows each SDK to its latest stable line
   for a faster local run; it is not the bar. CI runs the same members as
   parallel jobs with `V=1`, listed by `make ci:matrix` (one for the engine,
-  one per SDK line), and its required `make verify` job passes only when all
+  one for `release:dry-run`, one per SDK line), and its required `make verify` job passes only when all
   of them do (`.github/workflows/ci.yml`); a check CI needs is a make target,
   never a workflow step.
 - `make engine:verify` is the engine's bar: line budget + `//!` headers + every
@@ -127,6 +128,16 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   through a `replace` by a module of its own, built and run against
   `dist/cli/local/xlsx-graft`, the CLI built first by `engine:cli-bin` and
   run as a subprocess (not the C ABI library).
+- `make release:dry-run` checks, on every pull request, that what a release
+  publishes passes its registry's own package checks and holds the license
+  files, and publishes nothing (no token; the network is read for
+  dependencies only): `version:check` (the crates' path dependencies and the
+  SDK manifests carry the workspace's version) and
+  `release:dry-run:crates` (`cargo publish --dry-run` of the CLI, MCP and
+  engine crates, which hold the license files and no
+  `THIRD-PARTY-LICENSES`; capi and napi say `publish = false`, they ship in
+  the SDK packages). Each registry's dry run is a target of its own. Details:
+  [docs/sdk.md](docs/sdk.md) § Platform packages.
 - `make release:native` and `make release:assemble` build the platform packages
   of a release (gems, wheels, CLI archives; the other languages follow) from
   the engine of each platform in `scripts/release/platforms.tsv`. They are

@@ -4,7 +4,6 @@ description = "xlsx-graft compat: which version of Excel, Excel for Mac, LibreOf
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish.workspace = true
 repository.workspace = true
 
 [dependencies]

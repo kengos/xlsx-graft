@@ -269,6 +269,24 @@ the one they carry. A platform the Docker
 host cannot load (a Mac's Docker is arm64 Linux) is built and checked by file
 names alone, and the run says the load was skipped.
 
+### Dry run
+
+`make release:dry-run` is a member of `make verify` (and of CI's matrix): it
+checks that what a release would publish passes its registry's own package
+checks and holds the license files, so a pull request that breaks it fails
+there, not at the release. It uses no token
+and publishes nothing; the network is read to fetch dependencies only. It runs
+`version:check` (the crates' path dependencies and the Ruby, Python, .NET,
+Java and JS manifests carry the workspace's version, the `[workspace.package]`
+version in `engine/Cargo.toml`) and a target per
+registry, `release:dry-run:<registry>`: today `crates`, `cargo publish
+--dry-run` of the CLI, MCP and engine crates (`xlsx-graft-capi`,
+`xlsx-graft-napi` and `xlsx-graft-fixtures-gen` say `publish = false`; the
+first two are shipped in the SDK packages), then the .crate files by
+`check_packages.py --crates`: the license files and `NOTICE` in each, and no
+`THIRD-PARTY-LICENSES` (a .crate holds source alone, so none of the
+dependencies' code). The versions stay `0.0.0` until the release raises them.
+
 ## Calling the C ABI
 
 In JavaScript the addon's Rust calls the C ABI (`engine/napi/src/call.rs`) and

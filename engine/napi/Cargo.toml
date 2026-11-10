@@ -4,7 +4,8 @@ description = "xlsx-graft Node.js addon: the N-API host the JS SDK loads"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish.workspace = true
+# Not published to crates.io: the Node.js addon is shipped inside the npm platform packages.
+publish = false
 repository.workspace = true
 
 [lib]
