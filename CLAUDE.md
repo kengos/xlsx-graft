@@ -28,7 +28,7 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   missing, add a target rather than typing a one-off.
 - Each gate target (`verify`, `engine:verify` / `lint` / `budget` /
   `fmt` / `clippy` / `test` / `coverage` / `capi-abi` / `capi-lib` / `napi` /
-  `cli-bin` / `deny` / `licenses` / `advisories`, `release:dry-run` / `release:dry-run:crates` and `version:check`, and `sdk:verify` / `test` /
+  `cli-bin` / `deny` / `licenses` / `advisories`, `release:dry-run` / `release:dry-run:<registry>` and `version:check`, and `sdk:verify` / `test` /
   `lint`, each also `:ruby`, `:python`, `:dotnet`, `:jvm`, `:js`, `:php` and `:go`) prints ONE PASS/FAIL line, exits
   0 on PASS and non-zero on FAIL (the gate's own code is in the FAIL line and
   the `# exit` header of `last-error.log`), and keeps the full log in
@@ -133,10 +133,12 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   files, and publishes nothing (no token; the network is read for
   dependencies only): `version:check` (the crates' path dependencies and the
   SDK manifests carry the workspace's version) and
-  `release:dry-run:crates` (`cargo publish --dry-run` of the CLI, MCP and
-  engine crates, which hold the license files and no
-  `THIRD-PARTY-LICENSES`; capi and napi say `publish = false`, they ship in
-  the SDK packages). Each registry's dry run is a target of its own. Details:
+  a dry run for each registry, a target of its own: `release:dry-run:crates`
+  (`cargo publish --dry-run` of the CLI, MCP and engine crates; capi and napi
+  say `publish = false`, they ship in the SDK packages), `:rubygems`, `:pypi`
+  (`twine check`), `:nuget`, `:maven` (the bundle, signed with a key generated for
+  the run), `:npm` (`npm publish --dry-run`), `:packagist` and `:go`. Each
+  checks the license files in what it publishes. Details:
   [docs/sdk.md](docs/sdk.md) § Platform packages.
 - `make release:native` and `make release:assemble` build the platform packages
   of a release (gems, wheels, CLI archives; the other languages follow) from

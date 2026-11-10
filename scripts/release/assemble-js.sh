@@ -51,6 +51,8 @@ for slug in "$@"; do
             license: "MIT OR Apache-2.0 OR BSD-3-Clause",
             repository: { type: "git", url: "git+https://github.com/kengos/xlsx-graft.git" },
             files: ["xlsx_graft.node", "LICENSE-*", "NOTICE", "THIRD-PARTY-LICENSES"],
+            // A scoped package is published as private unless it says so.
+            publishConfig: { access: "public" },
             os: [os],
             cpu: [cpu],
             ...(os === "linux" ? { libc: ["glibc"] } : {}),

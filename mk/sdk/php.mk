@@ -75,21 +75,23 @@ PHP_CHECKOUT := mkdir -p /tmp/repo/sdk; \
 # One command per step under `sh -e`, so the first red one stops the rest.
 # `composer validate --strict` also stops a composer.lock older than a
 # composer.json edit.
+# What Packagist runs on the package: composer.json is valid, strictly.
+PHP_VALIDATE := composer validate --strict
 PHP_LINT := vendor/bin/php-cs-fixer check --diff; \
 	vendor/bin/phpstan analyse --no-progress --memory-limit=512M; \
-	composer validate --strict
+	$(PHP_VALIDATE)
 # PHPUnit has no fail-under flag, so the 100% bar is read from its clover
 # report.
 PHP_TEST := vendor/bin/phpunit; php script/coverage-gate.php build/clover.xml
 
 # Lint, the tests at 100% line coverage, then the package as a user gets it:
-# archived by `composer archive` from a copy of the checkout with the
-# workspace's license files beside it and the version engine/Cargo.toml names
-# (Packagist takes it from the tag instead), the zip installed from an
-# `artifact` repository with packagist.org turned off into a project of its
-# own (script/check-installed-package, copied out of the checkout too, with
-# whatever a host install left in it removed), and loaded from there on the
-# line's PHP.
+# archived by `composer archive` from a copy of the checkout (whose license
+# files are the repository's, scripts/check-license-copies.sh) with the version
+# engine/Cargo.toml names (Packagist takes it from the tag instead), the zip
+# installed from an `artifact` repository with packagist.org turned off into a
+# project of its own (script/check-installed-package, copied out of the
+# checkout too, with whatever a host install left in it removed), and loaded
+# from there on the line's PHP.
 sdk\:verify\:php: ## Verify sdk/php on every supported line — php-cs-fixer + PHPStan + PHPUnit at 100% line coverage + composer archive/install/load (LATEST=1, PHP_VER=<line>)
 	@$(call gate,_sdk-verify-php,sdk:verify:php)
 
@@ -103,7 +105,6 @@ _sdk-verify-php-line: _sdk-image-php
 	$(PHP_IN_DOCKER) 'cp -r /repo/sdk/php /tmp/build; \
 		cd /tmp/build; \
 		rm -rf vendor build .phpunit.cache .php-cs-fixer.cache; \
-		cp /repo/LICENSE-APACHE /repo/LICENSE-BSD /repo/LICENSE-MIT /repo/NOTICE .; \
 		version=$$(sed -n "/^\[workspace\.package\]/,/^\[/s/^version = \"\(.*\)\"/\1/p" /repo/engine/Cargo.toml); \
 		[ -n "$$version" ] || { echo "no [workspace.package] version in engine/Cargo.toml" >&2; exit 1; }; \
 		composer config version "$$version"; \

@@ -3,3 +3,4 @@
 *
 !tools/go.mod
 !tools/go.sum
+!tools/modzip/main.go

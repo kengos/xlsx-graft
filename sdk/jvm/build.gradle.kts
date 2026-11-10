@@ -183,9 +183,34 @@ publishing {
                 name = "xlsx-graft"
                 description = "Read, verify, create and edit xlsx workbooks"
                 url = "https://github.com/kengos/xlsx-graft"
+                // Maven Central asks for the licenses, the developers and the
+                // source control of every POM. The project is under three
+                // licenses, any of which may be chosen.
                 licenses {
-                    // The workspace's license, as an SPDX expression.
-                    license { name = "MIT OR Apache-2.0 OR BSD-3-Clause" }
+                    license {
+                        name = "MIT License"
+                        url = "https://github.com/kengos/xlsx-graft/blob/main/LICENSE-MIT"
+                    }
+                    license {
+                        name = "Apache License, Version 2.0"
+                        url = "https://github.com/kengos/xlsx-graft/blob/main/LICENSE-APACHE"
+                    }
+                    license {
+                        name = "BSD 3-Clause License"
+                        url = "https://github.com/kengos/xlsx-graft/blob/main/LICENSE-BSD"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "kengos"
+                        name = "kengos"
+                        url = "https://github.com/kengos"
+                    }
+                }
+                scm {
+                    url = "https://github.com/kengos/xlsx-graft"
+                    connection = "scm:git:https://github.com/kengos/xlsx-graft.git"
+                    developerConnection = "scm:git:https://github.com/kengos/xlsx-graft.git"
                 }
             }
         }

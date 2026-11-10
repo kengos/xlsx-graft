@@ -16,7 +16,7 @@ GO_PATCH_1.26 := 1.26.10
 GO_PATCH_1.27 := 1.27.3
 # Command line only (Makefile § knobs).
 GO_VER :=
-GO_IMAGE_INPUTS := $(addprefix sdk/go/,Dockerfile tools/go.mod tools/go.sum)
+GO_IMAGE_INPUTS := $(addprefix sdk/go/,Dockerfile tools/go.mod tools/go.sum tools/modzip/main.go)
 # The SDK runs the engine's CLI (engine:cli-bin) as a subprocess rather than
 # loading the C ABI's library through cgo, which would leave every user's
 # build needing a C toolchain.
@@ -63,6 +63,13 @@ _sdk-image-go:
 # mounted checkout: the cover profile is written under /tmp too. The copy sits
 # at /tmp/repo/sdk/go beside a link to the engine, so the tests read
 # engine/Cargo.toml at the path they would in the checkout.
+# The module as the proxy zips it: a copy of sdk/go in /tmp/build with every
+# directory that has a go.mod of its own (tools/, script/check-installed-module/)
+# left out, as the zip leaves it out.
+GO_MODULE_COPY := cp -r /repo/sdk/go /tmp/build; \
+	cd /tmp/build; \
+	find . -mindepth 2 -name go.mod -exec dirname {} + > /tmp/nested; \
+	xargs rm -rf < /tmp/nested
 GO_CHECKOUT := mkdir -p /tmp/repo/sdk; \
 	cp -r /repo/sdk/go /tmp/repo/sdk/go; \
 	ln -s /repo/engine /tmp/repo/engine; \
@@ -103,10 +110,7 @@ _sdk-verify-go-line: _sdk-image-go
 	@echo "== sdk go lint + test (Go $(GO_PATCH)) =="
 	$(GO_IN_DOCKER) '$(GO_CHECKOUT); $(GO_LINT); $(GO_TEST)'
 	@echo "== sdk go module (copy, build, run) (Go $(GO_PATCH)) =="
-	$(GO_IN_DOCKER) 'cp -r /repo/sdk/go /tmp/build; \
-		cd /tmp/build; \
-		find . -mindepth 2 -name go.mod -exec dirname {} + > /tmp/nested; \
-		xargs rm -rf < /tmp/nested; \
+	$(GO_IN_DOCKER) '$(GO_MODULE_COPY); \
 		cp -r /repo/sdk/go/script/check-installed-module /tmp/user; \
 		cd /tmp/user; \
 		go build -o /tmp/check .; \
