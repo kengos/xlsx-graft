@@ -21,3 +21,11 @@ fn the_largest_limit_serializes_as_every_digit() {
     let wire = serde_json::to_string(&Limit::default_of(u64::MAX)).unwrap();
     assert_eq!(wire, "18446744073709551615");
 }
+
+#[test]
+fn a_policy_limit_names_the_policy_source() {
+    let limit = Limit::policy_of(500);
+    assert_eq!(limit.value, 500);
+    assert_eq!(limit.source, LimitSource::Policy);
+    assert_eq!(serde_json::to_string(&limit.source).unwrap(), r#""policy""#);
+}

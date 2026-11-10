@@ -19,6 +19,7 @@ pub struct Diagnostics {
     dropped: u64,
     dropped_errors: u64,
     has_errors: bool,
+    has_warnings: bool,
 }
 
 impl Diagnostics {
@@ -42,6 +43,7 @@ impl Diagnostics {
             dropped: 0,
             dropped_errors: 0,
             has_errors: false,
+            has_warnings: false,
         }
     }
 
@@ -54,6 +56,7 @@ impl Diagnostics {
     pub fn push(&mut self, diagnostic: Diagnostic, location: Location) {
         let is_error = diagnostic.severity() == Severity::Error;
         self.has_errors |= is_error;
+        self.has_warnings |= diagnostic.severity() == Severity::Warn;
         if self.records.len() < self.keep {
             self.records.push(Record::new(
                 diagnostic,
@@ -82,6 +85,12 @@ impl Diagnostics {
     #[must_use]
     pub fn has_errors(&self) -> bool {
         self.has_errors
+    }
+
+    /// Whether any warning was pushed, kept or dropped.
+    #[must_use]
+    pub fn has_warnings(&self) -> bool {
+        self.has_warnings
     }
 
     /// The records kept, followed by a `diagnostics_truncated` notice when

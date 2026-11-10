@@ -2021,5 +2021,35 @@
       "text": "leave dynamic_array out of the workbook so it works in libreoffice"
     },
     "origin": "<origin>"
+  },
+  {
+    "code": "policy_invalid",
+    "severity": "error",
+    "message": "the policy `forbid.parts[1].kind` is not a value it takes; it takes macro, external_link, dde, ole, activex, data_connection, web_publish",
+    "args": {
+      "key": "forbid.parts[1].kind",
+      "reason": "unknown_value",
+      "hint": "macro, external_link, dde, ole, activex, data_connection, web_publish"
+    },
+    "location": {},
+    "decidedBy": null,
+    "fix": null,
+    "origin": "<origin>"
+  },
+  {
+    "code": "rules_invalid",
+    "severity": "error",
+    "message": "the rules `parts.allow[0]` is not a value it takes; it takes macro, external_link, dde, ole, activex, data_connection, web_publish",
+    "args": {
+      "key": "parts.allow[0]",
+      "reason": "unknown_value",
+      "hint": "macro, external_link, dde, ole, activex, data_connection, web_publish"
+    },
+    "location": {},
+    "decidedBy": {
+      "kind": "template"
+    },
+    "fix": null,
+    "origin": "<origin>"
   }
 ]

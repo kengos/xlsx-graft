@@ -2,8 +2,8 @@
 
 use super::{
     EncodingReason, FormulaMalformedReason, FunctionDenial, InflateReason, PartKind,
-    PartNameReason, SchemaReason, SheetNameReason, TargetApp, TargetFallback, TargetList,
-    TargetReason, ZipDirectoryReason, ZipHeaderField,
+    PartNameReason, SchemaReason, SettingReason, SheetNameReason, TargetApp, TargetFallback,
+    TargetList, TargetReason, ZipDirectoryReason, ZipHeaderField,
 };
 use serde::Serialize;
 use std::fmt::Display;
@@ -213,5 +213,13 @@ fn every_target_app_prints_as_its_wire_string() {
             TargetApp::OnlyOffice,
         ],
         r#"["excel","excel_mac","libreoffice","google_sheets","numbers","onlyoffice"]"#,
+    );
+}
+
+#[test]
+fn every_setting_reason_prints_as_its_wire_string() {
+    assert_wire(
+        SettingReason::ALL,
+        r#"["too_large","malformed","not_object","unknown_key","wrong_type","out_of_range","unknown_value","required","empty","duplicate","prefixed"]"#,
     );
 }

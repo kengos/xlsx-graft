@@ -105,3 +105,26 @@ fn the_notice_origin_is_the_line_that_finished() {
     let records = diagnostics.finish();
     assert_eq!(records[0].origin(), format!("{}:{line}", file!()));
 }
+
+#[test]
+fn a_warning_is_remembered_whether_it_was_kept_or_dropped() {
+    let warning = || Diagnostic::BestEffortFunctionUnsupported {
+        name: crate::Echo::new("XLOOKUP"),
+        app: crate::TargetApp::Excel,
+        unsupported: crate::Echo::new("2016"),
+        unverified: crate::Echo::new(""),
+        requires: crate::Echo::new(""),
+        fallback: crate::TargetFallback::NameError,
+        count: 1,
+    };
+    let mut kept = Diagnostics::new();
+    assert!(!kept.has_warnings());
+    kept.push(filler(0), Location::default());
+    assert!(!kept.has_warnings());
+    kept.push(warning(), Location::default());
+    assert!(kept.has_warnings());
+    let mut dropped = Diagnostics::with_limit(Limit::default_of(0));
+    dropped.push(warning(), Location::default());
+    assert!(dropped.has_warnings());
+    assert!(dropped.records().is_empty());
+}
