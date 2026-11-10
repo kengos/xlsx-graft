@@ -82,7 +82,44 @@ tasks.javadoc {
     }
 }
 
+// What a release adds to the jars (scripts/release/assemble-jvm.sh), from
+// environment variables a checkout does not set:
+//
+// - XLSX_GRAFT_NOTICE_DIR: the directory holding LICENSE-* and NOTICE, which go
+//   into META-INF/ of the jar.
+// - XLSX_GRAFT_NATIVE_DIR: a directory for each platform, named as JNA names
+//   it (linux-x86-64), holding the engine library and THIRD-PARTY-LICENSES.
+//   Each becomes a jar of its own with that name as its classifier, whose
+//   native/<platform>/ holds the library, so a classpath that holds several
+//   of them never has two libraries at one path. The jar with the classes
+//   carries no engine, so no THIRD-PARTY-LICENSES.
+val noticeFiles =
+    System.getenv("XLSX_GRAFT_NOTICE_DIR")?.let {
+        fileTree(it) { include("LICENSE-*", "NOTICE") }
+    }
+
+val nativeJars =
+    System.getenv("XLSX_GRAFT_NATIVE_DIR")
+        ?.let { file(it).listFiles { entry -> entry.isDirectory } }
+        .orEmpty()
+        .sortedBy { it.name }
+        .map { platform ->
+            tasks.register<Jar>("nativeJar-${platform.name}") {
+                archiveClassifier = platform.name
+                from(platform) {
+                    exclude("THIRD-PARTY-LICENSES")
+                    into("native/${platform.name}")
+                }
+                from(platform) {
+                    include("THIRD-PARTY-LICENSES")
+                    into("META-INF")
+                }
+                noticeFiles?.let { files -> from(files) { into("META-INF") } }
+            }
+        }
+
 tasks.jar {
+    noticeFiles?.let { files -> from(files) { into("META-INF") } }
     manifest {
         // Java 8 has no module-info; this names the module on Java 9 and later.
         attributes(
@@ -141,6 +178,7 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             from(components["java"])
+            nativeJars.forEach { artifact(it) }
             pom {
                 name = "xlsx-graft"
                 description = "Read, verify, create and edit xlsx workbooks"

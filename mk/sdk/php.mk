@@ -103,7 +103,7 @@ _sdk-verify-php-line: _sdk-image-php
 	$(PHP_IN_DOCKER) 'cp -r /repo/sdk/php /tmp/build; \
 		cd /tmp/build; \
 		rm -rf vendor build .phpunit.cache .php-cs-fixer.cache; \
-		cp /repo/LICENSE-APACHE /repo/LICENSE-BSD /repo/LICENSE-MIT .; \
+		cp /repo/LICENSE-APACHE /repo/LICENSE-BSD /repo/LICENSE-MIT /repo/NOTICE .; \
 		version=$$(sed -n "/^\[workspace\.package\]/,/^\[/s/^version = \"\(.*\)\"/\1/p" /repo/engine/Cargo.toml); \
 		[ -n "$$version" ] || { echo "no [workspace.package] version in engine/Cargo.toml" >&2; exit 1; }; \
 		composer config version "$$version"; \

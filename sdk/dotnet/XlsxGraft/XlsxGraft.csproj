@@ -30,6 +30,20 @@
     <None Include="../README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
+  <!--
+    What a release copies from the repository's root next to this project's
+    folder (scripts/release/assemble-dotnet.sh) and what it puts in runtimes/:
+    the engine library of each platform, which NuGet copies into the output of
+    a build for that platform. In a checkout none of these exist and the globs
+    add nothing. THIRD-PARTY-LICENSES comes only with an engine, since only an
+    engine has the dependencies' code in it.
+  -->
+  <ItemGroup>
+    <None Include="../LICENSE-*;../NOTICE" Pack="true" PackagePath="/" />
+    <None Include="../THIRD-PARTY-LICENSES" Pack="true" PackagePath="/" Condition="Exists('../THIRD-PARTY-LICENSES')" />
+    <None Include="runtimes/**" Pack="true" PackagePath="runtimes/" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- Library and the C call are internal; the tests reach them by name rather than widening them. -->
     <InternalsVisibleTo Include="XlsxGraft.Tests" />

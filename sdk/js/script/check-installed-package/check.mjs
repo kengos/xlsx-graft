@@ -64,10 +64,18 @@ const hooks = ['preinstall', 'install', 'postinstall', 'prepare'].filter(
 );
 check(hooks.length === 0, `xlsx-graft runs ${hooks.join(', ')} when installed`);
 
-// No addon until a release ships one; the compiled sources and their types,
-// the README and the license files, and nothing else.
+// No addon (a platform's package holds it, and a release adds the dependency
+// on those to the package); the compiled sources and their types, the README
+// and the license files, and nothing else.
 const shipped = files(installed);
-const expected = ['LICENSE-APACHE', 'LICENSE-BSD', 'LICENSE-MIT', 'README.md', 'package.json'];
+const expected = [
+  'LICENSE-APACHE',
+  'LICENSE-BSD',
+  'LICENSE-MIT',
+  'NOTICE',
+  'README.md',
+  'package.json',
+];
 const unexpected = shipped.filter(
   (file) => !expected.includes(file) && !/^dist\/[^/]+\.(?:js|d\.ts)$/.test(file),
 );

@@ -19,8 +19,9 @@
 # build the others: scripts/release/build-native.sh builds macOS and Windows on
 # their own runners.
 
-.PHONY: _release-assemble _release-assemble-python _release-assemble-ruby _release-check \
-        _release-native _release-smoke \
+.PHONY: _release-assemble _release-assemble-dotnet _release-assemble-js _release-assemble-jvm \
+        _release-assemble-python _release-assemble-ruby _release-check _release-native \
+        _release-smoke \
         release\:assemble release\:matrix release\:native
 
 RELEASE_TABLE := scripts/release/platforms.tsv
@@ -60,9 +61,9 @@ _release-native: _engine-capi-lib _engine-napi _engine-cli-bin
 release\:assemble: ## Build the packages (gems, wheels, CLI archives) from dist/release/native/, check what they hold, load the host's platform (RELEASE_PLATFORMS=<slug>...)
 	@$(call gate,_release-assemble,release:assemble)
 
-# The gems are built on the floor line of Ruby and the wheels on the floor line
-# of Python, as docs/sdk.md says a package must work on every line; the packages
-# of the Docker host's platform are loaded on the latest line. A platform the
+# Each package is built on the floor line of its language, as docs/sdk.md says a
+# package must work on every line; the packages of the Docker host's platform
+# are loaded on the latest line. A platform the
 # host cannot load (a Mac's Docker is arm64 Linux, so not darwin-x64) is built
 # and checked by the names of its files alone, and the smoke test says so.
 _release-assemble:
@@ -79,8 +80,13 @@ _release-assemble:
 	fi
 	@$(MAKE) --no-print-directory _release-assemble-ruby RUBY_VER=$(firstword $(RUBY_LINES))
 	@$(MAKE) --no-print-directory _release-assemble-python PYTHON_VER=$(firstword $(PYTHON_LINES))
+	@$(MAKE) --no-print-directory _release-assemble-dotnet DOTNET_VER=$(firstword $(DOTNET_LINES))
+	@$(MAKE) --no-print-directory _release-assemble-jvm JVM_VER=$(firstword $(JVM_LINES))
+	@$(MAKE) --no-print-directory _release-assemble-js JS_VER=$(firstword $(JS_LINES))
 	@$(MAKE) --no-print-directory _release-check PYTHON_VER=$(firstword $(PYTHON_LINES))
-	@$(MAKE) --no-print-directory _release-smoke RUBY_VER=$(lastword $(RUBY_LINES)) PYTHON_VER=$(lastword $(PYTHON_LINES))
+	@$(MAKE) --no-print-directory _release-smoke RUBY_VER=$(lastword $(RUBY_LINES)) \
+		PYTHON_VER=$(lastword $(PYTHON_LINES)) DOTNET_VER=$(lastword $(DOTNET_LINES)) \
+		JVM_VER=$(lastword $(JVM_LINES)) JS_VER=$(lastword $(JS_LINES))
 
 # Each package builder empties its own directory, so a package left by an
 # earlier run never stands in for this one.
@@ -95,21 +101,30 @@ _release-assemble-python: _sdk-image-python
 		cli=$$(sed -n "/^\[workspace.package\]/,/^\[/s/^version = \"\(.*\)\"$$/\1/p" /repo/engine/Cargo.toml); \
 		python -I /repo/scripts/release/archive_cli.py /repo/$(RELEASE_NATIVE) /repo/$(RELEASE_PACKAGES)/cli "$$cli" $(RELEASE_SLUGS)'
 
+_release-assemble-dotnet: _sdk-image-dotnet
+	@echo "== release nupkg (.NET SDK $(DOTNET_PATCH)) =="
+	$(DOTNET_IN_DOCKER) 'sh /repo/scripts/release/assemble-dotnet.sh $(RELEASE_SLUGS)'
+
+_release-assemble-jvm: _sdk-image-jvm
+	@echo "== release jars (Temurin $(JVM_PATCH)) =="
+	$(JVM_IN_DOCKER) 'sh /repo/scripts/release/assemble-jvm.sh $(RELEASE_SLUGS)'
+
+_release-assemble-js: _sdk-image-js
+	@echo "== release npm packages (Node.js $(JS_PATCH)) =="
+	$(JS_IN_DOCKER) 'sh /repo/scripts/release/assemble-js.sh $(RELEASE_SLUGS)'
+
 # What each package holds (scripts/release/check_packages.py), then one
 # checksum list over every package.
 _release-check: _sdk-image-python
 	@echo "== release packages (names of the files in each) =="
-	$(PYTHON_IN_DOCKER) 'ruby=$$(sed -n "s/.*VERSION = \"\(.*\)\"/\1/p" /repo/sdk/ruby/lib/xlsx_graft/version.rb); \
-		python=$$(sed -n "s/^__version__ = \"\(.*\)\"/\1/p" /repo/sdk/python/src/xlsx_graft/_version.py); \
-		cli=$$(sed -n "/^\[workspace.package\]/,/^\[/s/^version = \"\(.*\)\"$$/\1/p" /repo/engine/Cargo.toml); \
-		python -I /repo/scripts/release/check_packages.py /repo/$(RELEASE_PACKAGES) "$$ruby" "$$python" "$$cli" $(RELEASE_SLUGS); \
+	$(PYTHON_IN_DOCKER) 'python -I /repo/scripts/release/check_packages.py /repo/$(RELEASE_PACKAGES) $(RELEASE_SLUGS); \
 		cd /repo/$(RELEASE_PACKAGES) && rm -f SHA256SUMS \
 			&& find . -type f | sort | xargs sha256sum | sed "s| \./| |" > /tmp/SHA256SUMS \
 			&& cp /tmp/SHA256SUMS SHA256SUMS && cat SHA256SUMS'
 
 # Installs the packages of the Docker host's platform, a Linux one, with no
 # XLSX_GRAFT_LIBRARY, so each package reaches the engine it carries and no other.
-_release-smoke: _sdk-image-ruby _sdk-image-python
+_release-smoke: _sdk-image-ruby _sdk-image-python _sdk-image-dotnet _sdk-image-jvm _sdk-image-js
 	@host=$$(docker info --format '{{.Architecture}}'); \
 	case "$$host" in \
 		x86_64) slug=linux-x64-gnu ;; \
@@ -122,6 +137,12 @@ _release-smoke: _sdk-image-ruby _sdk-image-python
 			echo "== release smoke: $$slug, Ruby $(RUBY_PATCH) =="; \
 			$(RUBY_IN_DOCKER) "sh /repo/scripts/release/smoke-ruby.sh $$slug $$want" || exit 1; \
 			echo "== release smoke: $$slug, Python $(PYTHON_PATCH) =="; \
-			$(PYTHON_IN_DOCKER) "sh /repo/scripts/release/smoke-python.sh $$slug $$want" || exit 1 ;; \
+			$(PYTHON_IN_DOCKER) "sh /repo/scripts/release/smoke-python.sh $$slug $$want" || exit 1; \
+			echo "== release smoke: $$slug, .NET SDK $(DOTNET_PATCH) =="; \
+			$(DOTNET_IN_DOCKER) "sh /repo/scripts/release/smoke-dotnet.sh" || exit 1; \
+			echo "== release smoke: $$slug, Temurin $(JVM_PATCH) =="; \
+			$(JVM_IN_DOCKER) "sh /repo/scripts/release/smoke-jvm.sh $$slug" || exit 1; \
+			echo "== release smoke: $$slug, Node.js $(JS_PATCH) =="; \
+			$(JS_IN_DOCKER) "sh /repo/scripts/release/smoke-js.sh $$slug $$want" || exit 1 ;; \
 		*) echo "== release smoke: skipped, the Docker host ($$host) is not one of: $(RELEASE_SLUGS) ==" ;; \
 	esac
