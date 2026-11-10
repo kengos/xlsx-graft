@@ -108,7 +108,13 @@ The package never downloads anything. It loads the first of:
 1. the path in `XLSX_GRAFT_LIBRARY` (an empty value counts as unset)
 2. the `library` argument, as in `Engine.Version(library: "/path/to/libxlsx_graft_capi.so")`
    or `XlsxReader.Open(path, library: ...)`
-3. a library in `native/` beside the application (no package ships one yet)
+3. the library the package ships: in `runtimes/<rid>/native/` beside the
+   application (NuGet copies the one for the machine's runtime identifier into a
+   build's output), or beside the application itself (what a publish for one
+   runtime writes)
+
+The libraries are built for glibc Linux, macOS and Windows x64; on Alpine (musl)
+the library is found and fails to load, and the error says so.
 
 .NET 10 or newer. No dependencies.
 

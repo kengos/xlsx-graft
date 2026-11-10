@@ -99,7 +99,9 @@ The package never downloads anything. It loads the first of:
 
 1. the path in `XLSX_GRAFT_ADDON` (an empty value counts as unset)
 2. the `addon` option, as in `version({ addon: '/path/to/xlsx_graft.node' })`
-3. the copy shipped inside the package, at `native/xlsx_graft.node`
+3. the addon of this platform's package, `@xlsx-graft/<os>-<cpu>[-gnu|-msvc]`,
+   which npm installs with this package (as an optional dependency) on Linux
+   (glibc) x64 and arm64, macOS x64 and arm64, and Windows x64
 
 Node.js 24 or newer. No dependencies.
 

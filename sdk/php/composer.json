@@ -38,6 +38,6 @@
         "sort-packages": true
     },
     "archive": {
-        "exclude": ["/*", "/.*", "!/composer.json", "!/src", "!/README.md", "!/LICENSE-APACHE", "!/LICENSE-BSD", "!/LICENSE-MIT"]
+        "exclude": ["/*", "/.*", "!/composer.json", "!/src", "!/README.md", "!/LICENSE-APACHE", "!/LICENSE-BSD", "!/LICENSE-MIT", "!/NOTICE"]
     }
 }

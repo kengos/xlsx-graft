@@ -70,7 +70,7 @@ _sdk-verify-jvm-line: _sdk-image-jvm
 	@echo "== sdk jvm jar (publish, install, load) (Temurin $(JVM_PATCH)) =="
 	$(JVM_IN_DOCKER) 'cp -r /repo/sdk/jvm /tmp/build; \
 		cd /tmp/build; \
-		gradle --offline publishToMavenLocal -Dmaven.repo.local=/tmp/repo; \
+		XLSX_GRAFT_NOTICE_DIR=/repo gradle --offline publishToMavenLocal -Dmaven.repo.local=/tmp/repo; \
 		cp -r /repo/sdk/jvm/script/check-installed-jar /tmp/user; \
 		cd /tmp/user; \
 		gradle --offline run --args="/tmp/repo /repo/sdk/jvm/gradle.lockfile /repo/engine/Cargo.toml"'

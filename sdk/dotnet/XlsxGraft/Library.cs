@@ -5,7 +5,9 @@
 //
 // 1. the XLSX_GRAFT_LIBRARY environment variable
 // 2. the caller's path
-// 3. a library in native/ beside the application
+// 3. the library the package ships: in runtimes/<rid>/native/ beside the
+//    application (what NuGet copies into a build's output), or beside the
+//    application itself (what a publish for one runtime identifier writes)
 //
 // The environment comes first because where the engine lives is the
 // deployment's decision, and it has to be able to override application code.
@@ -66,11 +68,51 @@ internal sealed class Library
 
     private static string? NonEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
-    // native/ only, as the wheel's xlsx_graft/native/. NuGet's own layouts
-    // (runtimes/<rid>/native/, flattened by a RID-specific publish) are for
-    // the platform packages to choose when there are any.
     private static string? Packaged(string baseDirectory) =>
-        Names.Select(name => System.IO.Path.Combine(baseDirectory, "native", name)).FirstOrDefault(File.Exists);
+        Candidates(baseDirectory, CurrentRid()).FirstOrDefault(File.Exists);
+
+    /// <summary>Where the packaged library may be, in the order it is looked for: under <c>runtimes/&lt;rid&gt;/native/</c>, then beside the application.</summary>
+    /// <param name="baseDirectory">The application's directory.</param>
+    /// <param name="rid">This machine's runtime identifier, or null when the package ships none for it.</param>
+    internal static IEnumerable<string> Candidates(string baseDirectory, string? rid)
+    {
+        var directories = rid is null
+            ? new[] { baseDirectory }
+            : new[] { System.IO.Path.Combine(baseDirectory, "runtimes", rid, "native"), baseDirectory };
+        return directories.SelectMany(directory => Names.Select(name => System.IO.Path.Combine(directory, name)));
+    }
+
+    /// <summary>This machine's runtime identifier, as the package's <c>runtimes/</c> folders name it.</summary>
+    internal static string? CurrentRid() =>
+        Rid(
+            new[] { OSPlatform.Linux, OSPlatform.OSX, OSPlatform.Windows }.FirstOrDefault(RuntimeInformation.IsOSPlatform),
+            RuntimeInformation.ProcessArchitecture);
+
+    /// <summary>The runtime identifier of an operating system and processor, or null for one the package ships no library for.</summary>
+    internal static string? Rid(OSPlatform os, Architecture architecture)
+    {
+        string? system = null;
+        if (os == OSPlatform.Linux)
+        {
+            system = "linux";
+        }
+        else if (os == OSPlatform.OSX)
+        {
+            system = "osx";
+        }
+        else if (os == OSPlatform.Windows)
+        {
+            system = "win";
+        }
+
+        var cpu = architecture switch
+        {
+            Architecture.X64 => "x64",
+            Architecture.Arm64 => "arm64",
+            _ => null,
+        };
+        return system is null || cpu is null ? null : $"{system}-{cpu}";
+    }
 
     // Never freed: unloading a Rust library that has run thread-local
     // destructors is not safe.
@@ -92,5 +134,6 @@ internal sealed class Library
         + $"  * set {EnvVar} to the path of a libxlsx_graft_capi library\n"
         + "  * pass Engine.Version(library: \"/path/to/libxlsx_graft_capi.so\"),\n"
         + "    or XlsxReader.Open(path, library: ...)\n"
-        + "  * put the library in native/ beside the application";
+        + "  * put the library in runtimes/<rid>/native/ beside the application,\n"
+        + "    or in the application's own directory";
 }

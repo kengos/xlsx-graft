@@ -53,6 +53,7 @@ _sdk-verify-dotnet-line: _sdk-image-dotnet
 	$(DOTNET_IN_DOCKER) '$(DOTNET_LINT); $(DOTNET_TEST)'
 	@echo "== sdk dotnet nupkg (pack, install, load) (.NET SDK $(DOTNET_PATCH)) =="
 	$(DOTNET_IN_DOCKER) 'cp -r /repo/sdk/dotnet /tmp/build; \
+		cp /repo/LICENSE-APACHE /repo/LICENSE-BSD /repo/LICENSE-MIT /repo/NOTICE /tmp/build/; \
 		dotnet pack /tmp/build/XlsxGraft/XlsxGraft.csproj -c Release -o /tmp/pkg; \
 		cp -r /repo/sdk/dotnet/script/CheckInstalledPackage /tmp/user; \
 		cp /repo/sdk/dotnet/.editorconfig /tmp/user/; \

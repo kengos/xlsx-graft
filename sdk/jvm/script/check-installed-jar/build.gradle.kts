@@ -15,6 +15,11 @@ repositories {
 
 dependencies {
     implementation("io.github.kengos:xlsx-graft:0.0.0")
+    // The jar of one platform's engine, when a release checks the jar of the
+    // platform it runs on.
+    System.getenv("XLSX_GRAFT_CLASSIFIER")?.let {
+        runtimeOnly("io.github.kengos:xlsx-graft:0.0.0:$it")
+    }
 }
 
 application {

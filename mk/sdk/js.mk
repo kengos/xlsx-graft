@@ -62,6 +62,7 @@ _sdk-image-js:
 JS_CHECKOUT := mkdir -p /tmp/repo/sdk; \
 	cp -r /repo/sdk/js /tmp/repo/sdk/js; \
 	ln -s /repo/engine /tmp/repo/engine; \
+	ln -s /repo/scripts /tmp/repo/scripts; \
 	cd /tmp/repo/sdk/js; \
 	rm -rf node_modules dist coverage native; \
 	ln -s /pkg/node_modules node_modules
@@ -88,7 +89,7 @@ _sdk-verify-js-line: _sdk-image-js
 	$(JS_IN_DOCKER) 'cp -r /repo/sdk/js /tmp/build; \
 		cd /tmp/build; \
 		rm -rf node_modules dist coverage native; \
-		cp /repo/LICENSE-APACHE /repo/LICENSE-BSD /repo/LICENSE-MIT .; \
+		cp /repo/LICENSE-APACHE /repo/LICENSE-BSD /repo/LICENSE-MIT /repo/NOTICE .; \
 		pnpm install --offline --frozen-lockfile; \
 		pnpm run build; \
 		pnpm pack --pack-destination /tmp/pack; \

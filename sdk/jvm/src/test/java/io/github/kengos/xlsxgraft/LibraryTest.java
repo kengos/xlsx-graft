@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.sun.jna.Platform;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -45,7 +47,8 @@ class LibraryTest {
 
   @Test
   void fallsBackToThePackagedCopyOnTheClasspath() throws IOException {
-    Path packaged = classpath.resolve("native/libxlsx_graft_capi.so");
+    Path packaged =
+        classpath.resolve("native/" + Platform.RESOURCE_PREFIX + "/libxlsx_graft_capi.so");
     Files.createDirectories(packaged.getParent());
     Files.copy(Paths.get(Repo.ENGINE_LIBRARY), packaged);
 
@@ -59,7 +62,8 @@ class LibraryTest {
   void extractsThePackagedCopyOutOfAJarOnceForEachClassLoader() throws IOException {
     Path jar = classpath.resolve("with-native.jar");
     try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(jar))) {
-      out.putNextEntry(new JarEntry("native/libxlsx_graft_capi.so"));
+      out.putNextEntry(
+          new JarEntry("native/" + Platform.RESOURCE_PREFIX + "/libxlsx_graft_capi.so"));
       Files.copy(Paths.get(Repo.ENGINE_LIBRARY), out);
     }
     URLClassLoader loader = new URLClassLoader(new URL[] {jar.toUri().toURL()}, null);
@@ -77,6 +81,16 @@ class LibraryTest {
   }
 
   @Test
+  void findsNothingInTheDirectoryOfAnotherPlatform() throws IOException {
+    Path other = classpath.resolve("native/some-other-platform/libxlsx_graft_capi.so");
+    Files.createDirectories(other.getParent());
+    Files.copy(Paths.get(Repo.ENGINE_LIBRARY), other);
+
+    assertNull(Library.packaged(loader(), Platform.RESOURCE_PREFIX));
+    assertEquals(other.toString(), Library.packaged(loader(), "some-other-platform"));
+  }
+
+  @Test
   void throwsWithTheWaysToInstallWhenNothingIsFound() {
     // The test classpath carries no native/, so the default loader finds none.
     LibraryNotFoundException error =
@@ -88,7 +102,7 @@ class LibraryTest {
     assertTrue(message.contains("Engine.version(\"/path/to/libxlsx_graft_capi.so\")"), message);
     assertTrue(
         message.contains("XlsxReader.open(path, \"/path/to/libxlsx_graft_capi.so\")"), message);
-    assertTrue(message.contains("native/ on the classpath"), message);
+    assertTrue(message.contains("native/<os>-<arch>/ on the classpath"), message);
   }
 
   @Test

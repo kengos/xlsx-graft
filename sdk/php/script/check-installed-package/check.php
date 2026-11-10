@@ -47,7 +47,7 @@ for ($i = 0; $i < $archive->numFiles; $i++) {
         $shipped[] = $name;
     }
 }
-$expected = ['LICENSE-APACHE', 'LICENSE-BSD', 'LICENSE-MIT', 'README.md', 'composer.json'];
+$expected = ['LICENSE-APACHE', 'LICENSE-BSD', 'LICENSE-MIT', 'NOTICE', 'README.md', 'composer.json'];
 $unexpected = array_filter($shipped, static fn(string $file): bool => !in_array($file, $expected, true) && preg_match('#^src/[^/]+\.php$#', $file) !== 1);
 check($unexpected === [], 'the zip ships '.implode(', ', $unexpected));
 foreach ([...$expected, 'src/XlsxGraft.php'] as $file) {

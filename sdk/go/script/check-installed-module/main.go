@@ -8,6 +8,7 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -49,6 +50,16 @@ func main() {
 	dep := info.Deps[0]
 	check(dep.Path == sdk, "built with %s, not %s", dep.Path, sdk)
 	check(dep.Replace != nil && dep.Replace.Path == copied, "built %s from %+v, not from %s", sdk, dep.Replace, copied)
+
+	// The proxy zips the module's directory, so the license files a module
+	// carries are the ones in it: copies of the repository's own.
+	root := filepath.Dir(filepath.Dir(cargoToml))
+	for _, name := range []string{"LICENSE-APACHE", "LICENSE-BSD", "LICENSE-MIT", "NOTICE"} {
+		want, err := os.ReadFile(filepath.Join(root, name))
+		check(err == nil, "%v", err)
+		got, err := os.ReadFile(filepath.Join(copied, name))
+		check(err == nil && bytes.Equal(got, want), "the module's %s is missing or not the repository's", name)
+	}
 
 	result, err := xlsxgraft.Version()
 	check(err == nil, "Version: %v", err)

@@ -114,7 +114,14 @@ The package never downloads anything. It loads the first of:
 1. the path in `XLSX_GRAFT_LIBRARY` (an empty value counts as unset)
 2. the `library` argument, as in `Engine.version("/path/to/libxlsx_graft_capi.so")`
    or `XlsxReader.open(path, "/path/to/libxlsx_graft_capi.so")`
-3. a library in `native/` on the classpath (no jar ships one yet)
+3. the library in `native/<os>-<arch>/` on the classpath, such as
+   `native/linux-x86-64/` (the directory JNA names for the platform). The
+   `xlsx-graft` jar carries none: add the jar of the platform you run on, with
+   its classifier (`linux-x86-64`, `linux-aarch64`, `darwin-aarch64`,
+   `darwin-x86-64`, `win32-x86-64`)
+
+The libraries are built for glibc Linux, macOS and Windows x64; on Alpine (musl)
+the library is found and fails to load, and the error says so.
 
 Java 8 or newer. One dependency, JNA. On Java 24 and later, JNA's loading of
 a native library prints a warning unless the application runs with

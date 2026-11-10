@@ -168,7 +168,8 @@ An SDK loads the first of:
 1. the path in the `XLSX_GRAFT_LIBRARY` environment variable (an empty value
    counts as unset)
 2. the path the caller passed
-3. the copy shipped inside the package
+3. the copy shipped inside the package, where each language's package puts it
+   ([Platform packages](#platform-packages-release))
 
 The environment comes first because where the engine lives is the deployment's
 decision, and it has to be able to override application code. **Nothing
@@ -238,19 +239,33 @@ artifacts of all five. It uploads artifacts and publishes nothing.
 | gem `xlsx_graft-<v>.gem` | no engine | every other platform: loading it raises the error that names `XLSX_GRAFT_LIBRARY` |
 | wheel `xlsx_graft-<v>-py3-none-<tag>.whl` | the library in `xlsx_graft/native/` | a platform of the table (`manylinux_2_36`: built on bookworm's glibc 2.36; `macosx_11_0`) |
 | wheel `xlsx_graft-<v>-py3-none-any.whl` | no engine | every other platform, as the gem |
+| nupkg `XlsxGraft.<v>.nupkg` | the library of every platform, in `runtimes/<rid>/native/` | every platform of the table: NuGet copies the one that fits into the output of a build, and the SDK looks there and beside the application |
+| jar `xlsx-graft-<v>.jar` | no engine | the classes, with no engine |
+| jar `xlsx-graft-<v>-<os>-<arch>.jar` (a classifier) | the library in `native/<os>-<arch>/` | one jar a platform, named as JNA names the platform (`linux-x86-64`, `darwin-aarch64`): a project depends on the classifier jars it runs on, and several can share a classpath |
+| npm `xlsx-graft` | no engine | the classes; names the platform packages as `optionalDependencies` at its own version (written into the package at the release, not in the checkout) |
+| npm `@xlsx-graft/<os>-<cpu>[-gnu\|-msvc]` | the addon `xlsx_graft.node` | one package a platform, selected by `os`, `cpu` and `libc` so npm installs only the one that fits; the JS SDK resolves it from `@xlsx-graft/<…>/xlsx_graft.node` |
 | CLI archive `xlsx-graft-<v>-<slug>.tar.gz` (`.zip` on Windows) | the CLI | the PHP and Go SDKs, and anyone running the CLI: `XLSX_GRAFT_CLI` or `PATH` |
+
+The PHP and Go packages carry no engine (they run the CLI), so each holds the
+license files and no `THIRD-PARTY-LICENSES`: the Composer archive takes them
+from the repository's root when it is built, and the Go module holds copies of
+them, since the proxy zips the module's directory alone and refuses links
+(`sdk:verify:go` checks they equal the repository's).
 
 Every package holds `LICENSE-APACHE`, `LICENSE-BSD`, `LICENSE-MIT` and
 `NOTICE`. A package with the engine in it also holds `THIRD-PARTY-LICENSES`:
 the dependencies' code is compiled into the engine, and the licenses ask for
 their text to travel with it. A package with no engine has none of their code,
-so has no such file. `scripts/release/check_packages.py` checks both ways, by
-the names of the files in each package, and that no package is there that
-nobody asked for.
+so has no such file. `scripts/release/check_packages.py` checks both ways for
+the packages a release assembles, by the names of the files in each package
+(the engine at the exact path each SDK looks it up at, and the optional
+dependencies of the npm package of the classes), and that no package is there
+that nobody asked for.
 
-The Ruby gem is built on the floor line and the packages of the host's
-platform are loaded on the latest line, with `XLSX_GRAFT_LIBRARY` unset, so
-the only engine they can reach is the one they carry. A platform the Docker
+Each package is built on the floor line of its language and the packages of
+the host's platform are loaded on the latest line, with `XLSX_GRAFT_LIBRARY`
+(`XLSX_GRAFT_ADDON` for JavaScript) unset, so the only engine they can reach is
+the one they carry. A platform the Docker
 host cannot load (a Mac's Docker is arm64 Linux) is built and checked by file
 names alone, and the run says the load was skipped.
 

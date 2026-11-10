@@ -5,7 +5,9 @@
 //
 // 1. the XLSX_GRAFT_LIBRARY environment variable
 // 2. the caller's path
-// 3. a library in native/ on the classpath
+// 3. the library the package ships, on the classpath, in native/<os>-<arch>/ (the
+//    directory JNA names for this platform, such as linux-x86-64: one jar for
+//    each platform, so several can be on one classpath)
 //
 // The environment comes first because where the engine lives is the
 // deployment's decision, and it has to be able to override application code.
@@ -16,6 +18,7 @@ package io.github.kengos.xlsxgraft;
 import com.sun.jna.Function;
 import com.sun.jna.Native;
 import com.sun.jna.NativeLibrary;
+import com.sun.jna.Platform;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Proxy;
@@ -124,13 +127,18 @@ final class Library {
     return value == null || value.isEmpty() ? null : value;
   }
 
+  private static String packaged(ClassLoader loader) {
+    return packaged(loader, Platform.RESOURCE_PREFIX);
+  }
+
   // Looked for as a resource, not as a directory: inside a jar, native/ has
   // no path on disk. JNA hands back the file itself when the resource is one,
   // and a copy in a temporary directory of its own when it is in a jar.
-  private static String packaged(ClassLoader loader) {
+  static String packaged(ClassLoader loader, String platform) {
     for (String name : NAMES) {
       try {
-        return Native.extractFromResourcePath("/native/" + name, loader).getAbsolutePath();
+        return Native.extractFromResourcePath("/native/" + platform + "/" + name, loader)
+            .getAbsolutePath();
       } catch (IOException absent) {
         // Not this platform's file name; try the next one.
       }
@@ -159,6 +167,7 @@ final class Library {
         + " to the path of a libxlsx_graft_capi library\n"
         + "  * pass Engine.version(\"/path/to/libxlsx_graft_capi.so\"),\n"
         + "    or XlsxReader.open(path, \"/path/to/libxlsx_graft_capi.so\")\n"
-        + "  * put the library in native/ on the classpath";
+        + "  * put the library in native/<os>-<arch>/ on the classpath,\n"
+        + "    such as native/linux-x86-64/";
   }
 }

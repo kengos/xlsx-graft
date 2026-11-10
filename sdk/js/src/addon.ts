@@ -8,23 +8,57 @@
  *
  * 1. the `XLSX_GRAFT_ADDON` environment variable
  * 2. the `path` option
- * 3. the copy shipped inside the package, at `native/xlsx_graft.node`
+ * 3. the addon of this platform's package, `@xlsx-graft/<os>-<cpu>[-gnu|-msvc]`
+ *    (see {@link platformPackage}), which npm installs beside this package as
+ *    one of its optional dependencies when the platform fits
  *
  * The environment comes first because where the engine lives is the
  * deployment's decision, and it has to be able to override application code.
  * Nothing here downloads anything.
  */
 
-import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { LibraryNotFoundError } from './errors.js';
 
 export const ENV_VAR = 'XLSX_GRAFT_ADDON';
 
-/** Where the package's own copy goes, beside dist/. */
-export const PACKAGED = fileURLToPath(new URL('../native/xlsx_graft.node', import.meta.url));
+/**
+ * The npm package that holds the addon of an operating system and processor,
+ * or null for one no package is built for. Named as Node.js names them
+ * (`process.platform`, `process.arch`), with the C library the Linux addon is
+ * linked against and the toolchain of the Windows one, as the package's
+ * `os`, `cpu` and `libc` fields select it.
+ */
+export function platformPackage(
+  platform: string = process.platform,
+  arch: string = process.arch,
+): string | null {
+  const cpu = arch === 'x64' || arch === 'arm64' ? arch : null;
+  if (platform === 'linux' && cpu) return `@xlsx-graft/linux-${cpu}-gnu`;
+  if (platform === 'darwin' && cpu) return `@xlsx-graft/darwin-${cpu}`;
+  if (platform === 'win32' && cpu === 'x64') return '@xlsx-graft/win32-x64-msvc';
+  return null;
+}
+
+const requireHere = createRequire(import.meta.url);
+
+/**
+ * The path of the addon in this platform's package, or null when the package
+ * is not installed (npm skips an optional package that does not fit, and a
+ * `--omit=optional` install leaves it out).
+ */
+export function packagedAddon(
+  platformName: string | null = platformPackage(),
+  resolveModule: (id: string) => string = (id) => requireHere.resolve(id),
+): string | null {
+  if (platformName === null) return null;
+  try {
+    return resolveModule(`${platformName}/xlsx_graft.node`);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * One call's result, as the addon returns it (`JsOutcome` in
@@ -92,7 +126,8 @@ export interface Loaded {
 export interface OpenOptions {
   path?: string | undefined;
   env?: Readonly<Record<string, string | undefined>>;
-  packaged?: string;
+  /** The addon the platform's package holds, or null for none. */
+  packaged?: string | null;
 }
 
 /**
@@ -101,14 +136,18 @@ export interface OpenOptions {
  * Throws {@link LibraryNotFoundError} when no addon is found, it cannot be
  * loaded, or it does not export what this package calls.
  */
-export function open({ path, env = process.env, packaged = PACKAGED }: OpenOptions = {}): Loaded {
+export function open({
+  path,
+  env = process.env,
+  packaged = packagedAddon(),
+}: OpenOptions = {}): Loaded {
   // An empty value counts as unset, as it does for the other SDKs.
-  const found = env[ENV_VAR] || path || (existsSync(packaged) ? packaged : null);
+  const found = env[ENV_VAR] || path || packaged;
   if (!found) {
-    throw new LibraryNotFoundError(installHint('no engine addon was found', packaged));
+    throw new LibraryNotFoundError(installHint('no engine addon was found'));
   }
 
-  const addon = load(found, packaged);
+  const addon = load(found);
   if (typeof addon?.version !== 'function') {
     throw new LibraryNotFoundError(`${found} exports no \`version\``);
   }
@@ -118,22 +157,24 @@ export function open({ path, env = process.env, packaged = PACKAGED }: OpenOptio
 // Resolved against the working directory, as a path a user types is; the
 // require() is anchored at this module and would resolve a relative path
 // against it. Never unloaded: Node.js cannot unload an addon.
-function load(found: string, packaged: string): Addon {
+function load(found: string): Addon {
   try {
     return createRequire(import.meta.url)(resolve(found)) as Addon;
   } catch (error) {
-    throw new LibraryNotFoundError(
-      installHint(`${found} could not be loaded (${error})`, packaged),
-    );
+    throw new LibraryNotFoundError(installHint(`${found} could not be loaded (${error})`));
   }
 }
 
-function installHint(reason: string, packaged: string): string {
+function installHint(reason: string): string {
+  const platformName = platformPackage();
+  const own = platformName
+    ? `install ${platformName}, which npm installs with this package unless optional packages are omitted`
+    : `no package is built for ${process.platform} ${process.arch}`;
   return (
     `${reason}.\n\n` +
     'This package never downloads the engine. Point it at one of these ways:\n' +
     `  * set ${ENV_VAR} to the path of an xlsx_graft.node addon\n` +
     '  * pass version({ addon: "/path/to/xlsx_graft.node" })\n' +
-    `  * put the addon at ${packaged}`
+    `  * ${own}`
   );
 }

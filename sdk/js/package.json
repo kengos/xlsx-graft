@@ -26,7 +26,8 @@
     "dist",
     "LICENSE-APACHE",
     "LICENSE-BSD",
-    "LICENSE-MIT"
+    "LICENSE-MIT",
+    "NOTICE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

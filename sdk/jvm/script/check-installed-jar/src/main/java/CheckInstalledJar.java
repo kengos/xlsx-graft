@@ -3,6 +3,9 @@
 // what the jar and its POM hold, and that it reaches the engine.
 //
 //     gradle run --args="<maven repository> <sdk/jvm/gradle.lockfile> <engine/Cargo.toml>"
+//
+// A release runs it again with XLSX_GRAFT_CLASSIFIER set to the platform's jar
+// and XLSX_GRAFT_LIBRARY unset, so the engine it reaches is the one in that jar.
 
 import io.github.kengos.xlsxgraft.Engine;
 import io.github.kengos.xlsxgraft.Result;
@@ -53,6 +56,13 @@ public final class CheckInstalledJar {
           Collections.list(file.entries()).stream()
               .noneMatch(e -> e.getName().startsWith("native/")),
           "the jar ships native/");
+      for (String notice :
+          new String[] {"LICENSE-APACHE", "LICENSE-BSD", "LICENSE-MIT", "NOTICE"}) {
+        check(file.getEntry("META-INF/" + notice) != null, "the jar ships no META-INF/" + notice);
+      }
+      check(
+          file.getEntry("META-INF/THIRD-PARTY-LICENSES") == null,
+          "the jar ships THIRD-PARTY-LICENSES, with no engine in it");
       String module = file.getManifest().getMainAttributes().getValue("Automatic-Module-Name");
       check(
           "io.github.kengos.xlsxgraft".equals(module),
@@ -72,6 +82,13 @@ public final class CheckInstalledJar {
     check(
         spec.equals("8".equals(line) ? "1.8" : line),
         "the jar was loaded on Java " + spec + ", not on the gated line " + line);
+
+    String classifier = System.getenv("XLSX_GRAFT_CLASSIFIER");
+    if (classifier != null) {
+      check(
+          System.getenv("XLSX_GRAFT_LIBRARY") == null,
+          "XLSX_GRAFT_LIBRARY is set, so the jar's own engine would not be the one reached");
+    }
 
     Result<String> result = Engine.version();
     check(result.success(), "Engine.version() failed: " + result.diagnostics());

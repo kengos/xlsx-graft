@@ -1,27 +1,31 @@
 """Checks what the assembled packages hold, and that no other package is there.
 
-    python3 -I scripts/release/check_packages.py <packages dir> <ruby version> \
-        <python version> <cli version> <slug>...
+    python3 -I scripts/release/check_packages.py <packages dir> <slug>...
 
 A package is checked by the names of its files, never by running it:
 
 * Every package holds the license files, LICENSE-APACHE, LICENSE-BSD,
   LICENSE-MIT and NOTICE.
-* A package for a platform holds the engine of that platform once (the C ABI
-  library; the CLI in a CLI archive) and THIRD-PARTY-LICENSES, the licenses of
-  the dependencies compiled into it.
-* The gem and the wheel for every platform hold no engine and no
-  THIRD-PARTY-LICENSES, as nothing of the dependencies is in them.
+* A package with the engine in it holds the engine of each platform it is for
+  at the exact path the SDK looks it up at, and THIRD-PARTY-LICENSES, the
+  licenses of the dependencies compiled into the engine.
+* A package with no engine (the gem and the wheel for every platform, the npm
+  package that names the platform packages, the Java jar of the classes) holds
+  no engine file and no THIRD-PARTY-LICENSES, as nothing of the dependencies is
+  in it.
 
-Reads gems (a tar holding data.tar.gz), wheels and the CLI's zip and tar.gz
-with the standard library alone. Every failure is printed, then the exit
-status is 1.
+The versions are read from the SDKs' own files, so the names of the packages
+a release makes are the ones expected. Reads gems (a tar holding
+data.tar.gz), wheels, nupkgs, jars and zips, and tarballs, with the standard
+library alone. Every failure is printed, then the exit status is 1.
 """
 
 from __future__ import annotations
 
 import gzip
 import io
+import json
+import re
 import subprocess
 import sys
 import tarfile
@@ -32,8 +36,22 @@ ROOT = Path(__file__).resolve().parents[2]
 PLATFORM = ROOT / "scripts" / "release" / "platform.sh"
 NOTICES = ("LICENSE-APACHE", "LICENSE-BSD", "LICENSE-MIT", "NOTICE")
 THIRD_PARTY = "THIRD-PARTY-LICENSES"
-CAPI_NAMES = ("libxlsx_graft_capi.so", "libxlsx_graft_capi.dylib", "xlsx_graft_capi.dll")
-CLI_NAMES = ("xlsx-graft", "xlsx-graft.exe")
+# The files an engine is: the C ABI library of each platform, the CLI of each
+# platform (Windows') and the Node.js addon.
+ENGINE_NAMES = (
+    "libxlsx_graft_capi.so",
+    "libxlsx_graft_capi.dylib",
+    "xlsx_graft_capi.dll",
+    "xlsx-graft",
+    "xlsx-graft.exe",
+    "xlsx_graft.node",
+)
+
+JS_VERSION = r'"version": "([^"]+)"'
+
+# A package: where it is under the packages directory, and the exact paths in
+# it of the engine files it holds (none for a package with no engine).
+Expected = dict[Path, list[str]]
 
 
 def column(slug: str, name: str) -> str:
@@ -41,6 +59,14 @@ def column(slug: str, name: str) -> str:
         [str(PLATFORM), slug, name], check=True, capture_output=True, text=True
     )
     return result.stdout.strip()
+
+
+def read(path: str, pattern: str) -> str:
+    """The first group of `pattern` in a file of the repository."""
+    found = re.search(pattern, (ROOT / path).read_text(encoding="utf-8"), re.MULTILINE)
+    if found is None:
+        sys.exit(f"check_packages: no {pattern} in {path}")
+    return found.group(1)
 
 
 def gem_members(path: Path) -> list[str]:
@@ -55,54 +81,94 @@ def gem_members(path: Path) -> list[str]:
 def members(path: Path) -> list[str]:
     if path.suffix == ".gem":
         return gem_members(path)
-    if path.suffix in (".whl", ".zip"):
+    if path.suffix in (".whl", ".zip", ".nupkg", ".jar"):
         with zipfile.ZipFile(path) as archive:
             return archive.namelist()
     with tarfile.open(path) as tar:
         return tar.getnames()
 
 
-def check_one(path: Path, engine_names: tuple[str, ...], has_engine: bool) -> list[str]:
-    """What is wrong with one package; `has_engine` says what it must hold."""
-    found = [PurePosixPath(name).name for name in members(path)]
+def check_one(path: Path, engine_paths: list[str]) -> list[str]:
+    """What is wrong with one package; `engine_paths` says what it must hold."""
+    names = members(path)
+    found = [PurePosixPath(name).name for name in names]
     problems = [f"{path.name}: no {name}" for name in NOTICES if name not in found]
-    has_third_party = THIRD_PARTY in found
-    if has_engine != has_third_party:
-        what = "no" if has_engine else "a"
-        problems.append(f"{path.name}: {what} {THIRD_PARTY}")
-    held = [name for name in found if name in CAPI_NAMES + CLI_NAMES]
-    wanted = list(engine_names) if has_engine else []
-    if sorted(held) != sorted(wanted):
-        problems.append(f"{path.name}: holds the engine files {held}, not {wanted}")
+    has_engine = bool(engine_paths)
+    if has_engine != (THIRD_PARTY in found):
+        problems.append(f"{path.name}: {'no' if has_engine else 'a'} {THIRD_PARTY}")
+    held = sorted(name for name in names if PurePosixPath(name).name in ENGINE_NAMES)
+    if held != sorted(engine_paths):
+        problems.append(f"{path.name}: holds the engine files {held}, not {sorted(engine_paths)}")
     return problems
 
 
-def main(packages: str, ruby: str, python: str, cli: str, *slugs: str) -> int:
-    root = Path(packages)
-    expected: dict[Path, tuple[tuple[str, ...], bool]] = {
-        root / "ruby" / f"xlsx_graft-{ruby}.gem": ((), False),
-        root / "python" / f"xlsx_graft-{python}-py3-none-any.whl": ((), False),
+def check_optional_dependencies(path: Path, version: str, slugs: tuple[str, ...]) -> list[str]:
+    """The npm package of the classes names every platform package at its version."""
+    with tarfile.open(path) as tar:
+        manifest_file = tar.extractfile("package/package.json")
+        manifest = json.load(manifest_file) if manifest_file else {}
+    wanted = {column(slug, "npm"): version for slug in slugs}
+    held = manifest.get("optionalDependencies")
+    if held != wanted:
+        return [f"{path.name}: optionalDependencies are {held}, not {wanted}"]
+    return []
+
+
+def expected_packages(root: Path, slugs: tuple[str, ...]) -> Expected:
+    ruby = read("sdk/ruby/lib/xlsx_graft/version.rb", r'VERSION = "([^"]+)"')
+    python = read("sdk/python/src/xlsx_graft/_version.py", r'^__version__ = "([^"]+)"')
+    dotnet = read("sdk/dotnet/XlsxGraft/XlsxGraft.csproj", r"<Version>([^<]+)</Version>")
+    jvm = read("sdk/jvm/gradle.properties", r"^version=(\S+)")
+    js = read("sdk/js/package.json", JS_VERSION)
+    cli = read("engine/Cargo.toml", r'^\[workspace\.package\][^\[]*?^version = "([^"]+)"')
+
+    jvm_dir = root / "jvm" / "io" / "github" / "kengos" / "xlsx-graft" / jvm
+    expected: Expected = {
+        root / "ruby" / f"xlsx_graft-{ruby}.gem": [],
+        root / "python" / f"xlsx_graft-{python}-py3-none-any.whl": [],
+        jvm_dir / f"xlsx-graft-{jvm}.jar": [],
+        root / "js" / f"xlsx-graft-{js}.tgz": [],
+        root / "dotnet" / f"XlsxGraft.{dotnet}.nupkg": [],
     }
     for slug in slugs:
-        capi = column(slug, "capi")
-        gem = column(slug, "gem")
-        wheel = column(slug, "wheel")
+        capi, cli_name = column(slug, "capi"), column(slug, "cli")
+        npm = column(slug, "npm").lstrip("@").replace("/", "-")
         suffix = "zip" if slug.startswith("win32-") else "tar.gz"
-        expected[root / "ruby" / f"xlsx_graft-{ruby}-{gem}.gem"] = ((capi,), True)
-        expected[root / "python" / f"xlsx_graft-{python}-py3-none-{wheel}.whl"] = ((capi,), True)
-        cli_name = column(slug, "cli")
-        expected[root / "cli" / f"xlsx-graft-{cli}-{slug}.{suffix}"] = ((cli_name,), True)
+        expected[root / "ruby" / f"xlsx_graft-{ruby}-{column(slug, 'gem')}.gem"] = [
+            f"lib/xlsx_graft/native/{capi}"
+        ]
+        wheel = f"xlsx_graft-{python}-py3-none-{column(slug, 'wheel')}.whl"
+        expected[root / "python" / wheel] = [f"xlsx_graft/native/{capi}"]
+        expected[root / "cli" / f"xlsx-graft-{cli}-{slug}.{suffix}"] = [cli_name]
+        jna = column(slug, "jna")
+        expected[jvm_dir / f"xlsx-graft-{jvm}-{jna}.jar"] = [f"native/{jna}/{capi}"]
+        expected[root / "js" / f"{npm}-{js}.tgz"] = ["package/xlsx_graft.node"]
+        nupkg = root / "dotnet" / f"XlsxGraft.{dotnet}.nupkg"
+        expected[nupkg] = [*expected[nupkg], f"runtimes/{column(slug, 'rid')}/native/{capi}"]
+    return expected
+
+
+def main(packages: str, *slugs: str) -> int:
+    root = Path(packages)
+    expected = expected_packages(root, slugs)
 
     problems: list[str] = []
-    for path, (engine_names, has_engine) in expected.items():
+    for path, engine_paths in expected.items():
         if path.is_file():
-            problems += check_one(path, engine_names, has_engine)
+            problems += check_one(path, engine_paths)
+            if path.name == f"xlsx-graft-{read('sdk/js/package.json', JS_VERSION)}.tgz":
+                problems += check_optional_dependencies(path, read("sdk/js/package.json", JS_VERSION), slugs)
         else:
             problems.append(f"{path.relative_to(root)} is missing")
-    present = {p for sub in ("ruby", "python", "cli") for p in (root / sub).glob("*") if p.is_file()}
+
+    # A package of a kind this script checks, that nobody asked for. A Maven
+    # repository holds files that are no package (POMs, checksums, sources and
+    # javadoc jars), so only the jars named like the classes' jar are looked at.
+    kinds = ("*.gem", "*.whl", "*.nupkg", "*.tgz", "*.zip", "*.tar.gz", "xlsx-graft-*.jar")
+    present = {p for kind in kinds for p in root.rglob(kind) if p.is_file()}
+    present = {p for p in present if not p.name.endswith(("-sources.jar", "-javadoc.jar"))}
     for extra in sorted(present - set(expected)):
-        if extra.name != "SHA256SUMS":
-            problems.append(f"{extra.relative_to(root)} is a package nobody asked for")
+        problems.append(f"{extra.relative_to(root)} is a package nobody asked for")
 
     for problem in problems:
         print(f"check_packages: {problem}", file=sys.stderr)
@@ -111,6 +177,6 @@ def main(packages: str, ruby: str, python: str, cli: str, *slugs: str) -> int:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 6:
-        sys.exit(f"usage: {sys.argv[0]} <packages dir> <ruby> <python> <cli> <slug>...")
+    if len(sys.argv) < 3:
+        sys.exit(f"usage: {sys.argv[0]} <packages dir> <slug>...")
     sys.exit(main(*sys.argv[1:]))
