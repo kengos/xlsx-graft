@@ -21,6 +21,8 @@ serde_json = { workspace = true }
 xlsx-graft-core = { workspace = true }
 # The problems a book and its rows find, as every host prints them.
 xlsx-graft-diagnostics = { workspace = true }
+# The verification the verify handle runs, and the result's JSON.
+xlsx-graft-host = { workspace = true }
 # The package's limits.
 xlsx-graft-package = { workspace = true }
 # A workbook and its rows, behind the book and rows handles.

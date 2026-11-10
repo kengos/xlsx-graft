@@ -783,6 +783,7 @@ dependencies = [
  "tempfile",
  "xlsx-graft-core",
  "xlsx-graft-diagnostics",
+ "xlsx-graft-host",
  "xlsx-graft-package",
  "xlsx-graft-read",
  "xlsx-graft-spool",

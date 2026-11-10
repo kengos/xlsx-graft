@@ -386,6 +386,57 @@ The header gives the whole contract; this is the shape an SDK builds on.
   thread that blocks (on a `java.util.concurrent` lock since Java 21, on a
   monitor since Java 24) may come back on another operating system thread.
 
+### Verifying through the C ABI
+
+`xlsx_graft_verify_path` and `xlsx_graft_verify_bytes` verify a workbook and
+write a verify handle holding the result as JSON; `xlsx_graft_policy_check`
+checks a policy alone and writes the same kind of handle;
+`xlsx_graft_verify_result` lends the JSON and `xlsx_graft_verify_close` frees
+the handle. The Node.js addon's `verifyPath(path, options)`,
+`verifyBytes(buffer, options)` and `checkPolicy(policy)` make, copy and close
+the handle inside the call, and return `{status, value}` with the result's
+JSON as `value`.
+
+- **One function: call, copy the result, close, parse.** An SDK does all four
+  in one function, closing on every path (`ensure`, `try`/`finally`, `defer`),
+  and never makes the verify handle an object of its own: no finalizer, no
+  field. The handle holds nothing but the JSON, so an SDK has no reason to
+  keep it after copying the result. Copy the result out before the close; parse after.
+- **`options` is one JSON object**, `{"policy": {...}, "rules": {...}}`, the
+  keys in camelCase, each optional or null for the defaults. An SDK that is
+  given a policy when it is built keeps it and writes it into `options` on
+  every call (the engine keeps no state). The result is the same object every
+  host returns: `{ok, failOn, counts, error, diagnostics}`.
+- **Statuses are few.** `XLSX_GRAFT_OK` is returned whenever the engine tried
+  to verify. A file that cannot be opened or read is `OK` too, with the
+  result's `error` (`{"code": "io", "message": ...}`) and `ok: false`, and so
+  is a fault of the policy or the rules, which is a diagnostic
+  (`policy_invalid`, `rules_invalid`, `target_invalid`) with the workbook not
+  opened. `xlsx_graft_error_message` is not used. `XLSX_GRAFT_ERR_INVALID_ARG`
+  is a fault of the code that built the call, so an SDK raises it as a bug of
+  its own: a path that is not UTF-8 (read that file and verify its bytes), or
+  `options` that is not a JSON object of `policy` and `rules` only or is
+  larger than 2 MiB. A policy and rules that are each within 1 MiB can add up
+  to more, so an SDK checks the size of the options it builds and reports a
+  larger one as its caller's fault, not as its own bug.
+  `XLSX_GRAFT_ERR_NULL_ARG` and `XLSX_GRAFT_ERR_PANIC` are as for every call;
+  after `PANIC` no handle was written.
+- **`verify_bytes` does not copy its input.** The bytes are read during the
+  call only. Pass memory that stays alive and does not move or change until
+  the call returns, which a garbage-collected language does by pinning the
+  buffer for the call (or copying it, if the FFI cannot). A buffer over memory
+  that another thread may write (a `SharedArrayBuffer`) must not be written
+  during the call.
+- **Calls may overlap.** The verify entry points keep no shared state, so
+  any thread may make any number at once, and a verify handle does not change
+  once made, so its result may be read from any thread until the close. The
+  close is called once, and not while another call on the handle runs.
+- **A policy given when an SDK is built is checked then**: the SDK's verifier
+  constructor (Ruby's `Verifier.new(policy:)`) calls `xlsx_graft_policy_check` and raises when the
+  result is not `ok`, with its `policy_invalid` diagnostics. PHP and Go run
+  the CLI, so they do not check on build: a fault of the policy shows up as
+  `policy_invalid` diagnostics in the result of the first verify.
+
 ## Running the CLI
 
 An SDK that runs the engine's CLI (PHP, Go) treats a run the way the others

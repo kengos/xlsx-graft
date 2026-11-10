@@ -15,6 +15,8 @@ use crate::call::{self, Cell, Next, Outcome, Row, Sheet, Sheets};
 use napi::bindgen_prelude::Buffer;
 use napi_derive::napi;
 
+pub mod verify;
+
 /// One call's result, as the JS SDK receives it.
 #[napi(object)]
 pub struct JsOutcome {

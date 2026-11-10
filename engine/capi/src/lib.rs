@@ -3,8 +3,10 @@
 //! A thin host over the engine, like the CLI and the MCP server. It exports
 //! [`xlsx_graft_version`] and the handles that read a workbook's rows: a
 //! book ([`XlsxGraftBook`]) and the rows of one of its sheets
-//! ([`XlsxGraftRows`]), whose entry points are in `abi/`. The logic of the
-//! handles is safe Rust in `book.rs` and `rows.rs`; `abi/` only marshals.
+//! ([`XlsxGraftRows`]), whose entry points are in `abi/`. A verify handle
+//! ([`XlsxGraftVerify`]) holds the result of one verification as JSON. The
+//! logic of the handles is safe Rust in `book.rs`, `rows.rs` and
+//! `verify.rs`; `abi/` only marshals.
 //!
 //! The rules of the surface are the caller's contract as much as ours, so
 //! `include/xlsx_graft.h` states each one again for the C side:
@@ -37,6 +39,7 @@ mod shared;
 mod sheet;
 mod status;
 mod value;
+mod verify;
 
 pub use abi::book::{
     xlsx_graft_book_close, xlsx_graft_book_diagnostics, xlsx_graft_book_open_bytes,
@@ -44,6 +47,10 @@ pub use abi::book::{
 };
 pub use abi::rows::{
     xlsx_graft_rows_close, xlsx_graft_rows_next, xlsx_graft_rows_open, xlsx_graft_rows_open_name,
+};
+pub use abi::verify::{
+    xlsx_graft_policy_check, xlsx_graft_verify_bytes, xlsx_graft_verify_close,
+    xlsx_graft_verify_path, xlsx_graft_verify_result,
 };
 pub use abi::xlsx_graft_error_message;
 pub use book::XlsxGraftBook;
@@ -64,6 +71,7 @@ pub use value::{
     XLSX_GRAFT_VALUE_ELAPSED, XLSX_GRAFT_VALUE_EMPTY, XLSX_GRAFT_VALUE_ERROR,
     XLSX_GRAFT_VALUE_NUMBER, XLSX_GRAFT_VALUE_STRING, XLSX_GRAFT_VALUE_TIME, XlsxGraftValue,
 };
+pub use verify::XlsxGraftVerify;
 
 /// Writes the engine version: a pointer to its UTF-8 bytes into `*out_ptr`
 /// and their length into `*out_len`.

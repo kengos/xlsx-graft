@@ -10,6 +10,7 @@
 
 pub mod book;
 pub mod rows;
+pub mod verify;
 
 use crate::guard::guard;
 use crate::message::lent;

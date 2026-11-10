@@ -11,8 +11,9 @@
 //!
 //! * `call` crosses into the C ABI and copies what it lends into owned
 //!   values: an [`Outcome`], and the [`Book`] and [`Rows`] handles with the
-//!   rows they read. It builds without features, so the test and coverage
-//!   gates cover it like any other module.
+//!   rows they read, and the verify calls, each of which makes a verify
+//!   handle, copies its result and closes it. It builds without features,
+//!   so the test and coverage gates cover it like any other module.
 //! * `shim` (the `shim` feature) is the N-API surface. It only maps those
 //!   values to JavaScript objects and classes, so that it can stay out of
 //!   the coverage gate: the JS SDK's tests run it through the real addon.
@@ -44,4 +45,7 @@ pub mod shim;
 
 // Public so the calls stay reachable in a build without the shim, which is
 // how the test and coverage gates build this crate.
-pub use call::{Book, Cell, Next, Outcome, Row, Rows, Sheet, Sheets, version};
+pub use call::{
+    Book, Cell, Next, Outcome, Row, Rows, Sheet, Sheets, check_policy, verify_bytes, verify_path,
+    version,
+};
