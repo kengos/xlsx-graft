@@ -35,9 +35,19 @@ Gem::Specification.new do |spec|
   }
 
   # The second glob is the engine a platform gem ships in
-  # lib/xlsx_graft/native/. In a checkout the directory does not exist and the
-  # glob adds nothing.
-  spec.files = Dir["lib/**/*.rb", "lib/xlsx_graft/native/*", "README.md"]
+  # lib/xlsx_graft/native/. The last three are what a release copies from the
+  # repository's root next to this file (scripts/release/assemble-ruby.sh).
+  # In a checkout none of these exist and the globs add nothing.
+  spec.files = Dir[
+    "lib/**/*.rb", "lib/xlsx_graft/native/*", "README.md",
+    "LICENSE-*", "NOTICE", "THIRD-PARTY-LICENSES"
+  ]
+
+  # A release builds each platform gem with the RubyGems platform of its engine
+  # (scripts/release/platforms.tsv). Without it the gem is the one for every
+  # platform, which carries no engine.
+  platform = ENV.fetch("XLSX_GRAFT_GEM_PLATFORM", "")
+  spec.platform = Gem::Platform.new(platform) unless platform.empty?
   spec.require_paths = ["lib"]
 
   # Declared rather than assumed: fiddle is no longer a default gem from Ruby

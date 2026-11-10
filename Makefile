@@ -90,6 +90,20 @@
 #     make engine:cli-bin       the release CLI, for the Docker host's arch,
 #                               into dist/cli/local/xlsx-graft (gitignored)
 #
+#   Release packages (not in verify: the engine of five platforms is built on
+#   five runners; nothing here publishes; .github/workflows/release-artifacts.yml
+#   runs them by hand)
+#     make release:matrix       the platforms and their runners, as JSON
+#                               (scripts/release/platforms.tsv)
+#     make release:native       the engine of the Docker host's platform (C ABI
+#                               library, Node.js addon, CLI) into
+#                               dist/release/native/<slug>/ (gitignored)
+#     make release:assemble     the gems, wheels and CLI archives into
+#                               dist/release/packages/, what each holds
+#                               checked, and the host's platform loaded;
+#                               RELEASE_PLATFORMS=<slug>... narrows it to those
+#                               platforms
+#
 #   Apply fixes
 #     make engine:format        rustfmt
 #     make engine:licenses-write
@@ -356,6 +370,7 @@ include mk/sdk/php.mk
 include mk/sdk/go.mk
 include mk/docker.mk
 include mk/excel.mk
+include mk/release.mk
 
 .PHONY: _verify ci\:matrix help quiet verify clean clean\:all clean\:target
 

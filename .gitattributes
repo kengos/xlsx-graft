@@ -1,3 +1,10 @@
 # The reference pages are compiled in with include_str!, so a checkout that
 # converted their line endings would change what the server sends.
 engine/reference/pages/*.md text eol=lf
+
+# The Windows runner of release-artifacts.yml reads these with sh and sed, and a
+# carriage return at the end of a line would end up in the Rust version it
+# installs and in the workspace version it compares.
+scripts/release/* text eol=lf
+Makefile text eol=lf
+engine/Cargo.toml text eol=lf

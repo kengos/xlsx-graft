@@ -206,6 +206,54 @@ library that does not load, rather than falling through to the next way. It
 raises too when none is found. A name with no directory in it, set in 1
 or 2, is looked up on `PATH` by the system rather than by the SDK.
 
+## Platform packages (`release:*`)
+
+A release ships the engine inside each package, so installing a package needs
+no engine of its own. Nothing downloads anything, at install time or at run
+time ([Finding the engine library](#finding-the-engine-library)); the packages
+carry it. `scripts/release/platforms.tsv` is the one list of platforms the
+packages are built for (every other file reads it): Linux x64 and arm64 on
+glibc, macOS arm64 and x64, and Windows x64, each built **natively on its own
+runner** (never cross-compiled). Alpine (musl) and Windows arm64 are not built;
+they are added when somebody asks.
+
+| Target | What it does |
+| --- | --- |
+| `release:matrix` | the platforms and their runners as JSON, for the workflow's matrix |
+| `release:native` | the engine of the Docker host's platform (the C ABI library, the Node.js addon and the CLI) into `dist/release/native/<slug>/`, in the toolchain image |
+| `release:assemble` | the packages into `dist/release/packages/`, then what each holds, then the host's platform loaded |
+
+They are not members of `make verify`: five platforms are built on five
+runners, which a contributor's machine is not. `RELEASE_PLATFORMS=<slug>...`
+narrows `release:assemble` to those platforms. `release-artifacts.yml`
+(`.github/workflows/`) runs all of it, started by hand and never by a pull
+request: Linux in the toolchain image, macOS and Windows with rustup at the
+Makefile's `RUST_VERSION` (`scripts/release/build-native.sh`, since their
+toolchains do not run in a Linux container), and the packages from the
+artifacts of all five. It uploads artifacts and publishes nothing.
+
+| Package | Holds | For |
+| --- | --- | --- |
+| gem `xlsx_graft-<v>-<platform>.gem` | the library in `lib/xlsx_graft/native/` | a platform of the table (RubyGems picks it; `-gnu` for glibc Linux) |
+| gem `xlsx_graft-<v>.gem` | no engine | every other platform: loading it raises the error that names `XLSX_GRAFT_LIBRARY` |
+| wheel `xlsx_graft-<v>-py3-none-<tag>.whl` | the library in `xlsx_graft/native/` | a platform of the table (`manylinux_2_36`: built on bookworm's glibc 2.36; `macosx_11_0`) |
+| wheel `xlsx_graft-<v>-py3-none-any.whl` | no engine | every other platform, as the gem |
+| CLI archive `xlsx-graft-<v>-<slug>.tar.gz` (`.zip` on Windows) | the CLI | the PHP and Go SDKs, and anyone running the CLI: `XLSX_GRAFT_CLI` or `PATH` |
+
+Every package holds `LICENSE-APACHE`, `LICENSE-BSD`, `LICENSE-MIT` and
+`NOTICE`. A package with the engine in it also holds `THIRD-PARTY-LICENSES`:
+the dependencies' code is compiled into the engine, and the licenses ask for
+their text to travel with it. A package with no engine has none of their code,
+so has no such file. `scripts/release/check_packages.py` checks both ways, by
+the names of the files in each package, and that no package is there that
+nobody asked for.
+
+The Ruby gem is built on the floor line and the packages of the host's
+platform are loaded on the latest line, with `XLSX_GRAFT_LIBRARY` unset, so
+the only engine they can reach is the one they carry. A platform the Docker
+host cannot load (a Mac's Docker is arm64 Linux) is built and checked by file
+names alone, and the run says the load was skipped.
+
 ## Calling the C ABI
 
 In JavaScript the addon's Rust calls the C ABI (`engine/napi/src/call.rs`) and

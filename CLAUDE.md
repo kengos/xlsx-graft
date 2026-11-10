@@ -23,8 +23,8 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   equivalent. A PASS line names the command that ran, variables included
   (not `V=` / `JOBS=` / `CARGO_VOLUME=`, which change how a gate runs, not
   what it checks): one carrying `LATEST=1`, `RUBY_VER=`, `PYTHON_VER=`,
-  `DOTNET_VER=`, `JVM_VER=`, `JS_VER=`, `PHP_VER=`, `GO_VER=`, `P=` or `F=`
-  is a narrowed run, and the bar is the bare name. If the command you need is
+  `DOTNET_VER=`, `JVM_VER=`, `JS_VER=`, `PHP_VER=`, `GO_VER=`, `RELEASE_PLATFORMS=`,
+  `P=` or `F=` is a narrowed run, and the bar is the bare name. If the command you need is
   missing, add a target rather than typing a one-off.
 - Each gate target (`verify`, `engine:verify` / `lint` / `budget` /
   `fmt` / `clippy` / `test` / `coverage` / `capi-abi` / `capi-lib` / `napi` /
@@ -127,6 +127,14 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   through a `replace` by a module of its own, built and run against
   `dist/cli/local/xlsx-graft`, the CLI built first by `engine:cli-bin` and
   run as a subprocess (not the C ABI library).
+- `make release:native` and `make release:assemble` build the platform packages
+  of a release (gems, wheels, CLI archives; the other languages follow) from
+  the engine of each platform in `scripts/release/platforms.tsv`. They are
+  **not** members of `make verify` (five platforms build on five runners) and
+  publish nothing; `.github/workflows/release-artifacts.yml`, started by hand,
+  runs them. Locally they cover the Linux platform of the Docker host;
+  `RELEASE_PLATFORMS=<slug>` narrows `release:assemble` to it. Details:
+  [docs/sdk.md](docs/sdk.md) § Platform packages.
 - **Rust here grows long files, so length is gated**: ≤300 lines per non-test
   file (aim for ≤160 in a new one; not gated), 150 per function. Before
   editing, `wc -l` the files you will touch and plan the split (`foo.rs` +

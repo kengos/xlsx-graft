@@ -40,8 +40,9 @@ _sdk-image-python:
 
 # Lint, the tests at 100% line coverage, then the wheel as a user gets it:
 # built from a copy of the checkout (minus any library left in
-# src/xlsx_graft/native/, which the wheel would otherwise ship) with the locked
-# hatchling and no isolation, so nothing is downloaded; installed alone into a
+# src/xlsx_graft/native/, which the wheel would otherwise ship, and plus the
+# license files, which pyproject.toml names and a checkout holds only at the
+# repository's root) with the locked hatchling and no isolation, so nothing is downloaded; installed alone into a
 # virtual environment of its own; and imported from there with `python -I`,
 # from outside the checkout, so neither src/ nor the gate's tools are on the
 # path.
@@ -57,6 +58,7 @@ _sdk-verify-python-line: _sdk-image-python
 	@echo "== sdk python wheel (build, install, load) (Python $(PYTHON_PATCH)) =="
 	$(PYTHON_IN_DOCKER) 'cp -r /repo/sdk/python /tmp/build; \
 		rm -rf /tmp/build/src/xlsx_graft/native; \
+		cp /repo/LICENSE-APACHE /repo/LICENSE-BSD /repo/LICENSE-MIT /repo/NOTICE /tmp/build/; \
 		cd /tmp/build; \
 		python -m build --wheel --no-isolation --outdir /tmp/dist .; \
 		/usr/local/bin/python3 -m venv /tmp/user; \
