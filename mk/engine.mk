@@ -19,6 +19,9 @@
 #                  without compiling, so this is seconds rather than a build.
 #   engine:update  bump to the newest release each range still allows. It
 #                  moves things you did not name, so read the lockfile diff.
+#
+# After either, run `make engine:licenses-write` (mk/engine/licenses.mk):
+# engine:licenses fails when THIRD-PARTY-LICENSES does not match the lockfile.
 
 engine\:lock: ## Re-resolve engine/Cargo.lock after a Cargo.toml edit (then: git add engine/Cargo.lock)
 	@echo "== engine:lock =="
@@ -40,11 +43,11 @@ engine\:update: ## Bump engine/ deps within their Cargo.toml ranges (then: git a
 # before the first pull; toolchain comes next, since every member after it is
 # only worth as much as the image it ran in. budget runs once, not again
 # inside lint: make builds a prerequisite once per run.
-engine\:verify: ## Verify engine/ — budget + toolchain pins + fixtures/ (README rows, only workbooks, the README and AppleScripts and no links, allowed parts, account fields and HyperlinkBase empty or absent, no absPath, alternateUrls, refreshedBy, fileSharing, securityDescriptor or home folder paths, external targets file names, Office Script list placeholder, VBA project only macro.xlsm's reviewed one, the one part allowed a home folder path) + fmt + clippy + tests at 100% line coverage + doctests + C ABI symbols
+engine\:verify: ## Verify engine/ — budget + toolchain pins + fixtures/ (README rows, only workbooks, the README and AppleScripts and no links, allowed parts, account fields and HyperlinkBase empty or absent, no absPath, alternateUrls, refreshedBy, fileSharing, securityDescriptor or home folder paths, external targets file names, Office Script list placeholder, VBA project only macro.xlsm's reviewed one, the one part allowed a home folder path) + cargo deny (licenses, bans, sources) + THIRD-PARTY-LICENSES matches cargo-about, NOTICE files of the dependencies included + fmt + clippy + tests at 100% line coverage + doctests + C ABI symbols
 	@$(call gate,_engine-verify,engine:verify)
 
-_engine-verify: _engine-budget _engine-toolchain _engine-lint _engine-capi-abi _engine-coverage \
-                _engine-doctest
+_engine-verify: _engine-budget _engine-toolchain _engine-deny _engine-licenses _engine-lint \
+                _engine-capi-abi _engine-coverage _engine-doctest
 
 # The pinned digest holds the versions TOOLCHAIN_HOLDS names. A digest copied
 # from the wrong run, or a TOOLCHAIN_HOLDS not updated when TOOLCHAIN_DIGEST

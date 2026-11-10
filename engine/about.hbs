@@ -1,0 +1,29 @@
+THIRD-PARTY-LICENSES
+====================
+
+xlsx-graft depends on the Rust crates listed below. The crates compiled into
+its binaries (the CLI, the MCP server, the C ABI library and the Node.js
+addon) are among them; the list is a superset, because it also holds the
+crates only this repository's tools depend on. This file is written by
+`make engine:licenses-write` from engine/Cargo.lock. Do not edit it.
+
+Licenses
+--------
+
+{{#each overview}}
+- {{name}}: {{count}} crate(s)
+{{/each}}
+
+{{#each licenses}}
+================================================================================
+{{name}} ({{id}})
+================================================================================
+
+Used by:
+{{#each used_by}}
+- {{crate.name}} {{crate.version}}
+{{/each}}
+
+{{{text}}}
+
+{{/each}}

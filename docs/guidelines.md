@@ -138,7 +138,22 @@ by arithmetic. What keeps a suite navigable is this:
 - **Dependencies are declared once** in `[workspace.dependencies]` and
   referenced with `{ workspace = true }`. Every new dependency needs a reason;
   prefer pure Rust. Review `engine/Cargo.lock` diffs — an unexplained new
-  transitive dependency is a finding.
+  transitive dependency is a finding. Its license must be in the `allow` list
+  of `engine/deny.toml` (`make engine:deny`), and
+  `make engine:licenses-write` updates `THIRD-PARTY-LICENSES`, which is
+  committed with the lockfile.
+- **Source code copied from another project** needs an entry in `NOTICE`, in
+  the form that file gives: the project and its repository, the copyright line
+  as the original writes it, the license, and the paths it was copied into.
+  Only code under a license in the `allow` list of `engine/deny.toml` is
+  copied. The copied file opens, after its `//!` role header, with a comment
+  naming the project, the file it came from and the license. A license text
+  that has the words of `LICENSE-MIT` or `LICENSE-APACHE` apart from the
+  copyright line needs only the entry's `Copyright` line; any other license text
+  (a BSD variant, ISC, Zlib) is copied whole under the entry. A dependency's
+  NOTICE file that `make engine:licenses` reports as missing from
+  `THIRD-PARTY-LICENSES` is added with a `[<crate>.clarify]` entry in
+  `engine/about.toml`.
 - **Follow the neighbouring crate's idiom** (error enum shape, test layout)
   before inventing a new one.
 - **Implementing to an external spec** (ECMA-376 / OOXML, Excel's own

@@ -17,11 +17,8 @@
 # <platform> (linux/amd64, linux/arm64) picks one architecture of a multi-arch
 # image; without it docker runs the host's architecture.
 #
-# Without --holds the image must also have the git command (cargo-deny runs it
-# to fetch the advisory database); its version is not compared. With --holds
-# git is not checked: the digest engine:verify runs may predate the image that
-# first had git, and a gate that runs `cargo deny check advisories` fails with
-# cargo-deny's own error when git is missing.
+# With or without --holds, the image must also have the git command (cargo-deny runs it to
+# fetch the advisory database); its version is not compared.
 #
 # .github/workflows/toolchain-image.yml runs it over each architecture of
 # the image it has just pushed, so an image missing a tool fails that run before
@@ -73,16 +70,16 @@ field() { printf '%s\n' "$have" | sed -n "s/^$1=//p"; }
 where="$image${platform:+ ($platform)}"
 status=0
 text="rust $(field RUST_VERSION), cargo-llvm-cov $(field LLVM_COV_VERSION), cargo-about $(field CARGO_ABOUT_VERSION), cargo-deny $(field CARGO_DENY_VERSION)"
+if [ -z "$(field GIT_VERSION)" ]; then
+    echo "toolchain-image: git is missing from $where" >&2
+    status=1
+fi
 if [ "$mode" = holds ]; then
     if [ "$text" != "$holds" ]; then
         echo "toolchain-image: $where holds '$text', but TOOLCHAIN_HOLDS says '$holds'" >&2
         status=1
     fi
 else
-    if [ -z "$(field GIT_VERSION)" ]; then
-        echo "toolchain-image: git is missing from $where" >&2
-        status=1
-    fi
     for name in RUST_VERSION LLVM_COV_VERSION CARGO_ABOUT_VERSION CARGO_DENY_VERSION; do
         want=$(make_pin "$name")
         got=$(field "$name")
