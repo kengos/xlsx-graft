@@ -1,0 +1,605 @@
+name: Publish
+
+# Publishes to the registries, which cannot be undone: pushes the packages that
+# release-artifacts.yml assembled. Started by hand and by
+# nothing else (`gh workflow run publish.yml --ref v<version>`), and docs/release.md
+# says when. A registry runs only when its name is in the `registries` input,
+# so one failed upload is started again alone, and only when the repository is
+# kengos's, so a fork skips instead of failing.
+#
+# Every job but `prepare` runs in the `release` environment, which holds the
+# required reviewer: nothing is published before a person approves. The trusted
+# publishers of crates.io, RubyGems, PyPI, npm and NuGet are registered for the
+# owner `kengos`, the repository `xlsx-graft`, THIS FILE'S NAME and the
+# environment `release` (renaming the file breaks all five). Each of them
+# accepts this run's GitHub OIDC token in exchange for a credential that lives
+# for minutes, so no registry token is kept, apart from those of the registries
+# that have no such exchange. The secrets are secrets of the `release`
+# environment, so that no other workflow can read them:
+#
+#   CENTRAL_API_TOKEN   Maven Central Portal user token, as `user:password`
+#   GPG_PRIVATE_KEY     the ASCII-armored key Maven Central's signatures are made with
+#   GPG_PASSPHRASE      its passphrase
+#   SPLIT_REPO_TOKEN    a fine-grained token with Contents read and write on
+#                       kengos/xlsx-graft-php ONLY (the split repository
+#                       Packagist tracks); github.token cannot push to another
+#                       repository
+#
+# Packages are not rebuilt here. `prepare` checks that the run named in
+# `artifacts_run_id` is a successful release-artifacts run of THIS commit and
+# that the version is the tag's. Each job that publishes a package downloads the
+# artifact again (a job runs on a runner of its own) and checks it against the
+# checksum that `prepare` output; the crates, Packagist and Go jobs publish the
+# repository's source at the tag and download nothing.
+#
+# `dry_run` (the default) runs each registry's job up to the last action before
+# the registry is touched, and mints no credential. `fail_if_published` turns
+# the default of skipping a version that is already on a registry into a
+# failure: every registry here treats a published version as unchangeable, so
+# nothing is ever overwritten.
+#
+# Maven Central stops at USER_MANAGED (the Portal validates the upload; the click
+# that publishes it is a person's), and the GitHub Release is made as a draft,
+# for the same reason. The first publish of a crate and of an npm package needs
+# a token, because crates.io and npm register a trusted publisher only for a
+# package that exists: docs/release.md and the issue it points to say how.
+on:
+  workflow_dispatch:
+    inputs:
+      artifacts_run_id:
+        description: 'The release-artifacts run whose packages to publish'
+        required: true
+      registries:
+        description: 'Space-separated: crates rubygems pypi npm nuget maven packagist go release (or `all`)'
+        required: true
+      dry_run:
+        description: 'Stop each registry at the last step before it is touched'
+        required: false
+        type: boolean
+        default: true
+      fail_if_published:
+        description: 'Fail, rather than skip, a version that is already published'
+        required: false
+        type: boolean
+        default: false
+
+# Two runs never overlap, and a run is never cancelled halfway through an upload.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Checks that what is about to be published is what the release is. Publishes
+  # nothing and has no environment.
+  prepare:
+    name: Check the release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      registries: ${{ steps.check.outputs.registries }}
+      sums: ${{ steps.sums.outputs.sums }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # The inputs reach the shell through env, never interpolated into the
+      # script: a workflow input is text from whoever starts the run.
+      - name: Expand the registries and check the tag and the artifacts run
+        id: check
+        env:
+          REGISTRIES: ${{ inputs.registries }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          RUN_ID: ${{ inputs.artifacts_run_id }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          known='crates rubygems pypi npm nuget maven packagist go release'
+          selected=$REGISTRIES
+          [ "$selected" = all ] && selected=$known
+          # One space between the names, whatever separated them.
+          selected=$(echo $selected)
+          for name in $selected; do
+            case " $known " in
+              *" $name "*) ;;
+              *) echo "unknown registry '$name'; one of: $known" >&2; exit 1 ;;
+            esac
+          done
+          [ -n "$selected" ] || { echo "no registry selected" >&2; exit 1; }
+          echo "selected: $selected"
+
+          version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"$/\1/p' engine/Cargo.toml)
+          [ -n "$version" ] || { echo "no [workspace.package] version in engine/Cargo.toml" >&2; exit 1; }
+          echo "version: $version"
+
+          # A publish is made from the tag of the version. A dry run may be
+          # started on a branch, and then there is no tag to compare.
+          if [ "$REF_TYPE" = tag ]; then
+            [ "$REF_NAME" = "v$version" ] \
+              || { echo "the tag is $REF_NAME, and engine/Cargo.toml says v$version" >&2; exit 1; }
+          elif [ "$DRY_RUN" != true ]; then
+            echo "a publish runs on the tag v$version, not on $REF_TYPE $REF_NAME" >&2
+            exit 1
+          fi
+
+          run=$(gh run view "$RUN_ID" --repo "$REPOSITORY" --json workflowName,headSha,conclusion \
+            --jq '[.workflowName, .headSha, .conclusion] | join(" ")')
+          echo "artifacts run $RUN_ID: $run"
+          [ "$run" = "Release artifacts $SHA success" ] \
+            || { echo "run $RUN_ID is not a successful 'Release artifacts' run of $SHA" >&2; exit 1; }
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "registries=$selected" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: packages
+          run-id: ${{ inputs.artifacts_run_id }}
+          github-token: ${{ github.token }}
+          path: dist/release/packages
+
+      # What the packages hold, for every platform of the release (release:assemble
+      # checked it on the runner that built them, and this checks it again before
+      # anything is published), and the versions.
+      - name: Check the packages
+        id: sums
+        run: |
+          (cd dist/release/packages && sha256sum -c SHA256SUMS)
+          python3 -I scripts/release/check_packages.py dist/release/packages $(scripts/release/platform.sh --slugs)
+          scripts/check-versions.sh
+          echo "sums=$(sha256sum dist/release/packages/SHA256SUMS | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+  # crates.io: the crates of scripts/release/crates.txt, in that order, from the
+  # tag's source (no --allow-dirty; the packages are not used).
+  crates:
+    name: crates.io
+    needs: prepare
+    if: github.repository_owner == 'kengos' && contains(format(' {0} ', needs.prepare.outputs.registries), ' crates ')
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # The Rust version the gates pin (the Makefile), not whichever one the runner has.
+      - name: Install the pinned Rust
+        run: |
+          rust=$(sed -n 's/^RUST_VERSION *:= *\(.*\)$/\1/p' Makefile)
+          rustup toolchain install "$rust" --profile minimal
+          rustup default "$rust"
+          cargo --version
+
+      # Not minted on a dry run. The token lives thirty minutes and the action's
+      # post step revokes it.
+      - name: crates.io credentials (OIDC trusted publishing)
+        if: ${{ !inputs.dry_run }}
+        id: auth
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+
+      - name: Publish the crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+          FAIL_IF_PUBLISHED: ${{ inputs.fail_if_published }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = true ]; then
+            scripts/release/publish-crates.sh --dry-run
+          else
+            scripts/release/publish-crates.sh
+          fi
+
+  rubygems:
+    name: RubyGems
+    needs: prepare
+    if: github.repository_owner == 'kengos' && contains(format(' {0} ', needs.prepare.outputs.registries), ' rubygems ')
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/fetch-packages
+        with:
+          run-id: ${{ inputs.artifacts_run_id }}
+          sums: ${{ needs.prepare.outputs.sums }}
+          token: ${{ github.token }}
+
+      # SHA-pinned, like every action here: this one mints a publishing credential.
+      - name: RubyGems credentials (OIDC trusted publishing)
+        if: ${{ !inputs.dry_run }}
+        uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+
+      - name: Push the gems
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          FAIL_IF_PUBLISHED: ${{ inputs.fail_if_published }}
+        run: |
+          cd dist/release/packages/ruby
+          if [ "$DRY_RUN" = true ]; then
+            for gem in *.gem; do
+              echo "$gem -> $(gem specification "$gem" full_name | sed 's/^--- //')"
+            done
+            exit 0
+          fi
+          # A push that timed out may have landed, so "already been pushed" on a
+          # retry is success. On the first attempt it means the version was on
+          # the registry before this run, which fail_if_published makes a failure.
+          push_gem() {
+            for attempt in 1 2 3; do
+              out=$(gem push "$1" 2>&1) && { echo "$out"; return 0; }
+              echo "$out"
+              case "$out" in *"already been pushed"*|*"Repushing of gem versions is not allowed"*)
+                if [ "$attempt" = 1 ] && [ "$FAIL_IF_PUBLISHED" = true ]; then
+                  echo "$1 was already published" >&2
+                  return 1
+                fi
+                return 0 ;;
+              esac
+              echo "retrying $1 (attempt $attempt failed)"
+              sleep 15
+            done
+            return 1
+          }
+          # The gem with no engine first: its push registers the name.
+          push_gem "xlsx_graft-$VERSION.gem"
+          for gem in xlsx_graft-"$VERSION"-*.gem; do
+            echo "pushing $gem"
+            push_gem "$gem"
+          done
+
+  pypi:
+    name: PyPI
+    needs: prepare
+    if: github.repository_owner == 'kengos' && contains(format(' {0} ', needs.prepare.outputs.registries), ' pypi ')
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/fetch-packages
+        with:
+          run-id: ${{ inputs.artifacts_run_id }}
+          sums: ${{ needs.prepare.outputs.sums }}
+          token: ${{ github.token }}
+
+      - name: Check the wheels
+        if: ${{ inputs.dry_run }}
+        run: pipx run twine check --strict dist/release/packages/python/*.whl
+
+      # skip-existing: a run that is started again after a failure skips the
+      # wheels already on PyPI, which it would otherwise refuse.
+      - name: Publish to PyPI (OIDC trusted publishing)
+        if: ${{ !inputs.dry_run }}
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: dist/release/packages/python/
+          skip-existing: ${{ !inputs.fail_if_published }}
+
+  npm:
+    name: npm
+    needs: prepare
+    if: github.repository_owner == 'kengos' && contains(format(' {0} ', needs.prepare.outputs.registries), ' npm ')
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/fetch-packages
+        with:
+          run-id: ${{ inputs.artifacts_run_id }}
+          sums: ${{ needs.prepare.outputs.sums }}
+          token: ${{ github.token }}
+
+      # npm's OIDC exchange needs npm 11.5.1 or newer, on a Node.js that carries it.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          check-latest: true
+
+      # No token and no .npmrc: npm finds the OIDC environment itself and, the
+      # repository and the packages being public, adds provenance.
+      - name: Publish to npm (OIDC trusted publishing)
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          FAIL_IF_PUBLISHED: ${{ inputs.fail_if_published }}
+        run: |
+          v=$(npm --version)
+          echo "npm $v"
+          [ "$(printf '%s\n' 11.5.1 "$v" | sort -V | head -1)" = 11.5.1 ] \
+            || { echo "npm $v cannot publish by OIDC: trusted publishing needs 11.5.1 or newer" >&2; exit 1; }
+          cd dist/release/packages/js
+          dry=
+          if [ "$DRY_RUN" = true ]; then
+            dry=--dry-run
+            # npm makes the OIDC exchange itself, and may do so on a dry run too;
+            # without these variables it has no identity to exchange.
+            unset ACTIONS_ID_TOKEN_REQUEST_URL ACTIONS_ID_TOKEN_REQUEST_TOKEN
+          fi
+          # npm has no skip-existing, and publishing a version again is an error
+          # (E403), which a run started again after a failure reads as success.
+          publish_one() {
+            out=$(npm publish --access public $dry "$1" 2>&1) && { echo "$out"; return 0; }
+            echo "$out"
+            case "$out" in
+              *"previously published"*|*"cannot publish over"*)
+                if [ "$FAIL_IF_PUBLISHED" = true ]; then
+                  echo "$1 was already published" >&2
+                  return 1
+                fi
+                echo "$1 is already on npm" ; return 0 ;;
+            esac
+            return 1
+          }
+          # The packages of the platforms first: the main package, xlsx-graft, names
+          # them as optional dependencies, and npm refuses a package whose
+          # dependencies do not exist.
+          for tgz in *.tgz; do
+            [ "$tgz" = "xlsx-graft-$VERSION.tgz" ] && continue
+            echo "publishing $tgz"
+            publish_one "$tgz"
+          done
+          echo "publishing xlsx-graft-$VERSION.tgz"
+          publish_one "xlsx-graft-$VERSION.tgz"
+
+  nuget:
+    name: NuGet
+    needs: prepare
+    if: github.repository_owner == 'kengos' && contains(format(' {0} ', needs.prepare.outputs.registries), ' nuget ')
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/fetch-packages
+        with:
+          run-id: ${{ inputs.artifacts_run_id }}
+          sums: ${{ needs.prepare.outputs.sums }}
+          token: ${{ github.token }}
+
+      # The key nuget.org hands back lives an hour and is used once, so it is
+      # made right before the push, and not at all on a dry run.
+      - name: NuGet credentials (OIDC trusted publishing)
+        if: ${{ !inputs.dry_run }}
+        id: login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
+        with:
+          user: kengos
+
+      - name: Push the nupkg
+        env:
+          KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          FAIL_IF_PUBLISHED: ${{ inputs.fail_if_published }}
+        run: |
+          if [ "$DRY_RUN" = true ]; then
+            for nupkg in dist/release/packages/dotnet/*.nupkg; do
+              echo "$nupkg"
+              unzip -l "$nupkg"
+            done
+            exit 0
+          fi
+          skip=--skip-duplicate
+          [ "$FAIL_IF_PUBLISHED" = true ] && skip=
+          dotnet nuget push dist/release/packages/dotnet/*.nupkg \
+            --api-key "$KEY" --source https://api.nuget.org/v3/index.json $skip
+
+  # Maven Central, by a token and a GPG key (it has no OIDC exchange). Uploads as
+  # USER_MANAGED: the Portal validates, and the click that publishes is a person's.
+  maven:
+    name: Maven Central
+    needs: prepare
+    if: github.repository_owner == 'kengos' && contains(format(' {0} ', needs.prepare.outputs.registries), ' maven ')
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/fetch-packages
+        with:
+          run-id: ${{ inputs.artifacts_run_id }}
+          sums: ${{ needs.prepare.outputs.sums }}
+          token: ${{ github.token }}
+
+      # The Portal refuses a version that is already published, and uploading it
+      # again leaves a deployment that fails validation: drop `maven` from the
+      # registries once it has been uploaded.
+      - name: Make the signed bundle, check it and upload it
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          # Empty on a dry run, which signs with a key of its own and uploads nothing.
+          GPG_PRIVATE_KEY: ${{ !inputs.dry_run && secrets.GPG_PRIVATE_KEY || '' }}
+          GPG_PASSPHRASE: ${{ !inputs.dry_run && secrets.GPG_PASSPHRASE || '' }}
+          CENTRAL_API_TOKEN: ${{ !inputs.dry_run && secrets.CENTRAL_API_TOKEN || '' }}
+        run: |
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -m 700 "$GNUPGHOME"
+          if [ "$DRY_RUN" = true ]; then
+            # The key of the dry run is generated here and has no passphrase; the
+            # release's key and the Portal are not touched.
+            gpg --batch --quiet --pinentry-mode loopback --passphrase "" \
+              --quick-generate-key "xlsx-graft dry run <dry-run@invalid>" ed25519 sign never
+          else
+            printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --quiet --import
+            GPG_KEY_ID=$(gpg --batch --list-secret-keys --with-colons | awk -F: '/^sec/ { print $5; exit }')
+            [ -n "$GPG_KEY_ID" ] || { echo "GPG_PRIVATE_KEY holds no secret key" >&2; exit 1; }
+            export GPG_KEY_ID
+            GPG_PASSPHRASE_FILE="$RUNNER_TEMP/gpg-passphrase"
+            (umask 077; printf '%s' "$GPG_PASSPHRASE" > "$GPG_PASSPHRASE_FILE")
+            export GPG_PASSPHRASE_FILE
+          fi
+          scripts/release/maven-bundle.sh dist/release/packages/jvm "$RUNNER_TEMP/bundle.zip"
+          classifiers=$(for slug in $(scripts/release/platform.sh --slugs); do scripts/release/platform.sh "$slug" jna; done)
+          python3 -I scripts/release/dry-run/check_maven.py "$RUNNER_TEMP/bundle.zip" $classifiers
+          if [ "$DRY_RUN" = true ]; then
+            echo "dry run: the bundle is made, signed and checked; nothing is uploaded"
+            exit 0
+          fi
+          scripts/release/maven-upload.sh "$RUNNER_TEMP/bundle.zip" "xlsx-graft-$VERSION"
+
+  # Packagist reads the composer.json at the root of a repository, and in this one
+  # it is at sdk/php/, so Packagist tracks a repository that is sdk/php split out.
+  # The split is made only from a tag that exists here, so it never serves a
+  # version this repository has not released.
+  packagist:
+    name: Packagist
+    needs: prepare
+    if: github.repository_owner == 'kengos' && contains(format(' {0} ', needs.prepare.outputs.registries), ' packagist ')
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      # The whole history: the split reads all of it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Split sdk/php and push it
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          SPLIT_REPO_TOKEN: ${{ !inputs.dry_run && secrets.SPLIT_REPO_TOKEN || '' }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          if [ "$DRY_RUN" = true ]; then
+            scripts/release/split-php.sh "$VERSION" https://github.com/kengos/xlsx-graft-php.git --dry-run
+          else
+            scripts/release/split-php.sh "$VERSION" "https://x-access-token:${SPLIT_REPO_TOKEN}@github.com/kengos/xlsx-graft-php.git"
+          fi
+
+  # Go has no upload: the tag sdk/go/v<version> is the release. The tag is the
+  # owner's to push; this checks it names this commit and asks the proxy for it,
+  # which makes the proxy fetch and keep it.
+  go:
+    name: Go
+    needs: prepare
+    if: github.repository_owner == 'kengos' && contains(format(' {0} ', needs.prepare.outputs.registries), ' go ')
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the tag and ask the proxy for it
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          SHA: ${{ github.sha }}
+        run: |
+          module=$(sed -n 's/^module //p' sdk/go/go.mod)
+          tag="sdk/go/v$VERSION"
+          if ! git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
+            [ "$DRY_RUN" = true ] && { echo "dry run: this repository has no tag $tag yet"; exit 0; }
+            echo "this repository has no tag $tag" >&2
+            exit 1
+          fi
+          [ "$(git rev-parse "$tag^{commit}")" = "$SHA" ] \
+            || { echo "$tag does not point at $SHA" >&2; exit 1; }
+          echo "$tag points at $SHA"
+          [ "$DRY_RUN" = true ] && exit 0
+          # The proxy may not see a new tag at once.
+          url="https://proxy.golang.org/$module/@v/v$VERSION.info"
+          for attempt in 1 2 3 4 5 6; do
+            curl -fsS "$url" && exit 0
+            echo "the proxy does not have it yet (attempt $attempt)"
+            sleep 20
+          done
+          echo "the proxy still does not have $module v$VERSION" >&2
+          exit 1
+
+  # The CLI archives, as a draft GitHub Release for the tag: the click that makes
+  # a release public is a person's.
+  release:
+    name: GitHub Release
+    needs: prepare
+    if: github.repository_owner == 'kengos' && contains(format(' {0} ', needs.prepare.outputs.registries), ' release ')
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/fetch-packages
+        with:
+          run-id: ${{ inputs.artifacts_run_id }}
+          sums: ${{ needs.prepare.outputs.sums }}
+          token: ${{ github.token }}
+
+      - name: Make the draft release
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          FAIL_IF_PUBLISHED: ${{ inputs.fail_if_published }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$VERSION"
+          cd dist/release/packages/cli
+          sha256sum * > SHA256SUMS
+          ls -l
+          if gh release view "$tag" >/dev/null 2>&1; then
+            [ "$FAIL_IF_PUBLISHED" = true ] && { echo "the release $tag exists" >&2; exit 1; }
+            echo "the release $tag exists; left alone"
+            exit 0
+          fi
+          if [ "$DRY_RUN" = true ]; then
+            echo "dry run: the release $tag would be created as a draft"
+            exit 0
+          fi
+          # --verify-tag: the tag is the owner's to push, so the draft names a
+          # tag that exists and is not made by this command.
+          gh release create "$tag" ./* --draft --verify-tag --title "$tag" \
+            --notes "The xlsx-graft CLI for Linux (x64, arm64), macOS (x64, arm64) and Windows (x64). SHA256SUMS holds the checksum of each archive."

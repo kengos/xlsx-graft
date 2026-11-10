@@ -5,10 +5,10 @@
 # Checked: the xlsx-graft crates' versions in engine/Cargo.toml (the one every
 # crate's path dependency names) and the Ruby, Python, .NET, Java and JS
 # manifests. PHP and Go have no version of their own: Packagist and the Go
-# proxy take it from the tag. The projects that install a built package
-# (sdk/dotnet/script/CheckInstalledPackage, sdk/jvm/script/check-installed-jar)
-# name the version too, but sdk:verify:* fails when they are stale, so they are
-# not read here.
+# proxy take it from the tag (composer.json must not carry one). The projects
+# that install a built package (sdk/dotnet/script/CheckInstalledPackage,
+# sdk/jvm/script/check-installed-jar) name the version too, but sdk:verify:*
+# fails when they are stale, so they are not read here.
 #
 # Each file has the number of versions it must hold. A pattern that no longer
 # matches (a manifest reformatted) holds none, which fails instead of passing
@@ -53,6 +53,13 @@ check sdk/python/src/xlsx_graft/_version.py 's/^__version__ = "\([^"]*\)"$/\1/p'
 check sdk/dotnet/XlsxGraft/XlsxGraft.csproj 's/^ *<Version>\([^<]*\)<\/Version>$/\1/p' 1
 check sdk/jvm/gradle.properties 's/^version=\(.*\)$/\1/p' 1
 check sdk/js/package.json 's/^  "version": "\([^"]*\)",$/\1/p' 1
+
+# Packagist takes the version from the tag, and a `version` in composer.json
+# would make it disagree with the tag.
+if grep -q '"version"' "$root/sdk/php/composer.json"; then
+    echo "version:check: sdk/php/composer.json has a version, which Packagist takes from the tag" >&2
+    failed=1
+fi
 
 [ "$failed" -eq 0 ] || exit 1
 echo "version: $want in the workspace, $crates path dependencies and 5 SDK manifests"

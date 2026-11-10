@@ -21,7 +21,8 @@
 #                               files in each package); nothing is published;
 #                               one target per registry: release:dry-run:crates,
 #                               :rubygems, :pypi, :nuget, :maven, :npm,
-#                               :packagist and :go
+#                               :packagist, :go, and :workflow (the publish
+#                               workflow starts only by hand)
 #     make engine:verify        engine: budget + toolchain pins + fixtures/
 #                               (README rows, only workbooks, the README
 #                               and AppleScripts and no links, allowed

@@ -1,0 +1,37 @@
+name: Fetch the release packages
+description: >
+  Downloads the `packages` artifact of a release-artifacts run into
+  dist/release/packages/ and checks it is the one the prepare job checked: every
+  file against SHA256SUMS, and SHA256SUMS itself against the checksum the
+  prepare job output. A publish job runs on a runner of its own, so each job
+  checks that what it publishes is what the prepare job checked.
+
+inputs:
+  run-id:
+    description: The release-artifacts run that built the packages.
+    required: true
+  sums:
+    description: The SHA-256 of dist/release/packages/SHA256SUMS, from the prepare job.
+    required: true
+  token:
+    description: A token that can read the run's artifacts (the job needs actions read).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+      with:
+        name: packages
+        run-id: ${{ inputs.run-id }}
+        github-token: ${{ inputs.token }}
+        path: dist/release/packages
+
+    - shell: bash
+      env:
+        SUMS: ${{ inputs.sums }}
+      run: |
+        cd dist/release/packages
+        [ "$(sha256sum SHA256SUMS | cut -d' ' -f1)" = "$SUMS" ] \
+          || { echo "SHA256SUMS is not the one the prepare job checked" >&2; exit 1; }
+        sha256sum -c SHA256SUMS

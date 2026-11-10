@@ -291,6 +291,7 @@ registry, `release:dry-run:<registry>`:
 | `npm` | `npm publish --dry-run` of each package, which prints no warning, and a scoped package says `publishConfig.access` is public |
 | `packagist` | `composer validate --strict` and the archive of `sdk/php` |
 | `go` | the zip `golang.org/x/mod/zip` (the proxy's code) makes of `sdk/go` |
+| `workflow` | `publish.yml` starts only by hand, every job but `prepare` runs in the `release` environment, no job names a secret or an OIDC permission it does not need, and every action is pinned to a commit |
 
 The registries of the packages that hold the engine check the packages of the
 Docker host's platform, which `release:native` and `release:assemble` build

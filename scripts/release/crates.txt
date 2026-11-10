@@ -1,0 +1,18 @@
+# The crates published to crates.io, in the order they are published: each
+# crate comes after every xlsx-graft crate it depends on (a dependency must be
+# on the registry before its dependent is). scripts/release/publish-crates.sh
+# reads it; `check_packages.py --crates` fails when it does not hold exactly
+# the crates that do not say `publish = false`, or when a crate comes before a
+# crate it depends on.
+xlsx-graft-core
+xlsx-graft-diagnostics
+xlsx-graft-xml
+xlsx-graft-formula
+xlsx-graft-package
+xlsx-graft-spool
+xlsx-graft-read
+xlsx-graft-reference
+xlsx-graft-compat
+xlsx-graft-verify
+xlsx-graft-cli
+xlsx-graft-mcp
