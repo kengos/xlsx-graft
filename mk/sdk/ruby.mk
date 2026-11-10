@@ -36,7 +36,8 @@ _sdk-image-ruby:
 
 # Lint, the specs at 100% line coverage, then the gem as a user gets it: built
 # from a copy of the checkout (minus any library left in lib/xlsx_graft/native/,
-# which the gem would otherwise ship), installed into a directory of its own (GEM_HOME;
+# which the gem would otherwise ship, and plus the license files a gem carries),
+# installed into a directory of its own (GEM_HOME;
 # fiddle still comes from the image's gems on GEM_PATH, as --local fetches
 # nothing), and loaded from there with no bundler and no checkout on the load
 # path.
@@ -52,6 +53,7 @@ _sdk-verify-ruby-line: _sdk-image-ruby
 	@echo "== sdk ruby gem (build, install, load) (Ruby $(RUBY_PATCH)) =="
 	$(RUBY_IN_DOCKER) 'cp -r /repo/sdk/ruby /tmp/build; \
 		rm -rf /tmp/build/coverage /tmp/build/lib/xlsx_graft/native; \
+		cp /repo/LICENSE-APACHE /repo/LICENSE-BSD /repo/LICENSE-MIT /repo/NOTICE /tmp/build/; \
 		cd /tmp/build; \
 		gem build xlsx_graft.gemspec; \
 		unset BUNDLE_GEMFILE; \

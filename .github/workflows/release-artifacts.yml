@@ -1,0 +1,110 @@
+name: Release artifacts
+
+# Builds the engine of every platform a release ships (the C ABI library, the
+# Node.js addon and the CLI of each platform in scripts/release/platforms.tsv)
+# on that platform's own runner, then assembles the packages from them. It
+# produces ARTIFACTS only and publishes nothing: no registry, no tag, no
+# release. Publishing is a separate, deliberate act.
+#
+# Started by hand (`gh workflow run release-artifacts.yml`), never by a pull
+# request: five native builds take long, and the pull request's bar is
+# `make verify` in ci.yml, which does not wait for them.
+#
+# The Linux platforms are built in the pinned toolchain image by `make
+# release:native`, as a contributor builds them. Apple's toolchain and MSVC do
+# not run in a Linux container, and the hosted macOS and Windows runners have
+# no Docker for Linux containers, so those platforms are built with rustup, at
+# the Rust version the Makefile pins, by scripts/release/build-native.sh.
+# Nothing is cross-built.
+on:
+  workflow_dispatch:
+
+# Read-only token, and no secret is used. The jobs upload workflow artifacts,
+# which authenticate with the Actions runtime token that `permissions:` does
+# not govern.
+permissions:
+  contents: read
+
+# Every gate prints one PASS/FAIL line and keeps its log under .make-logs/,
+# which the runner throws away. V=1 streams the raw output into the job log
+# instead (as in ci.yml).
+env:
+  V: 1
+
+jobs:
+  # Prints the platforms and their runners as JSON for the native job's matrix.
+  matrix:
+    name: make release:matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - id: matrix
+        run: |
+          matrix=$(make --no-print-directory release:matrix)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  # The engine of one platform, on a runner of that platform.
+  native:
+    name: engine (${{ matrix.slug }})
+    needs: matrix
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - if: ${{ startsWith(matrix.slug, 'linux-') }}
+        uses: ./.github/actions/engine-cache
+        with:
+          target: release:native
+
+      - if: ${{ !startsWith(matrix.slug, 'linux-') }}
+        shell: bash
+        run: scripts/release/build-native.sh '${{ matrix.slug }}'
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-${{ matrix.slug }}
+          path: dist/release/native/${{ matrix.slug }}/
+          if-no-files-found: error
+
+  # The packages, from the engine of every platform.
+  assemble:
+    name: make release:assemble
+    needs: native
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Each artifact comes down into a directory of its own, named native-<slug>.
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: native-*
+          path: dist/release/downloaded
+
+      - name: Put each platform's files where release:assemble reads them
+        run: |
+          for dir in dist/release/downloaded/native-*; do
+            slug=${dir##*/native-}
+            mkdir -p "dist/release/native/$slug"
+            cp -R "$dir"/. "dist/release/native/$slug/"
+          done
+          find dist/release/native -type f | sort
+
+      - run: make release:assemble
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: dist/release/packages/
+          if-no-files-found: error

@@ -1,0 +1,19 @@
+# One row per platform a release ships; the one list that mk/release.mk,
+# scripts/release/* and .github/workflows/release-artifacts.yml read.
+# Columns are separated by a TAB. The first non-comment row names the columns.
+#
+#   slug    the name of the platform (npm spells it the same way)
+#   runner  the GitHub Actions runner that builds it, natively (no cross build)
+#   capi    the C ABI library: the name cargo gives it, which every SDK looks for
+#   cli     the CLI binary
+#   gem     the RubyGems platform of the platform gem
+#   wheel   the platform tag of the wheel (manylinux_2_36: built on bookworm, glibc 2.36)
+#   rid     the .NET runtime identifier
+#   jna     the directory JNA looks in under native/ (Java)
+#   npm     the npm package of the Node.js addon
+slug	runner	capi	cli	gem	wheel	rid	jna	npm
+linux-x64-gnu	ubuntu-24.04	libxlsx_graft_capi.so	xlsx-graft	x86_64-linux-gnu	manylinux_2_36_x86_64	linux-x64	linux-x86-64	@xlsx-graft/linux-x64-gnu
+linux-arm64-gnu	ubuntu-24.04-arm	libxlsx_graft_capi.so	xlsx-graft	aarch64-linux-gnu	manylinux_2_36_aarch64	linux-arm64	linux-aarch64	@xlsx-graft/linux-arm64-gnu
+darwin-arm64	macos-15	libxlsx_graft_capi.dylib	xlsx-graft	arm64-darwin	macosx_11_0_arm64	osx-arm64	darwin-aarch64	@xlsx-graft/darwin-arm64
+darwin-x64	macos-15-intel	libxlsx_graft_capi.dylib	xlsx-graft	x86_64-darwin	macosx_11_0_x86_64	osx-x64	darwin-x86-64	@xlsx-graft/darwin-x64
+win32-x64-msvc	windows-2025	xlsx_graft_capi.dll	xlsx-graft.exe	x64-mingw-ucrt	win_amd64	win-x64	win32-x86-64	@xlsx-graft/win32-x64-msvc

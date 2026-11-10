@@ -90,6 +90,11 @@ The gem never downloads anything. It loads the first of:
    or `XlsxReader.open(path, library: ...)`
 3. the copy shipped inside the gem, in `lib/xlsx_graft/native/`
 
+The gem for a platform ships the library, so `gem install xlsx_graft` needs no
+engine of its own on Linux (glibc), macOS and Windows x64. On any other
+platform RubyGems installs the gem with no engine, and loading it raises an
+error that names the three ways above.
+
 Ruby 3.4 or newer.
 
 ## Development

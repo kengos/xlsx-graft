@@ -95,6 +95,11 @@ The package never downloads anything. It loads the first of:
    or `XlsxReader.open(path, library=...)`
 3. the copy shipped inside the wheel, in `xlsx_graft/native/`
 
+The wheel for a platform ships the library, so `pip install xlsx-graft` needs
+no engine of its own on Linux (glibc 2.36 or newer), macOS 11 or newer and
+Windows x64. On any other platform pip installs the wheel with no engine, and
+using it raises an error that names the three ways above.
+
 Python 3.11 or newer. No dependencies.
 
 ## Development
