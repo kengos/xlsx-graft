@@ -8,9 +8,11 @@
 mod book;
 mod handle;
 mod rows;
+mod verify;
 
 pub use book::{Book, Sheet, Sheets};
 pub use rows::{Cell, Next, Row, Rows};
+pub use verify::{check_policy, verify_bytes, verify_path};
 use xlsx_graft_capi::{
     XLSX_GRAFT_ERR_IO, XLSX_GRAFT_OK, xlsx_graft_error_message, xlsx_graft_version,
 };

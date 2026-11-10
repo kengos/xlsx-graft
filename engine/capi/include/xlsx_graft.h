@@ -73,11 +73,63 @@
  *    A close that returns XLSX_GRAFT_ERR_PANIC has closed its handle all
  *    the same: never close it again.
  *
+ * VERIFY
+ *
+ *    xlsx_graft_verify_path and xlsx_graft_verify_bytes verify a workbook
+ *    and write a verify handle (XlsxGraftVerify) that holds the result;
+ *    xlsx_graft_policy_check checks a policy alone and writes the same kind
+ *    of handle. xlsx_graft_verify_result lends the result's JSON and
+ *    xlsx_graft_verify_close frees the handle.
+ *
+ *    `options` is UTF-8 JSON, {"policy": {...}, "rules": {...}}, each key
+ *    optional or null for the defaults; NULL with a length of 0, empty or
+ *    only white space, or `null` means the default policy and the
+ *    default rules. It may be 2 MiB at most.
+ *    The policy is the host's limits and what it forbids, the rules the
+ *    caller's (targets, bestEffort, functions.allow, parts.allow, failOn).
+ *
+ *    The result is {"ok": B, "failOn": "error" | "warn", "counts":
+ *    {"error": N, "warn": N, "notice": N}, "error": null | {"code": "io",
+ *    "message": M}, "diagnostics": [...]}. Its keys and types are fixed;
+ *    a new key may be added, so ignore keys you do not know. XLSX_GRAFT_OK
+ *    is returned whenever the engine tried to verify: a file that cannot be
+ *    opened or read is the result's `error` (not XLSX_GRAFT_ERR_IO), and a
+ *    fault of the policy or the rules is a diagnostic (policy_invalid,
+ *    rules_invalid, target_invalid) with the workbook not opened.
+ *    XLSX_GRAFT_ERR_INVALID_ARG is a fault of the code that built the call:
+ *    a path that is not UTF-8 or `options` that is not such an object (not
+ *    JSON, not an object, a key other than `policy` and `rules`, or larger
+ *    than 2 MiB; a policy and rules that are each within 1 MiB can add up to
+ *    more, so an SDK checks the size of the options it builds and reports a
+ *    larger one as its caller's fault, not as its own bug).
+ *
+ *    None of these functions writes a message for
+ *    xlsx_graft_error_message: one from an earlier call on the same thread
+ *    stays as it was.
+ *
+ *    A verify handle does not change once it is made. Call, copy the result
+ *    out, close, then parse, all in one function of yours: do not keep the
+ *    handle as an object of yours. The JSON lives until the close, and
+ *    xlsx_graft_verify_result returns the same bytes every time.
+ *
+ *    xlsx_graft_verify_bytes does not copy `data`: it reads it during the
+ *    call only, so it must stay alive and unchanged until the call
+ *    returns, and may be freed after.
+ *
+ *    After a call that returns XLSX_GRAFT_ERR_PANIC, no handle was written.
+ *
  * THREADING
  *
  *    The functions that take no handle (xlsx_graft_version,
  *    xlsx_graft_book_open_path, xlsx_graft_book_open_bytes,
- *    xlsx_graft_error_message) may be called from several threads at once.
+ *    xlsx_graft_error_message, xlsx_graft_verify_path,
+ *    xlsx_graft_verify_bytes, xlsx_graft_policy_check) may be called from
+ *    several threads at once; verifications share no state.
+ *
+ *    A verify handle, unlike a book, does not change after it is made, so
+ *    xlsx_graft_verify_result may be called on it from any thread at once.
+ *    Call xlsx_graft_verify_close once, and not while another call on the
+ *    same handle is running.
  *
  *    A handle is not thread-safe. A book and every rows handle opened from
  *    it share state the library does not lock, so treat them as one: never
@@ -210,6 +262,7 @@ typedef struct XlsxGraftSheet {
 
 typedef struct XlsxGraftBook XlsxGraftBook;
 typedef struct XlsxGraftRows XlsxGraftRows;
+typedef struct XlsxGraftVerify XlsxGraftVerify;
 
 /* ---- functions ------------------------------------------------------- */
 
@@ -338,6 +391,55 @@ int32_t xlsx_graft_rows_next(XlsxGraftRows *rows, uint32_t *out_number,
  * gone. NULL does nothing. Always XLSX_GRAFT_OK (or XLSX_GRAFT_ERR_PANIC).
  */
 int32_t xlsx_graft_rows_close(XlsxGraftRows *rows);
+
+/*
+ * Verifies the workbook at path (path_len bytes of UTF-8, NOT
+ * NUL-terminated) under options (see VERIFY) and writes a verify handle to
+ * *out_verify; close it with xlsx_graft_verify_close. XLSX_GRAFT_OK whenever
+ * the engine tried: see VERIFY for what is the result's and what is a
+ * status. XLSX_GRAFT_ERR_INVALID_ARG when the path is not UTF-8 (read such
+ * a file yourself and verify its bytes) or options is not such an object (see VERIFY).
+ * Only XLSX_GRAFT_OK writes *out_verify.
+ */
+int32_t xlsx_graft_verify_path(const uint8_t *path, size_t path_len,
+                               const uint8_t *options, size_t options_len,
+                               XlsxGraftVerify **out_verify);
+
+/*
+ * As xlsx_graft_verify_path, the workbook being the len bytes at data. The
+ * bytes are NOT copied: they must stay alive and unchanged until the call
+ * returns.
+ */
+int32_t xlsx_graft_verify_bytes(const uint8_t *data, size_t len,
+                                const uint8_t *options, size_t options_len,
+                                XlsxGraftVerify **out_verify);
+
+/*
+ * Checks the policy in the len bytes at policy: the policy's JSON object
+ * itself, not wrapped in a request. Writes a verify handle whose result is
+ * ok, or holds the policy_invalid diagnostics. XLSX_GRAFT_OK for any bytes,
+ * UTF-8 and JSON or not (a fault of the policy is a diagnostic). An
+ * empty policy (also NULL with a length of 0) or one of only white space is
+ * the default policy; `null` is
+ * not (it is not an object, so it is policy_invalid), unlike a `policy`
+ * key that is null inside options. At most 1 MiB; larger is policy_invalid.
+ */
+int32_t xlsx_graft_policy_check(const uint8_t *policy, size_t len,
+                                XlsxGraftVerify **out_verify);
+
+/*
+ * The result as UTF-8 JSON (NOT NUL-terminated, see VERIFY): *out_ptr
+ * points at it, *out_len holds its length in bytes. The bytes belong to the handle
+ * and live until its close; every call returns the same bytes.
+ */
+int32_t xlsx_graft_verify_result(const XlsxGraftVerify *verify,
+                                 const uint8_t **out_ptr, size_t *out_len);
+
+/*
+ * Closes the verify handle; what it lent is gone. NULL does nothing.
+ * Always XLSX_GRAFT_OK (or XLSX_GRAFT_ERR_PANIC).
+ */
+int32_t xlsx_graft_verify_close(XlsxGraftVerify *verify);
 
 #ifdef __cplusplus
 }

@@ -17,6 +17,7 @@
 mod handles;
 mod header;
 mod layout;
+mod verify;
 mod version;
 // The unit tests' workbooks, the same file: this binary links the library
 // without its `cfg(test)` code.
