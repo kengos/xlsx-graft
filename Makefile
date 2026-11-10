@@ -22,10 +22,13 @@
 #                               external targets file names, Office
 #                               Script list placeholder, VBA project only
 #                               macro.xlsm's reviewed one, the one part
-#                               allowed a home folder path) + fmt + clippy +
-#                               tests at 100% line coverage + doctests +
-#                               C ABI symbols, in the pinned toolchain
-#                               image
+#                               allowed a home folder path) + cargo deny
+#                               (licenses, bans, sources) + the committed
+#                               THIRD-PARTY-LICENSES is what cargo-about
+#                               writes, NOTICE files of the dependencies
+#                               included + fmt + clippy + tests at 100% line
+#                               coverage + doctests + C ABI symbols, in the
+#                               pinned toolchain image
 #     make sdk:verify           every SDK, every line it supports (LATEST=1)
 #     make sdk:verify:ruby      the Ruby SDK on every supported line (LATEST=1,
 #                               or RUBY_VER=<line> for one): rubocop + rspec at
@@ -63,11 +66,18 @@
 #     make engine:budget        make engine:fmt         make engine:clippy
 #     make engine:lint          make engine:test [P=<crate>] [F=<filter>]
 #     make engine:coverage      make engine:capi-abi
+#     make engine:deny          make engine:licenses
 #     make sdk:lint[:<lang>]    make sdk:test[:<lang>]  (LATEST=1 for both;
 #                               <lang> is ruby, python, dotnet, jvm, js,
 #                               php or go)
 #     make <any>:<job> V=1      the same run, verbose, for debugging a failure
 #     make quiet T=<target>     the PASS/FAIL treatment for anything else
+#
+#   Not in verify: the result changes with the day, not with the commit
+#     make engine:advisories    the RustSec security advisories against
+#                               engine/Cargo.lock; downloads the database.
+#                               .github/workflows/advisories.yml runs it on a
+#                               change of the lockfile and weekly (not required)
 #
 #   Build for the SDKs (capi-lib proves only what its symbol check says,
 #   napi only that the addon builds, cli-bin only that the CLI prints the
@@ -82,6 +92,10 @@
 #
 #   Apply fixes
 #     make engine:format        rustfmt
+#     make engine:licenses-write
+#                               write THIRD-PARTY-LICENSES from
+#                               engine/Cargo.lock (cargo-about; then: git add
+#                               THIRD-PARTY-LICENSES)
 #     make sdk:format:jvm       google-java-format, through Spotless, on sdk/jvm
 #     make sdk:format:js        Biome's format and safe fixes, on sdk/js
 #     make sdk:format:php       php-cs-fixer's fixes, on sdk/php
@@ -235,7 +249,7 @@ CARGO_DENY_VERSION := 0.20.2
 CARGO_DENY_SHA256_x86_64 := 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
 CARGO_DENY_SHA256_aarch64 := 995c82be0defc7a025cae49a2aa2644ce8245c9a3318fc4103907c6a285e8c7d
 TOOLCHAIN_HOLDS  := rust 1.99.0, cargo-llvm-cov 0.9.1, cargo-about 0.9.3, cargo-deny 0.20.2
-TOOLCHAIN_DIGEST := sha256:4354ada8a72e68de98282d2a0692d23b24a98750bb85f4ae6d0f975ddc66014e
+TOOLCHAIN_DIGEST := sha256:0d4bfdc9bff8989fb414d1532c35fcfc650c610e8270dc9004e06c622358495b
 RUST_IMAGE       := ghcr.io/kengos/xlsx-graft-toolchain@$(TOOLCHAIN_DIGEST)
 
 # One gate at a time per working tree (scripts/gate-lock.sh explains why).
@@ -331,6 +345,7 @@ CARGO_IN_DOCKER = $(GATE_LOCK) docker run --rm --init \
 # machinery they use. What stays in THIS file is the shared machinery above and
 # `help`/`quiet`/`clean`.
 include mk/engine.mk
+include mk/engine/licenses.mk
 include mk/sdk.mk
 include mk/sdk/ruby.mk
 include mk/sdk/python.mk

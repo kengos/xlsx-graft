@@ -1,0 +1,52 @@
+name: Advisories
+
+# `make engine:advisories`: the RustSec security advisories against
+# engine/Cargo.lock. Kept out of ci.yml and out of `make verify` on purpose: the
+# result changes with the day, not with the commit, so a new advisory would
+# make the gate fail in every pull request and on main with no change of
+# theirs, and a failed download of the database would too. This workflow is not
+# a required check. A failed run says a dependency needs attention, not that
+# the commit is wrong.
+#
+# It runs when the lockfile, the cargo-deny policy or the recipe changes, once a
+# week (a new advisory against a dependency the lockfile already holds is found
+# then), and by hand.
+on:
+  pull_request:
+    paths:
+      - engine/Cargo.lock
+      - engine/deny.toml
+      - mk/engine/licenses.mk
+      - .github/workflows/advisories.yml
+  push:
+    branches: [main]
+    paths:
+      - engine/Cargo.lock
+      - engine/deny.toml
+      - mk/engine/licenses.mk
+      - .github/workflows/advisories.yml
+  schedule:
+    # Mondays at 00:00 UTC, 09:00 in Japan.
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# V=1 streams the raw output into the job log (the Makefile's gates otherwise
+# write a log file, which the runner deletes when the job ends).
+env:
+  V: 1
+
+jobs:
+  advisories:
+    name: make engine:advisories
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # No engine/target cache: this gate compiles nothing. The advisory
+      # database is downloaded into the cargo cache volume of the container.
+      - run: make engine:advisories

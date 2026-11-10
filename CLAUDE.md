@@ -28,13 +28,14 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   missing, add a target rather than typing a one-off.
 - Each gate target (`verify`, `engine:verify` / `lint` / `budget` /
   `fmt` / `clippy` / `test` / `coverage` / `capi-abi` / `capi-lib` / `napi` /
-  `cli-bin`, and `sdk:verify` / `test` / `lint`, each also `:ruby`, `:python`,
-  `:dotnet`, `:jvm`, `:js`, `:php` and `:go`) prints ONE PASS/FAIL line, exits
+  `cli-bin` / `deny` / `licenses` / `advisories`, and `sdk:verify` / `test` /
+  `lint`, each also `:ruby`, `:python`, `:dotnet`, `:jvm`, `:js`, `:php` and `:go`) prints ONE PASS/FAIL line, exits
   0 on PASS and non-zero on FAIL (the gate's own code is in the FAIL line and
   the `# exit` header of `last-error.log`), and keeps the full log in
   `.make-logs/`. A gate failure (without `V=1`) always lands at
   `.make-logs/last-error.log`. `V=1` streams the raw output instead (no log).
-  The fix-applying targets (`engine:format` / `lock` / `update`,
+  The fix-applying targets (`engine:format` / `lock` / `update` /
+  `licenses-write`,
   `sdk:lock:ruby` / `sdk:lock:python` / `sdk:lock:dotnet` / `sdk:lock:jvm` /
   `sdk:lock:js` / `sdk:lock:php` / `sdk:lock:go`, `sdk:format:jvm` /
   `sdk:format:js` / `sdk:format:php` / `sdk:format:go`) print their raw output.
@@ -42,7 +43,9 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   The first two report the wrong exit code; the Makefile refuses the third.
 - GNU Make 4 or newer. The Makefile refuses 3.81 (macOS's) and names the fix.
 - Every gate is `--locked`: after a `Cargo.toml` edit run `make engine:lock`
-  and commit `engine/Cargo.lock`.
+  and commit `engine/Cargo.lock`, then run `make engine:licenses-write` and
+  commit `THIRD-PARTY-LICENSES` (`engine:licenses` is a member of
+  `engine:verify`).
 - `make verify` is the whole bar: every scope's `<scope>:verify` (today
   `engine:verify` and `sdk:verify`), **every SDK on every supported line**,
   the floor included. `LATEST=1` narrows each SDK to its latest stable line
@@ -66,7 +69,11 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   `securityDescriptor` and home folder paths are absent, each external
   target is a file name alone, an Office Script list is the reviewed
   placeholder, and a VBA project is only `macro.xlsm`'s, by the SHA-256 of
-  the reviewed one, which holds the one home folder path allowed), fmt,
+  the reviewed one, which holds the one home folder path allowed), cargo
+  deny over the licenses, duplicate versions and sources of the dependencies
+  (`engine/deny.toml`, `engine:deny`), `THIRD-PARTY-LICENSES` equal to what
+  cargo-about writes from `engine/Cargo.lock`, with every NOTICE file of the
+  dependencies in it (`engine:licenses`), fmt,
   clippy `-D warnings` (with the workspace lints in `engine/Cargo.toml`),
   tests at **100% line coverage over the whole workspace**, doctests, and
   the C ABI check (the built shared library's `xlsx_graft_*` exports match

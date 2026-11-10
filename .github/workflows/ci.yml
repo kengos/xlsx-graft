@@ -5,7 +5,10 @@ name: CI
 # members as parallel jobs, which `make ci:matrix` lists, so a new SDK line
 # needs no edit here. CI keeps no copy of the cargo flags, the coverage
 # threshold, the image pin or the supported lines: a gate changes in the
-# Makefile, and local and CI move together.
+# Makefile, and local and CI move together. A gate that is not a member of
+# `make verify` runs in a workflow of its own, not in this one: today only
+# advisories.yml, for `make engine:advisories` (its result changes with the day,
+# not with the commit).
 #
 # No paths-ignore. Once a green run is required on main, a pull request that
 # skipped the workflow would wait for a check that never reports, so a

@@ -1,0 +1,32 @@
+# The configuration of cargo-about, which writes THIRD-PARTY-LICENSES from
+# engine/Cargo.lock, through ABOUT_GENERATE in mk/engine/licenses.mk (`make
+# engine:licenses-write` writes the file, `make engine:licenses` checks it).
+
+# The licenses a crate's license expression may be satisfied with. The same
+# list as `allow` in deny.toml: a crate that cargo-deny accepts is a crate this
+# can list. The order is a priority: for a crate under `MIT OR Apache-2.0`
+# cargo-about lists the first license of this list the expression allows, so
+# such a crate is listed under MIT. Reordering the list changes the file.
+accepted = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "0BSD",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "BSL-1.0",
+    "Unlicense",
+]
+
+# The workspace's own crates are under the project's license (LICENSE-MIT,
+# LICENSE-APACHE, LICENSE-BSD), not listed.
+private = { ignore = true }
+
+# Only the crates behind the libraries and binaries are listed: the tests'
+# dev-dependencies (proptest and its crates) are not compiled into them. No
+# `targets` entry, so the crates of every platform are listed, the Windows
+# and macOS ones included.
+ignore-dev-dependencies = true

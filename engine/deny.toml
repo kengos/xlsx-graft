@@ -1,0 +1,66 @@
+# The policy on the licenses, duplicate versions, sources and security
+# advisories of the crates the workspace depends on. `make engine:deny` runs
+# `cargo deny check licenses bans sources` with this file, as part of
+# `make engine:verify`; `make engine:advisories` runs `check advisories`.
+
+[graph]
+# The crates behind a feature no default turns on (the Node.js addon's `shim`)
+# are checked too: without this, a crate that only an optional feature brings in
+# is never seen by the license check.
+all-features = true
+
+[advisories]
+version = 2
+# A yanked release of a dependency is a finding.
+yanked = "deny"
+# An advisory that is accepted is listed here with its ID, and the line above
+# it says why. None is accepted.
+ignore = []
+
+[licenses]
+version = 2
+# Every license below is permissive: it does not require the source of a binary
+# that compiles the crate in to be published. What it requires instead (the
+# copyright notice and the license text, and for Apache-2.0 the NOTICE file)
+# is met by THIRD-PARTY-LICENSES, which `make engine:licenses` checks. The list
+# is a policy, not the licenses the lockfile uses today: tying it to the
+# lockfile would mean editing it on every dependency update. Adding a license
+# here needs a reason in the pull request.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "0BSD",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "BSL-1.0",
+    "Unlicense",
+]
+# The workspace's own crates are not checked against the list.
+private = { ignore = true }
+# An entry above that no crate uses is not a finding.
+unused-allowed-license = "allow"
+
+[bans]
+# A second version of a crate is a finding: the lockfile carries one version of
+# each unless an entry in `skip` says why not.
+multiple-versions = "deny"
+wildcards = "deny"
+# A workspace crate's `path` dependency has no version requirement. This applies
+# to crates with `publish = false`, which is every crate until the first
+# release; the release work revisits it.
+allow-wildcard-paths = true
+skip = [
+    # syn 2 and syn 3 are both in the lockfile. syn 2 comes from zeroize_derive
+    # (rust_xlsxwriter -> zip -> zeroize), which only xlsx-graft-fixtures-gen
+    # depends on; none of the crates compiled into the CLI, the MCP server, the
+    # C ABI library or the Node.js addon does. The other crates use syn 3.
+    { crate = "syn@2", reason = "zeroize_derive, behind xlsx-graft-fixtures-gen only" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

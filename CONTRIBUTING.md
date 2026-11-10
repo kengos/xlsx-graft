@@ -31,11 +31,30 @@ which is faster; run the whole `make verify` before asking for a review.
 `make engine:verify` is the engine's: the line budget, the check that every
 crate opts into the workspace lints, the check that the toolchain versions in
 the `Makefile` and in `docker/toolchain.Dockerfile` agree and that the pinned
-image holds the versions `TOOLCHAIN_HOLDS` names, `cargo fmt --check`,
+image holds the versions `TOOLCHAIN_HOLDS` names, `cargo deny` over the
+licenses, duplicate versions and sources of the dependencies
+(`engine/deny.toml`), the check that `THIRD-PARTY-LICENSES` is what
+`cargo about` writes from `engine/Cargo.lock` with every NOTICE file of the
+dependencies in it, `cargo fmt --check`,
 `cargo clippy -D warnings`, the tests at 100% line coverage, the doctests, and
 the check that the C ABI library exports exactly the `xlsx_graft_*` functions
 its header declares, and nothing else. It prints one PASS/FAIL line; on a failure the
 full log is at `.make-logs/last-error.log`. Add `V=1` to see the raw output.
+
+After adding or updating a dependency, run `make engine:lock` and then
+`make engine:licenses-write`, and commit `engine/Cargo.lock` and
+`THIRD-PARTY-LICENSES`. A dependency whose license is not in the `allow` list
+of `engine/deny.toml` fails `make engine:deny`; adding a license to that list
+(and to `accepted` in `engine/about.toml`) needs a reason in the pull request.
+
+`make engine:advisories` checks the RustSec security advisories against
+`engine/Cargo.lock`. It downloads the advisory database, and its result changes
+with the day, not with the commit, so it is not part of `make verify`;
+`.github/workflows/advisories.yml` runs it when the lockfile, `engine/deny.toml`
+or `mk/engine/licenses.mk` changes, once a week, and by hand. A failed run there
+is not a reason to hold back an unrelated change. GitHub sends the failure of a
+scheduled run to the person who last edited the schedule, and stops scheduled
+runs of a repository with no activity for 60 days.
 
 `make sdk:verify:ruby` is the Ruby SDK's, on every supported Ruby (`RUBY_LINES`
 in `mk/sdk/ruby.mk`): rubocop, the specs at 100% line coverage, and the gem built,
