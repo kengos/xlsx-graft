@@ -22,6 +22,8 @@ archive, the Go module's zip): the license files, and no THIRD-PARTY-LICENSES.
 With --crates, the packages are the .crate files of the crates published to
 crates.io (every workspace crate that does not say `publish = false`), which
 hold source alone: the license files, and no engine and no THIRD-PARTY-LICENSES.
+scripts/release/crates.txt, the order they are published in, must list exactly
+those crates, each after the crates it depends on.
 
 The versions are read from the SDKs' own files, so the names of the packages
 a release makes are the ones expected. Reads gems (a tar holding
@@ -179,6 +181,34 @@ def expected_crates(root: Path) -> Expected:
     return expected
 
 
+def crates_order_problems(workspace: dict) -> list[str]:
+    """What is wrong with scripts/release/crates.txt, the order the crates are published in."""
+    listed = [
+        line.strip()
+        for line in (ROOT / "scripts" / "release" / "crates.txt").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    published: dict[str, list[str]] = {}
+    for member in workspace["workspace"]["members"]:
+        package = tomllib.loads((ROOT / "engine" / member / "Cargo.toml").read_text(encoding="utf-8"))
+        if package["package"].get("publish") is False:
+            continue
+        # Every dependency table, a dev-dependency too: with a version it is
+        # on the published crate and has to be on the registry.
+        tables = ("dependencies", "dev-dependencies", "build-dependencies")
+        published[package["package"]["name"]] = [
+            name for table in tables for name in package.get(table, {}) if name.startswith("xlsx-graft-")
+        ]
+    problems = []
+    if sorted(listed) != sorted(published):
+        problems.append(f"crates.txt lists {sorted(listed)}, the published crates are {sorted(published)}")
+    for position, name in enumerate(listed):
+        for dependency in published.get(name, []):
+            if dependency in listed and listed.index(dependency) > position:
+                problems.append(f"crates.txt has {name} before {dependency}, which it depends on")
+    return problems
+
+
 def report(root: Path, expected: Expected, kinds: tuple[str, ...], problems: list[str]) -> int:
     """Adds the packages nobody asked for to `problems`, prints them all, returns the exit status."""
     present = {p for kind in kinds for p in root.rglob(kind) if p.is_file()}
@@ -215,7 +245,8 @@ def main(packages: str, *slugs: str) -> int:
 def main_crates(directory: str) -> int:
     root = Path(directory)
     expected = expected_crates(root)
-    problems: list[str] = []
+    workspace = tomllib.loads((ROOT / "engine" / "Cargo.toml").read_text(encoding="utf-8"))
+    problems: list[str] = crates_order_problems(workspace)
     for path, engine_paths in expected.items():
         if path.is_file():
             problems += check_one(path, engine_paths, top=f"{path.name.removesuffix('.crate')}/")

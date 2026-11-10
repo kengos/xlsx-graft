@@ -13,6 +13,7 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
 | --- | --- |
 | how to write and split Rust here: file length, module splits, test placement, coverage, errors, untrusted input, `unsafe` | [docs/guidelines.md](docs/guidelines.md) — read it before writing engine code |
 | adding or changing a language SDK: supported versions, the `sdk:*:<lang>` gates, finding the engine library, calling the C ABI | [docs/sdk.md](docs/sdk.md) |
+| making a release: what each registry needs, the order, recovering from a failed publish | [docs/release.md](docs/release.md) |
 | the commands that check anything | the comment block at the top of the [Makefile](Makefile); `make help` |
 
 ## Rules that bite
@@ -137,8 +138,10 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   (`cargo publish --dry-run` of the CLI, MCP and engine crates; capi and napi
   say `publish = false`, they ship in the SDK packages), `:rubygems`, `:pypi`
   (`twine check`), `:nuget`, `:maven` (the bundle, signed with a key generated for
-  the run), `:npm` (`npm publish --dry-run`), `:packagist` and `:go`. Each
-  checks the license files in what it publishes. Details:
+  the run), `:npm` (`npm publish --dry-run`), `:packagist`, `:go` and `:workflow` (the
+  publish workflow starts only by hand, in the `release` environment, with the
+  credentials each job needs and no more). Each registry's dry run checks the
+  license files in what it publishes. Details:
   [docs/sdk.md](docs/sdk.md) § Platform packages.
 - `make release:native` and `make release:assemble` build the platform packages
   of a release (gems, wheels, CLI archives; the other languages follow) from

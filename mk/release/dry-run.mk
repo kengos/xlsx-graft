@@ -26,7 +26,12 @@
 #   release:dry-run:npm         `npm publish --dry-run` of each npm package
 #   release:dry-run:packagist   `composer validate --strict` and the archive
 #   release:dry-run:go          the zip the Go proxy makes of the module
-#   release:dry-run             every registry's dry run, and version:check
+#   release:dry-run:workflow    the publish workflow runs by hand only, in the
+#                               `release` environment, with the credentials
+#                               each job needs and no more
+#                               (scripts/release/check-publish-workflow.rb)
+#   release:dry-run             every registry's dry run, the publish workflow's
+#                               check, and version:check
 #
 # The registries of the packages that carry the engine (RubyGems, PyPI, NuGet,
 # Maven Central, npm) check the packages release:assemble builds for the Docker
@@ -47,10 +52,12 @@
         _release-dry-run-npm-run _release-dry-run-nuget _release-dry-run-nuget-check \
         _release-dry-run-packages _release-dry-run-packagist _release-dry-run-packagist-archive \
         _release-dry-run-packagist-check _release-dry-run-pypi _release-dry-run-pypi-run \
-        _release-dry-run-rubygems _release-dry-run-rubygems-run _version-check \
+        _release-dry-run-rubygems _release-dry-run-rubygems-run _release-dry-run-workflow \
+        _release-dry-run-workflow-run _version-check \
         release\:dry-run release\:dry-run\:crates release\:dry-run\:go \
         release\:dry-run\:maven release\:dry-run\:npm release\:dry-run\:nuget \
         release\:dry-run\:packagist release\:dry-run\:pypi release\:dry-run\:rubygems \
+        release\:dry-run\:workflow \
         version\:check
 
 RELEASE_DRY_RUN := dist/release/dry-run
@@ -72,7 +79,7 @@ release\:dry-run: ## Every registry's dry run and version:check, nothing publish
 
 _release-dry-run: _version-check _release-dry-run-crates _release-dry-run-rubygems \
 	_release-dry-run-pypi _release-dry-run-nuget _release-dry-run-maven _release-dry-run-npm \
-	_release-dry-run-packagist _release-dry-run-go
+	_release-dry-run-packagist _release-dry-run-go _release-dry-run-workflow
 
 # The packages of the Docker host's platform, built from its engine. A host that
 # is none of the release's platforms cannot make them.
@@ -233,3 +240,15 @@ _release-dry-run-go-zip: _sdk-image-go
 _release-dry-run-go-check: _sdk-image-python
 	@echo "== release dry run: what the module's zip holds =="
 	$(PYTHON_IN_DOCKER) 'python -I /repo/scripts/release/check_packages.py --archive /repo/$(RELEASE_DRY_RUN)/go/module.zip'
+
+## ---- the publish workflow ----------------------------------------------------
+
+release\:dry-run\:workflow: ## The publish workflow runs by hand only, in the release environment, with the credentials each job needs
+	@$(call gate,_release-dry-run-workflow,release:dry-run:workflow)
+
+_release-dry-run-workflow:
+	@$(MAKE) --no-print-directory _release-dry-run-workflow-run RUBY_VER=$(lastword $(RUBY_LINES))
+
+_release-dry-run-workflow-run: _sdk-image-ruby
+	@echo "== release dry run: the publish workflow (Ruby $(RUBY_PATCH)) =="
+	$(RUBY_IN_DOCKER) 'ruby /repo/scripts/release/check-publish-workflow.rb /repo'

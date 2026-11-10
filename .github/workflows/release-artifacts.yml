@@ -4,7 +4,8 @@ name: Release artifacts
 # Node.js addon and the CLI of each platform in scripts/release/platforms.tsv)
 # on that platform's own runner, then assembles the packages from them. It
 # produces ARTIFACTS only and publishes nothing: no registry, no tag, no
-# release. Publishing is a separate, deliberate act.
+# release. Publishing is a separate, deliberate act (publish.yml, which takes
+# this run's `packages` artifact; docs/release.md).
 #
 # Started by hand (`gh workflow run release-artifacts.yml`), never by a pull
 # request: five native builds take long, and the pull request's bar is
