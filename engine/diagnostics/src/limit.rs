@@ -26,17 +26,28 @@ impl Limit {
             source: LimitSource::Default,
         }
     }
+
+    /// `value` as the host's policy set it.
+    #[must_use]
+    pub fn policy_of(value: u64) -> Self {
+        Self {
+            value,
+            source: LimitSource::Policy,
+        }
+    }
 }
 
 /// Who set the value of a limit.
 ///
-/// Only the engine's defaults exist until a caller can pass a policy; a
-/// limit set from a policy will be its own source then.
+/// A limit the host's policy sets names `policy`; one it leaves alone is
+/// the engine's `default`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum LimitSource {
     /// The engine's built-in default.
     Default,
+    /// The host's policy.
+    Policy,
 }
 
 impl fmt::Display for Limit {

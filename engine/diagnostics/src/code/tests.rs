@@ -4,7 +4,7 @@
 use crate::{
     Code, DecidedBy, Diagnostic, Diagnostics, Echo, EncodingReason, FormulaMalformedReason,
     FunctionDenial, InflateReason, Limit, Location, PartKind, PartNameReason, SchemaReason,
-    Severity, SheetNameReason, TargetApp, TargetFallback, TargetList, TargetReason,
+    SettingReason, Severity, SheetNameReason, TargetApp, TargetFallback, TargetList, TargetReason,
     ZipDirectoryReason, ZipHeaderField,
 };
 
@@ -697,6 +697,26 @@ fn sample(code: Code) -> (Diagnostic, Location) {
                 count: 1,
             },
             Location::default().with_part("/xl/metadata.xml"),
+        ),
+        Code::PolicyInvalid => (
+            Diagnostic::PolicyInvalid {
+                key: Echo::new("forbid.parts[1].kind"),
+                reason: SettingReason::UnknownValue,
+                hint: Echo::new(
+                    "macro, external_link, dde, ole, activex, data_connection, web_publish",
+                ),
+            },
+            Location::default(),
+        ),
+        Code::RulesInvalid => (
+            Diagnostic::RulesInvalid {
+                key: Echo::new("parts.allow[0]"),
+                reason: SettingReason::UnknownValue,
+                hint: Echo::new(
+                    "macro, external_link, dde, ole, activex, data_connection, web_publish",
+                ),
+            },
+            Location::default(),
         ),
     }
 }

@@ -845,6 +845,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "xlsx-graft-host"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+ "xlsx-graft-diagnostics",
+ "xlsx-graft-verify",
+]
+
+[[package]]
 name = "xlsx-graft-mcp"
 version = "0.0.0"
 dependencies = [

@@ -25,6 +25,9 @@ macro_rules! reasons {
         }
 
         impl $name {
+            /// Every value, in the order they are declared.
+            pub const ALL: &'static [Self] = &[ $( Self::$variant, )* ];
+
             /// The wire string.
             fn as_str(self) -> &'static str {
                 match self { $( Self::$variant => $wire, )* }
@@ -48,6 +51,35 @@ macro_rules! reasons {
 }
 
 reasons! {
+    /// Why a setting the host or the caller passes (the policy or the
+    /// rules) is not valid.
+    SettingReason {
+        /// The JSON is larger than the bytes a setting may take.
+        TooLarge => "too_large",
+        /// The text is not JSON.
+        Malformed => "malformed",
+        /// A JSON object was expected.
+        NotObject => "not_object",
+        /// The key is not one the setting has.
+        UnknownKey => "unknown_key",
+        /// The value is not of the type the key takes.
+        WrongType => "wrong_type",
+        /// A limit is 0, or more than the engine can hold to.
+        OutOfRange => "out_of_range",
+        /// The value is not one the key takes.
+        UnknownValue => "unknown_value",
+        /// A key an entry needs is missing.
+        Required => "required",
+        /// A string that must name something is empty.
+        Empty => "empty",
+        /// A second entry names what an earlier one does.
+        Duplicate => "duplicate",
+        /// A function is named with the prefix a workbook writes it with
+        /// (`_xlfn.`), which is removed before a function is ruled on, so
+        /// the name would match nothing.
+        Prefixed => "prefixed",
+    }
+
     /// Why a part's XML could not be read as UTF-8 or UTF-16, the only
     /// encodings a package's XML may use.
     EncodingReason {

@@ -1,0 +1,22 @@
+[package]
+name = "xlsx-graft-host"
+description = "xlsx-graft host: what the CLI, the C ABI and the MCP server share to verify a workbook, the policy and the rules read from JSON and the result written as JSON"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# The policy, the rules and the result are JSON.
+serde = { workspace = true }
+serde_json = { workspace = true }
+# The error of a request that is not an object of `policy` and `rules`.
+thiserror = { workspace = true }
+# Every fault of the policy and the rules is a Diagnostic, and so is every
+# problem of the workbook, written as the result's JSON.
+xlsx-graft-diagnostics = { workspace = true }
+# The check itself, and the limits and rules it runs under.
+xlsx-graft-verify = { workspace = true }
+
+[lints]
+workspace = true

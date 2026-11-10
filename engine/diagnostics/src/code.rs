@@ -13,8 +13,8 @@
 use crate::table::diagnostics;
 use crate::{
     DecidedBy, Echo, EncodingReason, Fix, FormulaMalformedReason, FunctionDenial, InflateReason,
-    Limit, PartKind, PartNameReason, SchemaReason, SheetNameReason, TargetApp, TargetFallback,
-    TargetList, TargetReason, ZipDirectoryReason, ZipHeaderField,
+    Limit, PartKind, PartNameReason, SchemaReason, SettingReason, SheetNameReason, TargetApp,
+    TargetFallback, TargetList, TargetReason, ZipDirectoryReason, ZipHeaderField,
 };
 
 diagnostics! {
@@ -1418,6 +1418,40 @@ diagnostics! {
         .message(),
         decided_by: Some(DecidedBy::Template {}),
         fix: Some(Fix::workbook(format!("leave {name} out of the workbook so it works in {}", crate::target::spelled(*app))));
+
+    /// The host's policy is not valid. Reported with every other fault of
+    /// the policy and the rules, and the workbook is not opened.
+    PolicyInvalid {
+        /// Where in the policy: the keys and positions from the top, such
+        /// as `forbid.parts[1].kind`; empty for the whole policy.
+        key: Echo,
+        /// What is wrong.
+        reason: SettingReason,
+        /// What helps to fix it, as the reason says; empty when nothing
+        /// does.
+        hint: Echo,
+    } => "policy_invalid", Error,
+        message: crate::setting::message("the policy", key, *reason, hint),
+        decided_by: None,
+        fix: None;
+
+    /// The rules the caller passes (the template's keys: `targets`,
+    /// `bestEffort`, `functions.allow`, `parts.allow`, `failOn`) are not
+    /// valid. Reported with every other fault, and the workbook is not
+    /// opened.
+    RulesInvalid {
+        /// Where in the rules: the keys and positions from the top, such
+        /// as `parts.allow[0]`; empty for the whole rules.
+        key: Echo,
+        /// What is wrong.
+        reason: SettingReason,
+        /// What helps to fix it, as the reason says; empty when nothing
+        /// does.
+        hint: Echo,
+    } => "rules_invalid", Error,
+        message: crate::setting::message("the rules", key, *reason, hint),
+        decided_by: Some(DecidedBy::Template {}),
+        fix: None;
 }
 
 #[cfg(test)]

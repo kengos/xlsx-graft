@@ -37,6 +37,7 @@ mod limit;
 mod location;
 mod reason;
 mod record;
+mod setting;
 mod table;
 mod target;
 
@@ -48,8 +49,8 @@ pub use limit::{Limit, LimitSource};
 pub use location::Location;
 pub use reason::{
     EncodingReason, FormulaMalformedReason, FunctionDenial, InflateReason, PartKind,
-    PartNameReason, SchemaReason, SheetNameReason, TargetApp, TargetFallback, TargetList,
-    TargetReason, ZipDirectoryReason, ZipHeaderField,
+    PartNameReason, SchemaReason, SettingReason, SheetNameReason, TargetApp, TargetFallback,
+    TargetList, TargetReason, ZipDirectoryReason, ZipHeaderField,
 };
 pub use record::Record;
 

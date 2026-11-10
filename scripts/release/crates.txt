@@ -14,5 +14,6 @@ xlsx-graft-read
 xlsx-graft-reference
 xlsx-graft-compat
 xlsx-graft-verify
+xlsx-graft-host
 xlsx-graft-cli
 xlsx-graft-mcp
