@@ -2,6 +2,7 @@
 
     python3 -I scripts/release/check_packages.py <packages dir> <slug>...
     python3 -I scripts/release/check_packages.py --crates <dir of .crate files>
+    python3 -I scripts/release/check_packages.py --archive <zip>...
 
 A package is checked by the names of its files, never by running it:
 
@@ -14,6 +15,9 @@ A package is checked by the names of its files, never by running it:
   package that names the platform packages, the Java jar of the classes) holds
   no engine file and no THIRD-PARTY-LICENSES, as nothing of the dependencies is
   in it.
+
+With --archive, the packages are zips of source with no engine (the Composer
+archive, the Go module's zip): the license files, and no THIRD-PARTY-LICENSES.
 
 With --crates, the packages are the .crate files of the crates published to
 crates.io (every workspace crate that does not say `publish = false`), which
@@ -220,7 +224,17 @@ def main_crates(directory: str) -> int:
     return report(root, expected, ("*.crate",), problems)
 
 
+def main_archives(*archives: str) -> int:
+    problems = [problem for archive in archives for problem in check_one(Path(archive), [])]
+    for problem in problems:
+        print(f"check_packages: {problem}", file=sys.stderr)
+    print(f"check_packages: {len(archives)} archives, {len(problems)} problems")
+    return 1 if problems else 0
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 2 and sys.argv[1] == "--archive":
+        sys.exit(main_archives(*sys.argv[2:]))
     if len(sys.argv) == 3 and sys.argv[1] == "--crates":
         sys.exit(main_crates(sys.argv[2]))
     if len(sys.argv) < 3:

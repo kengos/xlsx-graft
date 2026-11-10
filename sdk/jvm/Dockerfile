@@ -31,6 +31,13 @@ ARG JVM_LINE
 COPY --from=gradle /opt/gradle /opt/gradle
 COPY --from=line /opt/java/openjdk /opt/jdk-line
 
+# gpg signs the files of the Maven Central bundle (scripts/release/maven-bundle.sh;
+# the dry run signs with a key generated for it, deleted when the container
+# exits).
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends gnupg \
+  && rm -rf /var/lib/apt/lists/*
+
 # Nothing a gate runs writes into the mounted checkout, which it would leave
 # owned by root: the build directory goes to /tmp (build.gradle.kts), and
 # Gradle's cache lives in the image, outside /repo (the mount would hide it).

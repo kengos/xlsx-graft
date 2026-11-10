@@ -28,11 +28,15 @@ FROM tools
 
 # Only the files that pin the tools. Editing the SDK then never re-runs the
 # build. golangci-lint is built from the module tools/go.sum locks, on this
-# line's Go, so it reads the code the way this Go does. The build cache it
-# leaves is dropped; the module cache is not needed after it either.
+# line's Go, so it reads the code the way this Go does; modzip (tools/modzip,
+# which makes the zip the Go proxy makes of the module) is built with it. The
+# build cache they leave is dropped; the module cache is not needed after it
+# either.
 WORKDIR /tools
 COPY tools/go.mod tools/go.sum ./
+COPY tools/modzip ./modzip
 RUN go build -mod=readonly -o /usr/local/bin/golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint \
+  && go build -mod=readonly -o /usr/local/bin/modzip ./modzip \
   && go clean -cache -modcache
 
 # The gate reaches no network: the SDK has no dependencies, and the package

@@ -32,6 +32,10 @@ RELEASE_PLATFORMS :=
 RELEASE_SLUGS := $(or $(RELEASE_PLATFORMS),$(RELEASE_ALL))
 $(foreach s,$(RELEASE_SLUGS),$(if $(filter $(s),$(RELEASE_ALL)),,$(error RELEASE_PLATFORMS names $(s), which is not in $(RELEASE_TABLE): $(RELEASE_ALL))))
 
+# The platform of the Docker host, empty when it is none of the release's.
+# Recursively expanded, so `docker info` runs only when a recipe expands it.
+RELEASE_HOST = $(shell scripts/release/host-slug.sh)
+
 RELEASE_NATIVE := dist/release/native
 RELEASE_PACKAGES := dist/release/packages
 
@@ -126,12 +130,7 @@ _release-check: _sdk-image-python
 # Installs the packages of the Docker host's platform, a Linux one, with no
 # XLSX_GRAFT_LIBRARY, so each package reaches the engine it carries and no other.
 _release-smoke: _sdk-image-ruby _sdk-image-python _sdk-image-dotnet _sdk-image-jvm _sdk-image-js
-	@host=$$(docker info --format '{{.Architecture}}'); \
-	case "$$host" in \
-		x86_64) slug=linux-x64-gnu ;; \
-		aarch64|arm64) slug=linux-arm64-gnu ;; \
-		*) slug= ;; \
-	esac; \
+	@host=$$(docker info --format '{{.Architecture}}'); slug=$(RELEASE_HOST); \
 	want=$$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"$$/\1/p' engine/Cargo.toml); \
 	case " $(RELEASE_SLUGS) " in \
 		*" $$slug "*) \

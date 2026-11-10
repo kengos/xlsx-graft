@@ -1,0 +1,14 @@
+xlsx-graft
+Copyright (c) 2026 xlsx-graft Contributors
+
+This product includes no source code copied from another project.
+
+The licenses of the Rust crates it depends on are in THIRD-PARTY-LICENSES.
+
+When source code is copied from another project, an entry is added below,
+one per project, in this form:
+
+  <project name> (<URL of the repository>)
+  Copyright <the copyright line of the original, as written there>
+  License: <SPDX expression>
+  Copied into: <paths in this repository>

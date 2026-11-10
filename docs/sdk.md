@@ -279,13 +279,30 @@ and publishes nothing; the network is read to fetch dependencies only. It runs
 `version:check` (the crates' path dependencies and the Ruby, Python, .NET,
 Java and JS manifests carry the workspace's version, the `[workspace.package]`
 version in `engine/Cargo.toml`) and a target per
-registry, `release:dry-run:<registry>`: today `crates`, `cargo publish
---dry-run` of the CLI, MCP and engine crates (`xlsx-graft-capi`,
-`xlsx-graft-napi` and `xlsx-graft-fixtures-gen` say `publish = false`; the
-first two are shipped in the SDK packages), then the .crate files by
-`check_packages.py --crates`: the license files and `NOTICE` in each, and no
-`THIRD-PARTY-LICENSES` (a .crate holds source alone, so none of the
-dependencies' code). The versions stay `0.0.0` until the release raises them.
+registry, `release:dry-run:<registry>`:
+
+| Target | What it checks |
+| --- | --- |
+| `crates` | `cargo publish --dry-run` of the CLI, MCP and engine crates (`xlsx-graft-capi`, `xlsx-graft-napi` and `xlsx-graft-fixtures-gen` say `publish = false`; the first two ship in the SDK packages), then the .crate files by `check_packages.py --crates` |
+| `rubygems` | each gem passes `Gem::Specification#validate` strictly, with the project's licenses and the version |
+| `pypi` | `twine check --strict` of the wheels |
+| `nuget` | the nuspec names the id, version, authors, description, the license as an SPDX expression, the repository and a readme that is in the package |
+| `maven` | the Maven Central bundle: the jar, sources, javadoc, the host's classifier jar and the POM, each with `.asc`, `.md5` and `.sha1` (signed with a key generated for the run and deleted when the container exits); the POM's licenses, developers and `scm` |
+| `npm` | `npm publish --dry-run` of each package, which prints no warning, and a scoped package says `publishConfig.access` is public |
+| `packagist` | `composer validate --strict` and the archive of `sdk/php` |
+| `go` | the zip `golang.org/x/mod/zip` (the proxy's code) makes of `sdk/go` |
+
+The registries of the packages that hold the engine check the packages of the
+Docker host's platform, which `release:native` and `release:assemble` build
+first. The packages of the other platforms differ from the host's only in the
+engine file; `check_packages.py` checks the names of the engine files in the
+release workflow. The source
+packages (.crate, the Composer archive, the Go zip) hold the license files and
+no `THIRD-PARTY-LICENSES`. Packagist reads the `composer.json` at the root of a
+repository, so `sdk/php` is split into a repository of its own at a release,
+and holds copies of the license files, as `sdk/go` does
+(`scripts/check-license-copies.sh`). The versions stay `0.0.0` until the
+release raises them.
 
 ## Calling the C ABI
 

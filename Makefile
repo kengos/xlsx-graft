@@ -18,8 +18,10 @@
 #                               Docker)
 #     make release:dry-run      version:check and each registry's dry run (the
 #                               registry's own package checks and the license
-#                               files in each package); nothing is published
-#                               (today crates.io: release:dry-run:crates)
+#                               files in each package); nothing is published;
+#                               one target per registry: release:dry-run:crates,
+#                               :rubygems, :pypi, :nuget, :maven, :npm,
+#                               :packagist and :go
 #     make engine:verify        engine: budget + toolchain pins + fixtures/
 #                               (README rows, only workbooks, the README
 #                               and AppleScripts and no links, allowed
