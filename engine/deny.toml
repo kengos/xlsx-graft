@@ -49,10 +49,6 @@ unused-allowed-license = "allow"
 # each unless an entry in `skip` says why not.
 multiple-versions = "deny"
 wildcards = "deny"
-# A workspace crate's `path` dependency has no version requirement. This applies
-# to crates with `publish = false`, which is every crate until the first
-# release; the release work revisits it.
-allow-wildcard-paths = true
 skip = [
     # syn 2 and syn 3 are both in the lockfile. syn 2 comes from zeroize_derive
     # (rust_xlsxwriter -> zip -> zeroize), which only xlsx-graft-fixtures-gen

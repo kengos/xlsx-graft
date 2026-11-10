@@ -2,8 +2,9 @@
 #
 # Public targets `release:matrix`, `release:native` and `release:assemble`, with
 # the recipes in `_release-<job>`, like mk/engine.mk. None is a member of
-# `verify`: the engine of the five platforms is built on five runners, which a
-# contributor's machine and `make verify` are not, and nothing here publishes.
+# `verify` (release:dry-run, in mk/release/dry-run.mk, is): the engine of the
+# five platforms is built on five runners, which a contributor's machine and
+# `make verify` are not, and nothing here publishes.
 # .github/workflows/release-artifacts.yml (started by hand, never by a pull
 # request) runs them.
 #

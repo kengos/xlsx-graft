@@ -4,7 +4,6 @@ description = "xlsx-graft read: a workbook's sheets and date system, its shared 
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish.workspace = true
 repository.workspace = true
 
 [dependencies]

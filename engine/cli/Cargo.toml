@@ -4,7 +4,6 @@ description = "xlsx-graft CLI: the engine on the command line"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish.workspace = true
 repository.workspace = true
 
 [[bin]]

@@ -14,7 +14,8 @@
 # The crates are in $CARGO_HOME/registry/src, where `cargo fetch` puts them
 # (engine:licenses and engine:licenses-write in mk/engine/licenses.mk run it
 # first). A listed crate that is not there fails, so that a wrong registry
-# directory is not read as "no NOTICE files".
+# directory is not read as "no NOTICE files". The workspace's own crates
+# (xlsx-graft-*) are not looked for.
 #
 # POSIX sh + sed + grep + find; runs inside the toolchain image.
 set -eu
@@ -33,6 +34,11 @@ seen=0
 # have a colon and are not matched).
 crates=$(sed -n 's/^- \([^ :]*\) \([0-9][^ ]*\)$/\1-\2/p' "$list" | LC_ALL=C sort -u)
 for crate in $crates; do
+    # xlsx-graft's own crates are listed too (engine/about.toml), but they are
+    # not downloaded from a registry, so $registry holds no copy of them to
+    # look in (a publish dry run may leave one, which is not read either), and
+    # their NOTICE is the project's, which is in the repository root.
+    case "$crate" in xlsx-graft-*) continue ;; esac
     found=0
     for dir in "$registry"/*/"$crate"; do
         [ -d "$dir" ] || continue

@@ -4,7 +4,8 @@ description = "xlsx-graft C ABI: the shared library the FFI SDKs load"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish.workspace = true
+# Not published to crates.io: the C ABI library is shipped inside the SDK packages (gem, wheel, nupkg, jar).
+publish = false
 repository.workspace = true
 
 [lib]

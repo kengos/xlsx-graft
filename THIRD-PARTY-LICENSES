@@ -4,13 +4,15 @@ THIRD-PARTY-LICENSES
 xlsx-graft depends on the Rust crates listed below. The crates compiled into
 its binaries (the CLI, the MCP server, the C ABI library and the Node.js
 addon) are among them; the list is a superset, because it also holds the
-crates only this repository's tools depend on. This file is written by
+crates only this repository's tools depend on. The xlsx-graft crates
+published to crates.io are listed too, with the project's own license text
+(Copyright xlsx-graft Contributors). This file is written by
 `make engine:licenses-write` from engine/Cargo.lock. Do not edit it.
 
 Licenses
 --------
 
-- MIT License: 82 crate(s)
+- MIT License: 94 crate(s)
 - Apache License 2.0: 2 crate(s)
 - ISC License: 1 crate(s)
 - Unicode License v3: 1 crate(s)
@@ -1060,6 +1062,47 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+================================================================================
+MIT License (MIT)
+================================================================================
+
+Used by:
+- xlsx-graft-cli 0.0.0
+- xlsx-graft-compat 0.0.0
+- xlsx-graft-core 0.0.0
+- xlsx-graft-diagnostics 0.0.0
+- xlsx-graft-formula 0.0.0
+- xlsx-graft-mcp 0.0.0
+- xlsx-graft-package 0.0.0
+- xlsx-graft-read 0.0.0
+- xlsx-graft-reference 0.0.0
+- xlsx-graft-spool 0.0.0
+- xlsx-graft-verify 0.0.0
+- xlsx-graft-xml 0.0.0
+
+MIT License
+
+Copyright (c) 2026 xlsx-graft Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
 
 ================================================================================
 MIT License (MIT)

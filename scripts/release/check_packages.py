@@ -1,6 +1,7 @@
 """Checks what the assembled packages hold, and that no other package is there.
 
     python3 -I scripts/release/check_packages.py <packages dir> <slug>...
+    python3 -I scripts/release/check_packages.py --crates <dir of .crate files>
 
 A package is checked by the names of its files, never by running it:
 
@@ -13,6 +14,10 @@ A package is checked by the names of its files, never by running it:
   package that names the platform packages, the Java jar of the classes) holds
   no engine file and no THIRD-PARTY-LICENSES, as nothing of the dependencies is
   in it.
+
+With --crates, the packages are the .crate files of the crates published to
+crates.io (every workspace crate that does not say `publish = false`), which
+hold source alone: the license files, and no engine and no THIRD-PARTY-LICENSES.
 
 The versions are read from the SDKs' own files, so the names of the packages
 a release makes are the ones expected. Reads gems (a tar holding
@@ -29,6 +34,7 @@ import re
 import subprocess
 import sys
 import tarfile
+import tomllib
 import zipfile
 from pathlib import Path, PurePosixPath
 
@@ -88,11 +94,18 @@ def members(path: Path) -> list[str]:
         return tar.getnames()
 
 
-def check_one(path: Path, engine_paths: list[str]) -> list[str]:
-    """What is wrong with one package; `engine_paths` says what it must hold."""
+def check_one(path: Path, engine_paths: list[str], top: str = "") -> list[str]:
+    """What is wrong with one package; `engine_paths` says what it must hold.
+
+    `top` is the directory the package's files are in (a .crate holds its files
+    under `<name>-<version>/`); the license files are looked for there.
+    """
     names = members(path)
     found = [PurePosixPath(name).name for name in names]
-    problems = [f"{path.name}: no {name}" for name in NOTICES if name not in found]
+    # With no `top`, the license files may be at any depth (a wheel puts them
+    # in `.dist-info/licenses/`).
+    held_notices = set(names) if top else set(found)
+    problems = [f"{path.name}: no {top}{name}" for name in NOTICES if f"{top}{name}" not in held_notices]
     has_engine = bool(engine_paths)
     if has_engine != (THIRD_PARTY in found):
         problems.append(f"{path.name}: {'no' if has_engine else 'a'} {THIRD_PARTY}")
@@ -148,6 +161,33 @@ def expected_packages(root: Path, slugs: tuple[str, ...]) -> Expected:
     return expected
 
 
+def expected_crates(root: Path) -> Expected:
+    """The .crate of every published workspace crate; source only, so no engine."""
+    workspace = tomllib.loads((ROOT / "engine" / "Cargo.toml").read_text(encoding="utf-8"))
+    version = workspace["workspace"]["package"]["version"]
+    expected: Expected = {}
+    for member in workspace["workspace"]["members"]:
+        manifest = ROOT / "engine" / member / "Cargo.toml"
+        package = tomllib.loads(manifest.read_text(encoding="utf-8"))["package"]
+        if package.get("publish") is False:
+            continue
+        expected[root / f"{package['name']}-{version}.crate"] = []
+    return expected
+
+
+def report(root: Path, expected: Expected, kinds: tuple[str, ...], problems: list[str]) -> int:
+    """Adds the packages nobody asked for to `problems`, prints them all, returns the exit status."""
+    present = {p for kind in kinds for p in root.rglob(kind) if p.is_file()}
+    present = {p for p in present if not p.name.endswith(("-sources.jar", "-javadoc.jar"))}
+    for extra in sorted(present - set(expected)):
+        problems.append(f"{extra.relative_to(root)} is a package nobody asked for")
+
+    for problem in problems:
+        print(f"check_packages: {problem}", file=sys.stderr)
+    print(f"check_packages: {len(expected)} packages, {len(problems)} problems")
+    return 1 if problems else 0
+
+
 def main(packages: str, *slugs: str) -> int:
     root = Path(packages)
     expected = expected_packages(root, slugs)
@@ -165,18 +205,24 @@ def main(packages: str, *slugs: str) -> int:
     # repository holds files that are no package (POMs, checksums, sources and
     # javadoc jars), so only the jars named like the classes' jar are looked at.
     kinds = ("*.gem", "*.whl", "*.nupkg", "*.tgz", "*.zip", "*.tar.gz", "xlsx-graft-*.jar")
-    present = {p for kind in kinds for p in root.rglob(kind) if p.is_file()}
-    present = {p for p in present if not p.name.endswith(("-sources.jar", "-javadoc.jar"))}
-    for extra in sorted(present - set(expected)):
-        problems.append(f"{extra.relative_to(root)} is a package nobody asked for")
+    return report(root, expected, kinds, problems)
 
-    for problem in problems:
-        print(f"check_packages: {problem}", file=sys.stderr)
-    print(f"check_packages: {len(expected)} packages, {len(problems)} problems")
-    return 1 if problems else 0
+
+def main_crates(directory: str) -> int:
+    root = Path(directory)
+    expected = expected_crates(root)
+    problems: list[str] = []
+    for path, engine_paths in expected.items():
+        if path.is_file():
+            problems += check_one(path, engine_paths, top=f"{path.name.removesuffix('.crate')}/")
+        else:
+            problems.append(f"{path.relative_to(root)} is missing")
+    return report(root, expected, ("*.crate",), problems)
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 3 and sys.argv[1] == "--crates":
+        sys.exit(main_crates(sys.argv[2]))
     if len(sys.argv) < 3:
-        sys.exit(f"usage: {sys.argv[0]} <packages dir> <slug>...")
+        sys.exit(f"usage: {sys.argv[0]} <packages dir> <slug>... | --crates <dir>")
     sys.exit(main(*sys.argv[1:]))

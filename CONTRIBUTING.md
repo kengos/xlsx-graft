@@ -23,8 +23,9 @@ input. Most of it is enforced by the check below.
 make verify
 ```
 
-It runs every part's checks; today that is `make engine:verify` and
-`make sdk:verify`, every SDK on every language version it supports. While
+It runs every part's checks; today that is `make engine:verify`,
+`make release:dry-run` (the packages a release publishes, built and checked
+the way their registries do; nothing is published) and `make sdk:verify`, every SDK on every language version it supports. While
 iterating, `make verify LATEST=1` runs each SDK on its latest version only,
 which is faster; run the whole `make verify` before asking for a review.
 
