@@ -48,6 +48,18 @@ module XlsxGraft
 
         Fiddle::Pointer.new(address).to_str(length).force_encoding(Encoding::UTF_8)
       end
+
+      # A pointer-sized out-parameter. "J" is an unsigned integer the width
+      # of a pointer, which is the width of size_t on every platform the
+      # engine builds for.
+      def slot
+        Fiddle::Pointer.malloc(Fiddle::SIZEOF_VOIDP, Fiddle::RUBY_FREE)
+      end
+
+      # What the library wrote into `slot`.
+      def address(slot)
+        slot[0, Fiddle::SIZEOF_VOIDP].unpack1("J")
+      end
     end
 
     # @param library [Library]
@@ -140,15 +152,12 @@ module XlsxGraft
 
     private
 
-    # A pointer-sized out-parameter. "J" is an unsigned integer the width
-    # of a pointer, which is the width of size_t on every platform the
-    # engine builds for.
     def slot
-      Fiddle::Pointer.malloc(Fiddle::SIZEOF_VOIDP, Fiddle::RUBY_FREE)
+      Capi.slot
     end
 
     def address(slot)
-      slot[0, Fiddle::SIZEOF_VOIDP].unpack1("J")
+      Capi.address(slot)
     end
 
     def open_handle(name, *)

@@ -20,13 +20,16 @@ module XlsxGraft
         Report.new(
           has_errors: report.fetch("has_errors"),
           error: error && StatusDiagnostic.of(error.fetch("code"), error.fetch("message")),
-          diagnostics: report.fetch("diagnostics").map { |record| of(record) }.freeze
+          diagnostics: report.fetch("diagnostics").map { |record| diagnostic(record) }.freeze
         )
       end
 
-      private
-
-      def of(record)
+      # One record of the engine's JSON, every key of it but `origin`.
+      #
+      # @param record [Hash]
+      # @return [Diagnostic]
+      # @raise [KeyError] for a record without one of the keys
+      def diagnostic(record)
         Diagnostic.new(
           code: record.fetch("code"), severity: record.fetch("severity"),
           message: record.fetch("message"), args: record.fetch("args"),

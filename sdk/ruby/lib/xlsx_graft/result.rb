@@ -8,7 +8,8 @@ module XlsxGraft
   # workbook or a sheet asked for was refused, or the host or the engine
   # failed. A call can fail with no `error` too: a read that a problem in
   # its sheet stopped, whose diagnostics hold an error, as
-  # `xlsx-graft read`'s `ok` is false then.
+  # `xlsx-graft read`'s `ok` is false then. So does a verification whose
+  # `fail_on` is "warn": it fails on a warning with no error diagnostic.
   class Result
     attr_reader :value, :error, :diagnostics
 

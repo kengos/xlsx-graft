@@ -620,6 +620,56 @@ verifies with it, as an SDK over the C ABI calls `xlsx_graft_verify_path`.
   checks it with `xlsx_graft_policy_check`). When the policy file cannot be
   read, the rules are not checked: the object has `error` and no diagnostic.
 
+## Verifying in an SDK
+
+How an SDK offers `verify`, whichever way it reaches the engine
+([the C ABI](#verifying-through-the-c-abi), the addon, or
+[`verify`](#verifying-verify)). Ruby's `XlsxGraft::Verifier` is the first of this shape; a later SDK
+takes the same shape in its own language's idiom.
+
+- **A verifier, then calls.** The host's policy goes to the constructor
+  (Ruby `Verifier.new(policy:)`); the caller's rules go to each call,
+  `verify(path, ...)` and `verify_bytes(data, ...)`, as keywords in the
+  language's own style (Ruby and Python `targets`, `best_effort`,
+  `allow_functions`, `allow_parts`, `fail_on`; JavaScript
+  `{targets, bestEffort, allowFunctions, allowParts, failOn}`; .NET and Java in
+  their own naming). The SDK writes the engine's names: `bestEffort`,
+  `functions.allow`, `parts.allow`, `failOn`, and leaves out a key the
+  caller did not give. It does not check their types or values: a fault of
+  the rules is a `rules_invalid` or `target_invalid` diagnostic of the result.
+- **The policy** is given as the language's map, its keys in the language's
+  case (snake_case) written as camelCase (a key already in camelCase stays;
+  values stay as they are; Hashes inside Arrays too). An SDK over the C ABI
+  checks it in the constructor with `xlsx_graft_policy_check` and raises when
+  the result is not `ok` (Ruby `PolicyInvalid`, holding the `policy_invalid`
+  diagnostics); it keeps the checked policy as JSON text, so that the caller
+  changing their own map afterwards changes nothing. An SDK over the CLI does
+  not check it ([Verifying (`verify`)](#verifying-verify)).
+- **The result is a Result with no value.** It is successful when the
+  engine's `ok` is true. `error` is `io` when the file cannot be read, and
+  the SDK adds what the engine keeps none of (`panic`, `null_arg`,
+  `unknown_status`, `diagnostics_unreadable`, and the `io` of a path the SDK
+  could not read, below). `diagnostics` are the engine's, as for reading,
+  `origin` aside. **`failOn` and `counts` are not in the result**: the counts
+  are those of `diagnostics` by severity, and a result whose `failOn` is
+  `warn` (the caller's or the policy's) fails on a warning, so it can fail
+  with no diagnostic of severity `error`.
+- **What raises** is a mistake of the caller's: a policy the engine does not
+  take (in the constructor), options of more than 2 MiB (the policy and the
+  rules written as JSON), a value that JSON cannot write, an argument of the
+  wrong kind (Ruby: a policy that is not a Hash is an `ArgumentError`, a path or
+  data of the wrong class Ruby's own `TypeError` or `NoMethodError`); and `XLSX_GRAFT_ERR_INVALID_ARG`, a bug of
+  the SDK's own.
+- **A path that is not UTF-8** (or marked with an encoding other than UTF-8,
+  US-ASCII or binary, which an SDK does not convert) is read by the SDK and verified as bytes, so
+  the engine never gets it; a file that cannot be read is an `io` error, and
+  then the rules are not checked (for any other path they are, and a fault of
+  the rules is a diagnostic).
+- **A verifier does not change after it is made**, so threads share one and
+  call it at once. An SDK over the C ABI calls, copies the result out and
+  closes within one function ([above](#verifying-through-the-c-abi)); Ruby
+  passes each input as a copy of its own, as for reading.
+
 ## Reading rows in an SDK
 
 How an SDK hands a sheet's rows to its caller, whichever way it reaches the
