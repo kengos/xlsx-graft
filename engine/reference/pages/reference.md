@@ -6,10 +6,14 @@ tools: [list_reference, get_reference]
 
 # Reading the reference
 
-The reference pages are compiled into the server. Each page is markdown
+The reference pages are compiled into the server. A page whose `tools` is not empty is markdown
 about the tools named in that page's `tools` in the `list_reference`
 result: how to call each one, with an example call, and what the call
 returns.
+
+A page whose `tools` is empty explains diagnostic codes instead of tools:
+it has one `## <code>` section per code, and its `summary` says which
+codes it holds (a name ending in `*` stands for every code that starts with it).
 
 Read the page of a tool before calling it. Each tool's description in
 `tools/list` ends with the `uri` of its page.

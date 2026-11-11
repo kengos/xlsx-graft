@@ -4,7 +4,9 @@
 //! A shipped code and its argument names are never renamed or repurposed,
 //! and a removed code's wire string is never reused: the tests list every
 //! removed one and refuse a row that brings it back. Every row needs a
-//! golden JSON example in the tests.
+//! golden JSON example in the tests, and a `## <code>` section in one of the
+//! `engine/reference/pages/diagnostics-*.md` pages, which the reference
+//! crate's tests check.
 //!
 //! line-budget-exempt: the code table is data, one row per code, and grows by
 //! a row with every code; splitting it would split the one place a reader
