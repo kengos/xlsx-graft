@@ -12,8 +12,12 @@ namespace XlsxGraft;
  * `error` says why a read stopped short: the workbook or a sheet asked for
  * was refused, or the CLI failed. A read can fail with no `error` too: one
  * that a problem in its sheet stopped, whose diagnostics hold an error, as
- * `xlsx-graft read`'s `ok` is false then. A call that is not a read (the
- * engine's version) says why it failed in its diagnostics alone.
+ * `xlsx-graft read`'s `ok` is false then. The engine's version, which is not
+ * a read, says why it failed in its diagnostics alone. A verify
+ * ({@see Verifier}) has no value. Its `error` is set when a file could not
+ * be read or written (`io`), a path or a rule holds a NUL (`invalid_arg`),
+ * or the CLI gave no result (`exit_status`, `invalid_output`). The faults of
+ * the workbook, the policy and the rules are in its diagnostics.
  *
  * @template-covariant T
  */

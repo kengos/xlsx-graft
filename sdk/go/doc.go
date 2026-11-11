@@ -23,4 +23,17 @@
 //	if result.Success {
 //		fmt.Println(result.Value, "rows")
 //	}
+//
+// A [Verifier] checks a workbook against the host's policy and the rules of
+// the call, by running `xlsx-graft verify`:
+//
+//	verifier, err := xlsxgraft.NewVerifier(map[string]any{"maxEntries": 1000})
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	result, err := verifier.Verify(ctx, "book.xlsx", xlsxgraft.VerifyRules{AllowParts: []string{"macro"}})
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	fmt.Println(result.Success)
 package xlsxgraft

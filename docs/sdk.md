@@ -595,7 +595,9 @@ verifies with it, as an SDK over the C ABI calls `xlsx_graft_verify_path`.
 
 - **The arguments** are `[--policy FILE] [--target ENTRY]... [--best-effort
   ENTRY]... [--allow-function NAME]... [--allow-part KIND]... [--fail-on
-  error|warn]`, each repeated as often as there are values. The SDK
+  error|warn]`, each repeated as often as there are values. An SDK writes
+  each as one argument, `--name=value` (so a value starting with `-` is not
+  read as a flag), and the path after `--`. The SDK
   gives the rules it was called with and leaves out the ones it was not
   given; the policy it holds is a file it writes (a temporary one, removed
   after the run) or the path it was given.
@@ -624,8 +626,8 @@ verifies with it, as an SDK over the C ABI calls `xlsx_graft_verify_path`.
 
 How an SDK offers `verify`, whichever way it reaches the engine
 ([the C ABI](#verifying-through-the-c-abi), the addon, or
-[`verify`](#verifying-verify)). The Ruby, Python, .NET, Java and JavaScript
-SDKs take the same shape in each language's idiom.
+[`verify`](#verifying-verify)). The Ruby, Python, .NET, Java, JavaScript, PHP
+and Go SDKs take the same shape in each language's idiom.
 
 - **A verifier, then calls.** The host's policy goes to the constructor; the
   caller's rules go to each call, in the language's own style:
@@ -637,18 +639,23 @@ SDKs take the same shape in each language's idiom.
   | .NET | `new Verifier(JsonObject? policy, string? library)` | `Verify(path, ...)`, `VerifyBytes(data, ...)` with the named arguments `targets`, `bestEffort`, `allowFunctions`, `allowParts`, `failOn` |
   | Java | `new Verifier(Map policy)`, `new Verifier(Map policy, String library)` | `verify(path, rules)`, `verifyBytes(data, rules)`, where `rules` is a `VerifyRules` (`VerifyRules.none().targets(...).allowParts(...)`; each method returns a new `VerifyRules`) |
   | JavaScript | `new Verifier({ policy, addon })` | `verify(path, { targets, ... })`, `verifyBytes(data, { ... })` with the keys `targets`, `bestEffort`, `allowFunctions`, `allowParts`, `failOn` |
+  | PHP | `new Verifier(?array $policy = null, ?string $cli = null)` | `verify($path, ...)`, `verifyBytes($data, ...)` with the named arguments `targets`, `bestEffort`, `allowFunctions`, `allowParts`, `failOn` |
+  | Go | `NewVerifier(policy map[string]any, opts ...Option) (*Verifier, error)` | `Verify(ctx, path, rules)`, `VerifyBytes(ctx, data, rules)`, where `rules` is a `VerifyRules` (`Targets`, `BestEffort`, `AllowFunctions`, `AllowParts []string`, `FailOn string`) |
 
   The SDK writes the engine's names: `bestEffort`, `functions.allow`,
   `parts.allow`, `failOn`, and leaves out a key the caller did not give. It
   does not check their types or values: a fault of the rules is a
   `rules_invalid` or `target_invalid` diagnostic of the result.
 - **The policy** is given as the language's map: a Hash (Ruby), a `dict`
-  (Python), a `System.Text.Json.Nodes.JsonObject` (.NET), a `Map` (Java) or an
-  object (JavaScript). Ruby and Python take keys in snake_case and write them
-  as camelCase (a key already in camelCase stays; values stay as they are;
-  Hashes or dicts inside Arrays or lists too). .NET, Java and JavaScript do
-  not rename a key: the policy's keys are the engine's camelCase names, so the
-  same policy file as the CLI's `--policy` works once parsed. An SDK over the
+  (Python), a `System.Text.Json.Nodes.JsonObject` (.NET), a `Map` (Java), an
+  object (JavaScript), an array (PHP) or a `map[string]any` (Go). Ruby, Python
+  and PHP take keys in snake_case and write them as camelCase (a key already in
+  camelCase stays; values stay as they are; Hashes, dicts or arrays inside
+  Arrays or lists too; PHP renames the string keys and leaves the integer ones,
+  and writes an empty array at the root as `{}`, the object it stands for). .NET,
+  Java, JavaScript and Go do not rename a key: the policy's keys are the
+  engine's camelCase names, so the same policy file as the CLI's `--policy`
+  works once parsed (in Go, `json.Unmarshal` into a map). An SDK over the
   C ABI or the addon checks the policy in the constructor with
   `xlsx_graft_policy_check` (the addon's `checkPolicy`) and raises when the
   result is not `ok`, whether the engine found the policy invalid
@@ -657,10 +664,17 @@ SDKs take the same shape in each language's idiom.
   `PolicyInvalid`, Python `PolicyInvalidError`, .NET `PolicyInvalidException`,
   Java `PolicyInvalidException`, JavaScript `PolicyInvalidError`. It keeps the
   checked policy as JSON text, so that the caller changing their own map
-  afterwards changes nothing. An SDK over the CLI does not check it
-  ([Verifying (`verify`)](#verifying-verify)).
+  afterwards changes nothing. An SDK over the CLI (PHP, Go) does not check it
+  ([Verifying (`verify`)](#verifying-verify)): it writes the policy as JSON
+  when the verifier is made, which finds a policy that cannot be written as
+  JSON and a CLI that cannot be found, and the engine finds a policy it does
+  not take at the first `verify`, as `policy_invalid` diagnostics of the
+  result. It writes the JSON to a temporary file (`xlsx-graft-<random>.json`,
+  readable by its user only) at each `verify`, passes it as `--policy=<file>`
+  and removes it when the run ends, however it ends; a file it cannot write is
+  an `io` error of the result and the CLI is not run.
 - **The result is a Result with no value.** It is successful when the
-  engine's `ok` is true. The SDK reads the result's `error` only when `ok` is
+  engine's `ok` is true. The SDK uses the result's `error` only when `ok` is
   false. It is `io` when the file cannot be read, and the SDK adds what the
   engine keeps none of (`panic`, `null_arg`, `unknown_status`,
   `diagnostics_unreadable`, and the `io` of a path the SDK could not read,
@@ -668,10 +682,13 @@ SDKs take the same shape in each language's idiom.
   `origin` aside. **`failOn` and `counts` are not in the result**: the counts
   are those of `diagnostics` by severity, and a result whose `failOn` is
   `warn` (the caller's or the policy's) fails on a warning, so it can fail
-  with no diagnostic of severity `error`.
+  with no diagnostic of severity `error`. An SDK over the CLI (PHP, Go) adds
+  `exit_status` and `invalid_output` for a run that gave no result,
+  `invalid_arg` for a NUL, and `io` for a temporary file it cannot write.
 - **What raises** is a mistake of the caller's: a policy the engine does not
-  take (in the constructor), options of more than 2 MiB (the policy and the
-  rules written as JSON), a value that JSON cannot write, an argument of the
+  take (in the constructor of an SDK over the C ABI or the addon), options
+  of more than 2 MiB (the policy and the rules written as JSON; an SDK over
+  the C ABI or the addon), a value that JSON cannot write, an argument of the
   wrong kind; and `XLSX_GRAFT_ERR_INVALID_ARG`, a bug of the SDK's own. The
   names, per language:
 
@@ -682,20 +699,45 @@ SDKs take the same shape in each language's idiom.
   | .NET | `PolicyInvalidException` | `ArgumentException` (more than 2 MiB; a policy `JsonObject` that cannot be written as JSON: NaN, a `Type` value, nesting too deep; the SDK wraps the writer's exception in it) | `XlsxGraftException` |
   | Java | `PolicyInvalidException` | `IllegalArgumentException` (more than 2 MiB, NaN or Infinity, a value of an unknown type, nesting too deep, text that cannot be encoded as UTF-8: an unpaired surrogate); `NullPointerException` for a null `path`, `data` or `rules` | `XlsxGraftException` |
   | JavaScript | `PolicyInvalidError` | `RangeError` (more than 2 MiB), `TypeError` (a BigInt, a cycle, a URL that is not a `file:` URL) | `XlsxGraftError` |
+  | PHP | — (the policy is not checked by the constructor) | `InvalidArgumentException` (a policy that cannot be written as JSON: INF, NAN, a string that is not UTF-8, nesting too deep; an element of `targets`, `bestEffort`, `allowFunctions` or `allowParts` that is not a string) | — (no C ABI) |
+  | Go | — (the policy is not checked by `NewVerifier`) | `NewVerifier` returns an error for a policy that cannot be written as JSON (NaN, an infinity, a channel, a function); `Verify` and `VerifyBytes` return the context's error when it ended the run | — (no C ABI) |
+
+  PHP's `CliNotFoundException` and Go's `*CLINotFoundError` are a setup with
+  no CLI: no CLI is found when the verifier is made, or it cannot be started
+  when a call runs it.
 
   Each exception for a policy the engine does not take holds `diagnostics`:
   the `error` of the check first if there is one, then the check's
   diagnostics; the message is `the policy is not valid:` followed by each
   message, separated by `; `.
 
+  PHP and Go check no value of the rules but that a path or a rule holds no
+  NUL (below) and, in PHP, that each element of a list is a string: a `targets`
+  or `allow` value the engine does not take is a `target_invalid` or
+  `rules_invalid` diagnostic (the CLI reads the value it is given as one
+  argument, `--target=<value>`, so one that starts with `-` is no flag). A
+  `failOn` that is not `error` or `warn`, and a value that is not UTF-8, are
+  refused by the CLI's own command line, which prints no result: the call
+  fails with `exit_status`, quoting the CLI's message, where an SDK over the C
+  ABI says `rules_invalid`. A path or a rule that holds a NUL cannot be an
+  argument of a process: the result fails with an `invalid_arg` `error` (`a path
+  holds no NUL`, `an argument holds no NUL`) and the CLI is not run, as the
+  SDK does for `XlsxReader::open` and `Open`. PHP's `failOn: ''`, unlike
+  `null`, gives the CLI `--fail-on=`, which it refuses (`exit_status`); Go
+  gives no argument for an empty string.
+
   A string of the policy or the rules that holds a lone surrogate is not an
   error in .NET and JavaScript: the SDK writes U+FFFD in its place, and the
   engine judges the text it gets, as a diagnostic (Java raises
-  `IllegalArgumentException`, above).
+  `IllegalArgumentException`, above). Go does the same for a string of the
+  policy that is not UTF-8 (`json.Marshal` writes U+FFFD); PHP's
+  `InvalidArgumentException` is raised for one (above).
 - **A path that is not UTF-8** is read by the SDK and verified as bytes, so
   the engine never gets it; a file that cannot be read is an `io` error, and
   then the rules are not checked (for any other path they are, and a fault of
-  the rules is a diagnostic). What counts as not UTF-8 depends on the
+  the rules is a diagnostic). PHP and Go give the path to the CLI as it is,
+  whatever bytes it holds, and the CLI opens it as a path of the operating
+  system. What counts as not UTF-8 depends on the
   language: Ruby, a string marked with an encoding other than UTF-8, US-ASCII
   or binary (an SDK does not convert it); Python, a path whose `os.fsencode`
   bytes are not valid UTF-8; .NET, Java and JavaScript, a string with a lone
@@ -710,12 +752,16 @@ SDKs take the same shape in each language's idiom.
   | .NET | The span is pinned for the call and read in place. It must not change until the call returns. |
   | Java | JNA passes the array through JNI, which may copy or pin it; the SDK copies nothing, the caller must not change the array until the call returns. |
   | JavaScript | The engine reads the `Uint8Array` in place during the call (JavaScript runs nothing else meanwhile). A `SharedArrayBuffer` that another thread may write is the caller's to keep still. |
+  | PHP, Go | The SDK writes the bytes to a temporary file (`xlsx-graft-<random>.xlsx`, readable by its user only) before it runs the CLI, which reads a path, and removes the file when the run ends. A change to the bytes once the SDK has written the file has no effect. A file the SDK cannot write is an `io` error of the result, and the CLI is not run. |
 - **A verifier does not change after it is made**, so threads share one and
   call it at once (Ruby, Python, .NET and Java). In JavaScript a verifier is
   likewise unchanging, but it belongs to the thread that made it: a worker
   thread makes its own. An SDK over the C ABI calls, copies the result out and
   closes within one function ([above](#verifying-through-the-c-abi)); the
-  addon does the same inside its call.
+  addon does the same inside its call. A Go `*Verifier` is likewise
+  unchanging (the CLI's path and the policy's JSON), so goroutines share one
+  and call it at once; each call writes temporary files of its own. PHP runs
+  one thread and needs no such rule.
 
 ## Reading rows in an SDK
 

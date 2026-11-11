@@ -331,7 +331,7 @@ func TestReadsBytesFromAFileOfTheBooksOwn(t *testing.T) {
 
 func TestBytesGoToAFileOnlyTheUserMayRead(t *testing.T) {
 	dir := t.TempDir()
-	path, err := writeTemporary(dir, []byte("bytes"))
+	path, err := writeTemporary(dir, "xlsx-graft-*.xlsx", []byte("bytes"))
 	if err != nil {
 		t.Fatal(err)
 	}

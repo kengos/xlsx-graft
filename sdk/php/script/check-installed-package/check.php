@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 use XlsxGraft\Book;
 use XlsxGraft\Row;
+use XlsxGraft\Verifier;
 use XlsxGraft\XlsxGraft;
 use XlsxGraft\XlsxReader;
 
@@ -93,4 +94,9 @@ $read = XlsxReader::open($book, static fn(Book $book): array => [
 ]);
 check($read->success && $read->value === [['Data'], [['x']]], 'XlsxReader::open read '.json_encode([$read->value, $read->error, $read->diagnostics]));
 
-echo "installed kengos/xlsx-graft {$engine} from {$installed} runs engine {$result->value} and reads a sheet on PHP {$release}\n";
+// An empty file is no workbook: the installed package verifies the bytes, the
+// CLI says so in a diagnostic, and the call has no error of its own.
+$verified = (new Verifier())->verifyBytes('');
+check(!$verified->success && $verified->error === null && $verified->diagnostics !== [], 'Verifier::verifyBytes("") gave '.json_encode([$verified->success, $verified->error, $verified->diagnostics]));
+
+echo "installed kengos/xlsx-graft {$engine} from {$installed} runs engine {$result->value}, reads a sheet and verifies on PHP {$release}\n";
