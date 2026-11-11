@@ -22,6 +22,8 @@ thiserror = { workspace = true }
 xlsx-graft-core = { workspace = true }
 # `read`: the problems found, printed as the JSON every host prints.
 xlsx-graft-diagnostics = { workspace = true }
+# `verify`: the policy and the rules read, the check run, the result written.
+xlsx-graft-host = { workspace = true }
 # `read`: the package's limits.
 xlsx-graft-package = { workspace = true }
 # `read`: a workbook and its rows.

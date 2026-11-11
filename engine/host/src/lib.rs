@@ -13,7 +13,8 @@
 //! 3. [`prepare`], [`prepare_parts`] or [`prepare_request`] reads both,
 //!    and [`verify_path`], [`verify_bytes`] or [`verify`] runs the check
 //!    and gives the [`Report`], which [`Report::to_json`] writes as the
-//!    JSON each host returns.
+//!    JSON each host returns; [`ReportText`] writes it as the text a person
+//!    reads.
 //!
 //! A fault of the policy or the rules is reported as a diagnostic
 //! (`policy_invalid`, `rules_invalid`, `target_invalid`), all of them at
@@ -34,6 +35,7 @@ mod report;
 mod rules;
 #[cfg(test)]
 mod support;
+mod text;
 mod walk;
 
 pub use input::{Input, MAX_REQUEST_BYTES, MAX_SETTING_BYTES};
@@ -43,6 +45,7 @@ pub use prepare::{
     Options, Prepared, RequestError, check_policy, prepare, prepare_parts, prepare_request,
 };
 pub use report::{Counts, FailOn, Failure, Report};
+pub use text::{DiagnosticsText, ReportText};
 
 use std::fs::File;
 use std::io::{BufReader, Cursor, Read, Seek};

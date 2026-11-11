@@ -130,3 +130,34 @@ fn the_json_has_these_keys_in_this_order_and_a_failure_has_two() {
     let value = json(&listed.to_json().unwrap());
     assert_eq!(value["diagnostics"][0]["code"], "policy_invalid");
 }
+
+#[test]
+fn counts_tally_each_severity_and_read_singular_for_one() {
+    let records = found(&[error(), warning(), warning(), notice()], 10).finish();
+    let counts = Counts::tally(&records);
+    assert_eq!(
+        counts,
+        Counts {
+            error: 1,
+            warn: 2,
+            notice: 1
+        }
+    );
+    assert_eq!(counts.to_string(), "1 error, 2 warnings, 1 notice");
+    assert_eq!(
+        Counts::default().to_string(),
+        "0 errors, 0 warnings, 0 notices"
+    );
+}
+
+#[test]
+fn an_io_failure_is_not_ok_and_lists_nothing() {
+    let report = Report::io_failure("m".to_owned(), FailOn::Warn);
+    assert_eq!(
+        report.to_json().unwrap(),
+        concat!(
+            r#"{"ok":false,"failOn":"warn","counts":{"error":0,"warn":0,"notice":0},"#,
+            r#""error":{"code":"io","message":"m"},"diagnostics":[]}"#
+        )
+    );
+}

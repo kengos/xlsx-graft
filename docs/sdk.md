@@ -468,7 +468,7 @@ not (Go). It is never a result.
   | The run | The result |
   | --- | --- |
   | exit 0, stdout a JSON object with what the call reads (`version` a string) | successful, with the value |
-  | exit other than 0, or killed by a signal (but [`sheets`](#listing-sheets-sheets)' exit 1 with its object and [`read`](#reading-rows-read)'s with its end line) | failed, diagnostic `exit_status`: the status or the signal, and the start of stderr |
+  | exit other than 0, or killed by a signal (but [`sheets`](#listing-sheets-sheets)' exit 1 with its object, [`read`](#reading-rows-read)'s with its end line and [`verify`](#verifying-verify)'s 1 or 2 with its object) | failed, diagnostic `exit_status`: the status or the signal, and the start of stderr |
   | exit 0, stdout not JSON, not an object, or without what the call reads | failed, diagnostic `invalid_output`: the start of stdout, if any |
 
   A diagnostic's message quotes at most 200 characters of the output, cut
@@ -585,6 +585,40 @@ reads it a line at a time, so it never holds the sheet.
   flushes and exits 0 without a word or the end line; one that had
   written everything already exits as `ok` says. Either way the SDK does
   not read the status as a failure (rule 0).
+
+### Verifying (`verify`)
+
+`xlsx-graft verify <path> --format json` prints one JSON object, the result
+of checking the workbook under the host's policy and the caller's rules; the
+CLI's `verify --help` gives the whole contract. An SDK over the CLI (PHP, Go)
+verifies with it, as an SDK over the C ABI calls `xlsx_graft_verify_path`.
+
+- **The arguments** are `[--policy FILE] [--target ENTRY]... [--best-effort
+  ENTRY]... [--allow-function NAME]... [--allow-part KIND]... [--fail-on
+  error|warn]`, each repeated as often as there are values. The SDK
+  gives the rules it was called with and leaves out the ones it was not
+  given; the policy it holds is a file it writes (a temporary one, removed
+  after the run) or the path it was given.
+- **The object** is `{"ok": BOOL, "failOn": "error"|"warn", "counts":
+  {"error": N, "warn": N, "notice": N}, "error": {"code": "io", "message":
+  TEXT} | null, "diagnostics": [...]}`, the one the C ABI returns. `error`
+  is only the host failing to read a file (the workbook, or the policy
+  file); everything the workbook shows, and every fault of the policy and the
+  rules (`policy_invalid`, `rules_invalid`, `target_invalid`), is a
+  diagnostic.
+- **The exit status** is 0 when `ok`, 1 when not `ok` or when a file could
+  not be read, and 2 when the policy or the rules are not valid (or the
+  command line is not one clap takes). **Unlike `sheets` and `read`, the
+  object is on stdout with exit 0, 1 and 2 alike** (and, once the result is printed, stderr is empty), so
+  a failed read of the workbook and a fault of the policy are results, not
+  failures of the run. Exit 2 with no object (stdout empty, clap's message
+  on stderr) is a command line the SDK built wrong: `exit_status`.
+- **What is a result**: exit 0, 1 or 2 with the object, a result
+  (successful when `ok`). Exit 0 with no object, or one without `ok`, is
+  `invalid_output`. A policy that is not valid is found in the first verify
+  (`new` does not check it, unlike the `new` of an SDK over the C ABI, which
+  checks it with `xlsx_graft_policy_check`). When the policy file cannot be
+  read, the rules are not checked: the object has `error` and no diagnostic.
 
 ## Reading rows in an SDK
 

@@ -24,6 +24,7 @@
 use crate::walk::{KeyPath, Reporter};
 use serde::Serialize;
 use serde_json::Value;
+use std::fmt;
 use xlsx_graft_diagnostics::{Diagnostics, Record, Severity};
 
 /// How strict a result is: which diagnostic makes it not `ok`.
@@ -74,6 +75,42 @@ pub struct Counts {
     pub notice: u64,
 }
 
+impl Counts {
+    /// How many of each severity `diagnostics` holds.
+    #[must_use]
+    pub fn tally(diagnostics: &[Record]) -> Self {
+        let mut counts = Self::default();
+        for record in diagnostics {
+            match record.diagnostic.severity() {
+                Severity::Error => counts.error = counts.error.saturating_add(1),
+                Severity::Warn => counts.warn = counts.warn.saturating_add(1),
+                Severity::Notice => counts.notice = counts.notice.saturating_add(1),
+            }
+        }
+        counts
+    }
+}
+
+impl fmt::Display for Counts {
+    /// `2 errors, 1 warning, 0 notices`: each count with its noun, singular
+    /// for 1.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let noun = |count: u64, one: &'static str, many: &'static str| {
+            if count == 1 { one } else { many }
+        };
+        write!(
+            f,
+            "{} {}, {} {}, {} {}",
+            self.error,
+            noun(self.error, "error", "errors"),
+            self.warn,
+            noun(self.warn, "warning", "warnings"),
+            self.notice,
+            noun(self.notice, "notice", "notices"),
+        )
+    }
+}
+
 /// The engine failed to open or read the package, apart from anything the
 /// workbook holds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -120,15 +157,16 @@ impl Report {
         Self::of(false, fail_on, None, diagnostics)
     }
 
+    /// The result of a verification the host could not start, as a file it
+    /// had to read (the workbook, the policy) could not be read: not `ok`,
+    /// no diagnostic, and `error` an `io` failure saying `message`.
+    #[must_use]
+    pub fn io_failure(message: String, fail_on: FailOn) -> Self {
+        Self::of(false, fail_on, Some(Failure::io(message)), Vec::new())
+    }
+
     fn of(ok: bool, fail_on: FailOn, error: Option<Failure>, diagnostics: Vec<Record>) -> Self {
-        let mut counts = Counts::default();
-        for record in &diagnostics {
-            match record.diagnostic.severity() {
-                Severity::Error => counts.error = counts.error.saturating_add(1),
-                Severity::Warn => counts.warn = counts.warn.saturating_add(1),
-                Severity::Notice => counts.notice = counts.notice.saturating_add(1),
-            }
-        }
+        let counts = Counts::tally(&diagnostics);
         Self {
             ok,
             fail_on,
