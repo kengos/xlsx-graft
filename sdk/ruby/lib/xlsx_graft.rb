@@ -18,6 +18,9 @@ require_relative "xlsx_graft/sheet_info"
 require_relative "xlsx_graft/sheet"
 require_relative "xlsx_graft/book"
 require_relative "xlsx_graft/xlsx_reader"
+require_relative "xlsx_graft/verify_call"
+require_relative "xlsx_graft/verify_report"
+require_relative "xlsx_graft/verifier"
 
 # Ruby bindings for xlsx-graft, an engine that reads, verifies, creates and
 # edits xlsx workbooks.
@@ -34,6 +37,11 @@ require_relative "xlsx_graft/xlsx_reader"
 #   XlsxGraft::XlsxReader.open("book.xlsx") do |book|
 #     book.sheet("Data").each_row { |row| p row.values }
 #   end
+#
+# @example Verifying a workbook ({Verifier})
+#   verifier = XlsxGraft::Verifier.new(policy: { max_entries: 20_000 })
+#   result = verifier.verify("book.xlsx", targets: ["excel >= 2016"])
+#   result.diagnostics.each { |d| warn "#{d.severity} #{d.code}: #{d.message}" }
 module XlsxGraft
   class << self
     # The engine's version.

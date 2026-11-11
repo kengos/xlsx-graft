@@ -39,3 +39,8 @@ Metrics/AbcSize:
 Metrics/MethodLength:
   Exclude:
     - "spec/support/**/*"
+
+# A verification takes its rules as keywords, one for each of the engine's
+# rule keys, so a caller names what they pass.
+Metrics/ParameterLists:
+  CountKeywordArgs: false

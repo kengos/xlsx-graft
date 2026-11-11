@@ -62,6 +62,44 @@ object (`TZInfo::Timezone.get("Asia/Tokyo")`) instead. A date-time the
 object's rules cannot place, as one daylight saving skips, stops the read
 with `datetime_unrepresentable`.
 
+## Verifying a workbook
+
+```ruby
+require "xlsx_graft"
+
+verifier = XlsxGraft::Verifier.new(policy: { max_formula_bytes: 32_768, fail_on: "warn" })
+result = verifier.verify("book.xlsx", targets: ["excel >= 2016"], allow_parts: ["macro"])
+puts(result.success? ? "ok" : "not ok")
+result.diagnostics.each { |d| warn "#{d.severity} #{d.code}: #{d.message}" }
+warn "#{result.error.code}: #{result.error.message}" if result.error
+```
+
+- `Verifier.new(policy:)` takes the host's limits and rules as a Hash, keys in
+  snake_case or camelCase (the same policy file as the CLI's `--policy`, read
+  with `JSON.parse`, works). The engine checks it there: a policy it does not
+  take raises `XlsxGraft::PolicyInvalid`, whose `diagnostics` say what is wrong
+  (for each key, a `policy_invalid` diagnostic).
+- `verify(path, ...)` and `verify_bytes(data, ...)` take the rules of the
+  call as keywords, each optional: `targets:`, `best_effort:`,
+  `allow_functions:`, `allow_parts:` (Arrays of Strings) and `fail_on:`
+  (`"warn"` to fail on a warning too).
+- The result is successful when the engine's `ok` is true: no error
+  diagnostic, and with `fail_on: "warn"` (the call's or the policy's) no
+  warning either, so such a result can fail with no error diagnostic.
+  `result.value` is always `nil`; `result.diagnostics` has what was found.
+  `result.error` is set when the file cannot be read (`io`) or the call
+  itself failed (`panic`, `null_arg`, `unknown_status`,
+  `diagnostics_unreadable`). A fault of
+  the rules is a `rules_invalid` or `target_invalid` diagnostic, and the
+  workbook is not opened.
+- A policy and rules that make more than 2 MiB of JSON, or a value JSON cannot
+  write, or a policy that is not a Hash, raise `ArgumentError`; a path or data of the wrong class raises
+  Ruby's own `TypeError` or `NoMethodError`. For a path that is not UTF-8, the
+  gem reads the file itself: if it cannot, the result is the `io` error and
+  the rules are not checked.
+- A verifier does not change once it is made: share one between threads, and
+  call it from them at once.
+
 ## The engine's version
 
 ```ruby
@@ -77,8 +115,9 @@ end
 
 Calls return a `XlsxGraft::Result` rather than raising. What raises is a
 missing engine library (`XlsxGraft::LibraryNotFound`), a book used after
-its block (`XlsxGraft::ClosedError`), and a call made wrongly
-(`ArgumentError`: no block, a zone `Time` does not take, a sheet that is
+its block (`XlsxGraft::ClosedError`), a policy the engine does not take
+(`XlsxGraft::PolicyInvalid`), and a call made wrongly
+(`ArgumentError`: no block, rules too large or not JSON, a zone `Time` does not take, a sheet that is
 neither a name nor an index).
 
 ## Where the engine library comes from

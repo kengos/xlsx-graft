@@ -26,4 +26,10 @@ result = XlsxGraft.version
 abort "XlsxGraft.version failed: #{result.diagnostics.inspect}" unless result.success?
 abort "XlsxGraft.version is #{result.value}, the engine is #{engine}" unless result.value == engine
 
+# The shipped engine has the verify functions: an empty workbook is refused
+# by a diagnostic, not by a failure of the call.
+verified = XlsxGraft::Verifier.new.verify_bytes("")
+refused = !verified.success? && verified.error.nil? && !verified.diagnostics.empty?
+abort "Verifier#verify_bytes gave #{verified.inspect}" unless refused
+
 puts "installed xlsx_graft #{XlsxGraft::VERSION} from #{where} loads engine #{result.value}"

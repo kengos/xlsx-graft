@@ -14,6 +14,9 @@ require_relative "support/workbook"
 # XLSX_GRAFT_LIBRARY at it.
 ENGINE_LIBRARY = ENV.fetch(XlsxGraft::Library::ENV_VAR)
 
+# The workbooks the repository keeps for tests of every host.
+FIXTURES = File.expand_path("../../../fixtures", __dir__)
+
 RSpec.configure do |config|
   config.expect_with(:rspec) { |expectations| expectations.syntax = :expect }
   config.disable_monkey_patching!
