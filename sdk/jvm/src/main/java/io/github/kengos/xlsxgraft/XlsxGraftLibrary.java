@@ -17,6 +17,17 @@
 //     int32_t xlsx_graft_rows_next(XlsxGraftRows *rows, uint32_t *out_number,
 //                                  const XlsxGraftValue **out_values, size_t *out_len);
 //     int32_t xlsx_graft_rows_close(XlsxGraftRows *rows);
+//     int32_t xlsx_graft_verify_path(const uint8_t *path, size_t path_len,
+//                                    const uint8_t *options, size_t options_len,
+//                                    XlsxGraftVerify **out_verify);
+//     int32_t xlsx_graft_verify_bytes(const uint8_t *data, size_t len,
+//                                     const uint8_t *options, size_t options_len,
+//                                     XlsxGraftVerify **out_verify);
+//     int32_t xlsx_graft_policy_check(const uint8_t *policy, size_t len,
+//                                     XlsxGraftVerify **out_verify);
+//     int32_t xlsx_graft_verify_result(const XlsxGraftVerify *verify,
+//                                      const uint8_t **out_ptr, size_t *out_len);
+//     int32_t xlsx_graft_verify_close(XlsxGraftVerify *verify);
 //
 // Interface mapping rather than direct mapping (Native.register): direct
 // mapping binds one library to a class when the class is initialized, once
@@ -71,4 +82,21 @@ interface XlsxGraftLibrary extends com.sun.jna.Library {
 
   /** Closes the rows handle. */
   int xlsx_graft_rows_close(Pointer rows);
+
+  /** Verifies the workbook at the UTF-8 path under the UTF-8 JSON options, writing the handle. */
+  int xlsx_graft_verify_path(
+      byte[] path, SizeT pathLen, byte[] options, SizeT optionsLen, PointerByReference outVerify);
+
+  /** Verifies the workbook of {@code data} under the UTF-8 JSON options, writing the handle. */
+  int xlsx_graft_verify_bytes(
+      byte[] data, SizeT len, byte[] options, SizeT optionsLen, PointerByReference outVerify);
+
+  /** Checks the UTF-8 JSON policy alone, writing a handle whose result says whether it is valid. */
+  int xlsx_graft_policy_check(byte[] policy, SizeT len, PointerByReference outVerify);
+
+  /** The verify handle's result, UTF-8 JSON, and the count of its bytes. */
+  int xlsx_graft_verify_result(Pointer verify, PointerByReference outPtr, SizeTByReference outLen);
+
+  /** Closes the verify handle. */
+  int xlsx_graft_verify_close(Pointer verify);
 }

@@ -88,6 +88,14 @@ const result = imported.version();
 check(result.success, `version() failed: ${JSON.stringify(result.diagnostics)}`);
 check(result.value === engine, `version() is ${result.value}, the engine is ${engine}`);
 
+// Empty bytes are no workbook: the engine's verification fails with a
+// diagnostic and no error, which shows the verify functions are in the addon.
+const verified = new imported.Verifier().verifyBytes(new Uint8Array());
+check(
+  !verified.success && verified.error === null && verified.diagnostics.length > 0,
+  `Verifier().verifyBytes(empty) gave ${JSON.stringify(verified)}`,
+);
+
 console.log(
   `installed xlsx-graft ${manifest.version} from ${installed} loads engine ${result.value}` +
     ` on Node.js ${release}, by import and require()`,

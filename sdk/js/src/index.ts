@@ -29,7 +29,12 @@ import * as versionCall from './versionCall.js';
 
 export { Book, Sheet } from './book.js';
 export { Diagnostic, type DiagnosticFields } from './diagnostic.js';
-export { ClosedError, LibraryNotFoundError, XlsxGraftError } from './errors.js';
+export {
+  ClosedError,
+  LibraryNotFoundError,
+  PolicyInvalidError,
+  XlsxGraftError,
+} from './errors.js';
 export { Result } from './result.js';
 export {
   CalendarDate,
@@ -41,6 +46,7 @@ export {
   TimeOfDay,
   type Value,
 } from './values.js';
+export { Verifier, type VerifierOptions, type VerifyRules } from './verifier.js';
 export { type Read, type ReaderOptions, XlsxReader } from './xlsxReader.js';
 
 export interface VersionOptions {

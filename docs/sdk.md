@@ -432,7 +432,7 @@ JSON as `value`.
   once made, so its result may be read from any thread until the close. The
   close is called once, and not while another call on the handle runs.
 - **A policy given when an SDK is built is checked then**: the SDK's verifier
-  constructor (Ruby's `Verifier.new(policy:)`) calls `xlsx_graft_policy_check` and raises when the
+  constructor (for example Ruby's `Verifier.new(policy:)`) calls `xlsx_graft_policy_check` and raises when the
   result is not `ok`, with its `policy_invalid` diagnostics. PHP and Go run
   the CLI, so they do not check on build: a fault of the policy shows up as
   `policy_invalid` diagnostics in the result of the first verify.
@@ -624,32 +624,47 @@ verifies with it, as an SDK over the C ABI calls `xlsx_graft_verify_path`.
 
 How an SDK offers `verify`, whichever way it reaches the engine
 ([the C ABI](#verifying-through-the-c-abi), the addon, or
-[`verify`](#verifying-verify)). Ruby's `XlsxGraft::Verifier` is the first of this shape; a later SDK
-takes the same shape in its own language's idiom.
+[`verify`](#verifying-verify)). The Ruby, Python, .NET, Java and JavaScript
+SDKs take the same shape in each language's idiom.
 
-- **A verifier, then calls.** The host's policy goes to the constructor
-  (Ruby `Verifier.new(policy:)`); the caller's rules go to each call,
-  `verify(path, ...)` and `verify_bytes(data, ...)`, as keywords in the
-  language's own style (Ruby and Python `targets`, `best_effort`,
-  `allow_functions`, `allow_parts`, `fail_on`; JavaScript
-  `{targets, bestEffort, allowFunctions, allowParts, failOn}`; .NET and Java in
-  their own naming). The SDK writes the engine's names: `bestEffort`,
-  `functions.allow`, `parts.allow`, `failOn`, and leaves out a key the
-  caller did not give. It does not check their types or values: a fault of
-  the rules is a `rules_invalid` or `target_invalid` diagnostic of the result.
-- **The policy** is given as the language's map, its keys in the language's
-  case (snake_case) written as camelCase (a key already in camelCase stays;
-  values stay as they are; Hashes inside Arrays too). An SDK over the C ABI
-  checks it in the constructor with `xlsx_graft_policy_check` and raises when
-  the result is not `ok` (Ruby `PolicyInvalid`, holding the `policy_invalid`
-  diagnostics); it keeps the checked policy as JSON text, so that the caller
-  changing their own map afterwards changes nothing. An SDK over the CLI does
-  not check it ([Verifying (`verify`)](#verifying-verify)).
+- **A verifier, then calls.** The host's policy goes to the constructor; the
+  caller's rules go to each call, in the language's own style:
+
+  | SDK | Constructor | Calls |
+  | --- | --- | --- |
+  | Ruby | `Verifier.new(policy:)` | `verify(path, ...)`, `verify_bytes(data, ...)` with the keywords `targets`, `best_effort`, `allow_functions`, `allow_parts`, `fail_on` |
+  | Python | `Verifier(policy=..., library=...)` | `verify(path, *, targets=...)`, `verify_bytes(data, *, ...)` with the same keyword-only names as Ruby |
+  | .NET | `new Verifier(JsonObject? policy, string? library)` | `Verify(path, ...)`, `VerifyBytes(data, ...)` with the named arguments `targets`, `bestEffort`, `allowFunctions`, `allowParts`, `failOn` |
+  | Java | `new Verifier(Map policy)`, `new Verifier(Map policy, String library)` | `verify(path, rules)`, `verifyBytes(data, rules)`, where `rules` is a `VerifyRules` (`VerifyRules.none().targets(...).allowParts(...)`; each method returns a new `VerifyRules`) |
+  | JavaScript | `new Verifier({ policy, addon })` | `verify(path, { targets, ... })`, `verifyBytes(data, { ... })` with the keys `targets`, `bestEffort`, `allowFunctions`, `allowParts`, `failOn` |
+
+  The SDK writes the engine's names: `bestEffort`, `functions.allow`,
+  `parts.allow`, `failOn`, and leaves out a key the caller did not give. It
+  does not check their types or values: a fault of the rules is a
+  `rules_invalid` or `target_invalid` diagnostic of the result.
+- **The policy** is given as the language's map: a Hash (Ruby), a `dict`
+  (Python), a `System.Text.Json.Nodes.JsonObject` (.NET), a `Map` (Java) or an
+  object (JavaScript). Ruby and Python take keys in snake_case and write them
+  as camelCase (a key already in camelCase stays; values stay as they are;
+  Hashes or dicts inside Arrays or lists too). .NET, Java and JavaScript do
+  not rename a key: the policy's keys are the engine's camelCase names, so the
+  same policy file as the CLI's `--policy` works once parsed. An SDK over the
+  C ABI or the addon checks the policy in the constructor with
+  `xlsx_graft_policy_check` (the addon's `checkPolicy`) and raises when the
+  result is not `ok`, whether the engine found the policy invalid
+  (`policy_invalid` diagnostics) or the check itself failed (`panic`,
+  `null_arg`, `unknown_status`, `diagnostics_unreadable`): Ruby
+  `PolicyInvalid`, Python `PolicyInvalidError`, .NET `PolicyInvalidException`,
+  Java `PolicyInvalidException`, JavaScript `PolicyInvalidError`. It keeps the
+  checked policy as JSON text, so that the caller changing their own map
+  afterwards changes nothing. An SDK over the CLI does not check it
+  ([Verifying (`verify`)](#verifying-verify)).
 - **The result is a Result with no value.** It is successful when the
-  engine's `ok` is true. `error` is `io` when the file cannot be read, and
-  the SDK adds what the engine keeps none of (`panic`, `null_arg`,
-  `unknown_status`, `diagnostics_unreadable`, and the `io` of a path the SDK
-  could not read, below). `diagnostics` are the engine's, as for reading,
+  engine's `ok` is true. The SDK reads the result's `error` only when `ok` is
+  false. It is `io` when the file cannot be read, and the SDK adds what the
+  engine keeps none of (`panic`, `null_arg`, `unknown_status`,
+  `diagnostics_unreadable`, and the `io` of a path the SDK could not read,
+  below). `diagnostics` are the engine's, as for reading,
   `origin` aside. **`failOn` and `counts` are not in the result**: the counts
   are those of `diagnostics` by severity, and a result whose `failOn` is
   `warn` (the caller's or the policy's) fails on a warning, so it can fail
@@ -657,18 +672,50 @@ takes the same shape in its own language's idiom.
 - **What raises** is a mistake of the caller's: a policy the engine does not
   take (in the constructor), options of more than 2 MiB (the policy and the
   rules written as JSON), a value that JSON cannot write, an argument of the
-  wrong kind (Ruby: a policy that is not a Hash is an `ArgumentError`, a path or
-  data of the wrong class Ruby's own `TypeError` or `NoMethodError`); and `XLSX_GRAFT_ERR_INVALID_ARG`, a bug of
-  the SDK's own.
-- **A path that is not UTF-8** (or marked with an encoding other than UTF-8,
-  US-ASCII or binary, which an SDK does not convert) is read by the SDK and verified as bytes, so
+  wrong kind; and `XLSX_GRAFT_ERR_INVALID_ARG`, a bug of the SDK's own. The
+  names, per language:
+
+  | SDK | Policy the engine does not take | More than 2 MiB, a value JSON cannot write, an argument of the wrong kind | `INVALID_ARG` (a bug of the SDK) |
+  | --- | --- | --- | --- |
+  | Ruby | `PolicyInvalid` | `ArgumentError` (a policy that is not a Hash); a path or data of the wrong class raises Ruby's own `TypeError` or `NoMethodError` | `Error` |
+  | Python | `PolicyInvalidError` | `ValueError` (more than 2 MiB, NaN or Infinity), `TypeError` (a policy that is not a mapping, a value of a type JSON cannot write, a path or data of the wrong kind), `RecursionError` (dicts and lists nested past Python's recursion limit) | `Error` |
+  | .NET | `PolicyInvalidException` | `ArgumentException` (more than 2 MiB; a policy `JsonObject` that cannot be written as JSON: NaN, a `Type` value, nesting too deep; the SDK wraps the writer's exception in it) | `XlsxGraftException` |
+  | Java | `PolicyInvalidException` | `IllegalArgumentException` (more than 2 MiB, NaN or Infinity, a value of an unknown type, nesting too deep, text that cannot be encoded as UTF-8: an unpaired surrogate); `NullPointerException` for a null `path`, `data` or `rules` | `XlsxGraftException` |
+  | JavaScript | `PolicyInvalidError` | `RangeError` (more than 2 MiB), `TypeError` (a BigInt, a cycle, a URL that is not a `file:` URL) | `XlsxGraftError` |
+
+  Each exception for a policy the engine does not take holds `diagnostics`:
+  the `error` of the check first if there is one, then the check's
+  diagnostics; the message is `the policy is not valid:` followed by each
+  message, separated by `; `.
+
+  A string of the policy or the rules that holds a lone surrogate is not an
+  error in .NET and JavaScript: the SDK writes U+FFFD in its place, and the
+  engine judges the text it gets, as a diagnostic (Java raises
+  `IllegalArgumentException`, above).
+- **A path that is not UTF-8** is read by the SDK and verified as bytes, so
   the engine never gets it; a file that cannot be read is an `io` error, and
   then the rules are not checked (for any other path they are, and a fault of
-  the rules is a diagnostic).
+  the rules is a diagnostic). What counts as not UTF-8 depends on the
+  language: Ruby, a string marked with an encoding other than UTF-8, US-ASCII
+  or binary (an SDK does not convert it); Python, a path whose `os.fsencode`
+  bytes are not valid UTF-8; .NET, Java and JavaScript, a string with a lone
+  surrogate. In JavaScript the SDK reads the file itself, and Node.js opens
+  the name with U+FFFD in place of the lone surrogate.
+- **How the bytes of `verify_bytes` reach the engine** differs, because the
+  engine reads them during the call only and does not copy them:
+
+  | SDK | The input |
+  | --- | --- |
+  | Ruby, Python | The SDK passes a copy of its own, so the caller changing the buffer during the call changes nothing. |
+  | .NET | The span is pinned for the call and read in place. It must not change until the call returns. |
+  | Java | JNA passes the array through JNI, which may copy or pin it; the SDK copies nothing, the caller must not change the array until the call returns. |
+  | JavaScript | The engine reads the `Uint8Array` in place during the call (JavaScript runs nothing else meanwhile). A `SharedArrayBuffer` that another thread may write is the caller's to keep still. |
 - **A verifier does not change after it is made**, so threads share one and
-  call it at once. An SDK over the C ABI calls, copies the result out and
-  closes within one function ([above](#verifying-through-the-c-abi)); Ruby
-  passes each input as a copy of its own, as for reading.
+  call it at once (Ruby, Python, .NET and Java). In JavaScript a verifier is
+  likewise unchanging, but it belongs to the thread that made it: a worker
+  thread makes its own. An SDK over the C ABI calls, copies the result out and
+  closes within one function ([above](#verifying-through-the-c-abi)); the
+  addon does the same inside its call.
 
 ## Reading rows in an SDK
 

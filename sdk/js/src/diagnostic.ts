@@ -9,7 +9,7 @@
 export class Diagnostic {
   /** The stable, machine-readable part. */
   readonly code: string;
-  /** `error`, `warning` or `notice`. */
+  /** `error`, `warn` or `notice`. */
   readonly severity: string;
   /** For people. */
   readonly message: string;

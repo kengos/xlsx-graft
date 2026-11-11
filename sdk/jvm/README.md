@@ -84,6 +84,68 @@ for (Diagnostic d : result.diagnostics()) {
 A workbook's dates and times are wall-clock times with no zone, and are
 given as such: no time zone is applied.
 
+## Verifying a workbook
+
+```java
+import io.github.kengos.xlsxgraft.Diagnostic;
+import io.github.kengos.xlsxgraft.Result;
+import io.github.kengos.xlsxgraft.Verifier;
+import io.github.kengos.xlsxgraft.VerifyRules;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Collections;
+
+Verifier verifier =
+    new Verifier(Collections.singletonMap("maxFormulaBytes", 32768));
+Result<Void> result =
+    verifier.verify(
+        Paths.get("book.xlsx"),
+        VerifyRules.none()
+            .targets(Arrays.asList("excel >= 2016"))
+            .allowParts(Arrays.asList("macro")));
+System.out.println(result.success() ? "ok" : "not ok");
+for (Diagnostic d : result.diagnostics()) {
+  System.err.println(d.severity() + " " + d.code() + ": " + d.message());
+}
+if (result.error() != null) {
+  System.err.println(result.error().code() + ": " + result.error().message());
+}
+```
+
+- `new Verifier(policy)` takes the host's limits and rules as a `Map<String, ?>`
+  (the same policy file as the CLI's `--policy` works when a JSON library reads
+  it into a Map with whole numbers as `Integer` or `Long`; one that reads them
+  as `Double` writes `1000000.0`, which the engine may refuse as a limit). The
+  keys are the engine's, in camelCase (`maxEntries`, `failOn`, `forbid`), and
+  are not changed. A value is a Map, a List, a String, a Boolean, null or a
+  number. The engine checks the policy there: one it does not take throws
+  `PolicyInvalidException`, whose `diagnostics()` say what is wrong (for each
+  key, a `policy_invalid` diagnostic).
+- `verify(path)` and `verifyBytes(data)` verify under the policy alone; the
+  overloads with a `VerifyRules` add the rules of the call, each optional:
+  `targets`, `bestEffort`, `allowFunctions`, `allowParts` (lists of Strings)
+  and `failOn` (`"warn"` to fail on a warning too).
+  `VerifyRules` does not change: each method returns a new one.
+- The result is successful when the engine's `ok` is true: no error
+  diagnostic, and with `failOn("warn")` (the call's or the policy's) no
+  warning either, so such a result can fail with no error diagnostic.
+  `result.value()` is always `null`; `result.diagnostics()` has what was found.
+  `result.error()` is set when the file cannot be read (`io`) or the call
+  itself failed (`panic`, `null_arg`, `unknown_status`,
+  `diagnostics_unreadable`). A fault of the rules is a `rules_invalid` or
+  `target_invalid` diagnostic, and the workbook is not opened.
+- A policy and rules that make more than 2 MiB of JSON, a value JSON cannot
+  write or text that cannot be encoded as UTF-8 (an unpaired surrogate) throw
+  `IllegalArgumentException`; a null path, data or rules throw
+  `NullPointerException`. For a path holding an unpaired surrogate (only a
+  Windows file name can) the package reads the file itself: if it cannot, the
+  result is the `io` error and the rules are not checked.
+- `verifyBytes` does not copy `data`: the call reads the array while it runs
+  (JNA passes it through JNI, which may copy or pin it), so do not change the
+  array until the call returns.
+- A `Verifier` does not change once it is made: share one between threads, and
+  call it from them at once.
+
 ## The engine's version
 
 ```java

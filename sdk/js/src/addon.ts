@@ -111,6 +111,15 @@ export interface AddonCell {
 /** The addon's exports, as this package calls them. Written by hand. */
 export interface Addon {
   version(): Outcome;
+  /**
+   * Verifies the workbook at `path`; `options` is the JSON
+   * `{"policy": ..., "rules": ...}`. The outcome's `value` is the result's JSON.
+   */
+  verifyPath(path: string, options: string): Outcome;
+  /** As `verifyPath`, the workbook being `data`, read in place for the call. */
+  verifyBytes(data: Buffer, options: string): Outcome;
+  /** Checks `policy`, the policy's JSON object alone; the outcome's `value` is the result's JSON. */
+  checkPolicy(policy: string): Outcome;
   Book: {
     openPath(path: string): AddonBook;
     openBytes(data: Buffer): AddonBook;

@@ -34,11 +34,17 @@ export function call(json: string): Report {
       error === null
         ? null
         : statusDiagnostic.of(text(object(error), 'code'), text(object(error), 'message')),
-    diagnostics: diagnostics.map((record) => of(object(record))),
+    diagnostics: diagnostics.map((record) => diagnostic(record)),
   };
 }
 
-function of(record: Record<string, unknown>): Diagnostic {
+/**
+ * A {@link Diagnostic} from one record of a `diagnostics` array, which every
+ * host prints in the same form. Throws a TypeError for a value that is not
+ * one.
+ */
+export function diagnostic(value: unknown): Diagnostic {
+  const record = object(value);
   return new Diagnostic({
     code: text(record, 'code'),
     severity: text(record, 'severity'),
@@ -50,14 +56,16 @@ function of(record: Record<string, unknown>): Diagnostic {
   });
 }
 
-function field(record: Record<string, unknown>, key: string): unknown {
+/** The value of `key`, which `record` must have. Throws a TypeError otherwise. */
+export function field(record: Record<string, unknown>, key: string): unknown {
   if (!Object.hasOwn(record, key)) {
     throw new TypeError(`no \`${key}\``);
   }
   return record[key];
 }
 
-function text(record: Record<string, unknown>, key: string): string {
+/** The string at `key`. Throws a TypeError for a value that is not a string. */
+export function text(record: Record<string, unknown>, key: string): string {
   const value = field(record, key);
   if (typeof value !== 'string') {
     throw new TypeError(`\`${key}\` is not a string`);
@@ -65,7 +73,8 @@ function text(record: Record<string, unknown>, key: string): string {
   return value;
 }
 
-function object(value: unknown): Record<string, unknown> {
+/** `value` as an object. Throws a TypeError for an array, null or a scalar. */
+export function object(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError(`${JSON.stringify(value)} is not an object`);
   }

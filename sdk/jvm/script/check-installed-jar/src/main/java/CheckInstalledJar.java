@@ -9,6 +9,7 @@
 
 import io.github.kengos.xlsxgraft.Engine;
 import io.github.kengos.xlsxgraft.Result;
+import io.github.kengos.xlsxgraft.Verifier;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -95,6 +96,13 @@ public final class CheckInstalledJar {
     check(
         engine.equals(result.value()),
         "Engine.version() is " + result.value() + ", the engine is " + engine);
+
+    // The shipped engine has the verify functions: an empty workbook is refused
+    // by a diagnostic, not by a failure of the call.
+    Result<Void> verified = new Verifier().verifyBytes(new byte[0]);
+    check(
+        verified.failed() && verified.error() == null && !verified.diagnostics().isEmpty(),
+        "Verifier.verifyBytes gave " + verified.diagnostics() + ", error " + verified.error());
 
     System.out.println(
         "installed io.github.kengos:xlsx-graft:"
