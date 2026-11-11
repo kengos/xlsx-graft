@@ -55,24 +55,10 @@ final class BookCore
      */
     public static function ofBytes(string $cli, string $data, Zone $zone, string $dir): self|Diagnostic
     {
-        $path = $dir.DIRECTORY_SEPARATOR.'xlsx-graft-'.bin2hex(random_bytes(8)).'.xlsx';
-        error_clear_last();
-        // Made 0600 rather than changed to it after, when another user could
-        // have opened it already. PHP runs on one thread, so the process's
-        // umask is this call's for as long as it is set.
-        $mask = umask(0o077);
         try {
-            $file = @fopen($path, 'x');
-        } finally {
-            umask($mask);
-        }
-        $written = $file !== false && fwrite($file, $data) === strlen($data);
-        $file === false || fclose($file);
-        if (!$written) {
-            $why = error_get_last()['message'] ?? 'a short write';
-            @unlink($path);
-
-            return new Diagnostic('io', "the workbook could not be written to a temporary file ({$why})");
+            $path = TemporaryFile::write($dir, '.xlsx', $data);
+        } catch (\RuntimeException $e) {
+            return new Diagnostic('io', "the workbook could not be written to a temporary file ({$e->getMessage()})");
         }
 
         return new self($cli, $path, $zone, $path);
@@ -156,7 +142,7 @@ final class BookCore
         }
         $this->runs = [];
         if ($this->temporary !== null) {
-            @unlink($this->temporary);
+            TemporaryFile::remove($this->temporary);
         }
     }
 

@@ -55,7 +55,7 @@ func OpenBytes[T any](ctx context.Context, data []byte, read func(*Book) (T, err
 	if err != nil {
 		return Result[T]{}, err
 	}
-	path, err := writeTemporary(os.TempDir(), data)
+	path, err := writeTemporary(os.TempDir(), "xlsx-graft-*.xlsx", data)
 	if err != nil {
 		return refused[T](problem("io", fmt.Sprintf("the workbook could not be written to a temporary file (%v)", err))), nil
 	}
@@ -83,11 +83,12 @@ func refused[T any](d Diagnostic) Result[T] {
 	return Result[T]{Error: &d}
 }
 
-// writeTemporary writes data to a new file in dir, which only this user may
-// read (os.CreateTemp makes it 0600), and returns its path.
-func writeTemporary(dir string, data []byte) (string, error) {
+// writeTemporary writes data to a new file in dir, named by pattern as
+// os.CreateTemp reads it, which only this user may read (os.CreateTemp makes
+// it 0600), and returns its path.
+func writeTemporary(dir, pattern string, data []byte) (string, error) {
 	path := ""
-	file, err := os.CreateTemp(dir, "xlsx-graft-*.xlsx")
+	file, err := os.CreateTemp(dir, pattern)
 	if err == nil {
 		path = file.Name()
 		_, err = file.Write(data)
