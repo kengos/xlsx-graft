@@ -155,6 +155,7 @@ fn the_status_is_0_on_success_and_1_on_a_failure_with_its_reason() {
     let mut err = Vec::new();
     assert_eq!(exit_status(Ok(Outcome::Success), &mut err), 0);
     assert_eq!(exit_status(Ok(Outcome::Failure), &mut err), 1);
+    assert_eq!(exit_status(Ok(Outcome::Invalid), &mut err), 2);
     // A failure the output already says nothing more of.
     assert!(err.is_empty());
     let full = CliError::Write(io::ErrorKind::StorageFull.into());

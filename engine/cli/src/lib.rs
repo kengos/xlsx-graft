@@ -4,13 +4,15 @@
 //! ABI and the MCP server. `main.rs` parses [`Cli`]
 //! ([`Cli::try_parse_args`]), hands it to [`run`] and exits with the
 //! [`exit_status`] of what it returns; everything testable lives here.
-//! There are `--version` and the `sheets` and `read` commands.
+//! There are `--version` and the `sheets`, `read` and `verify` commands.
 //!
 //! Every command's output is printed as text or as JSON by `--format`:
 //! `--version` through [`emit`], one value; `sheets` one value too
 //! ([`SheetsArgs`]); `read` a line at a time as it reads ([`ReadArgs`]).
 //! The JSON is a contract: its keys and their types do not change once
-//! released, so a script can read them without parsing the text. The
+//! released, so a script can read them without parsing the text.
+//! `verify` prints its result whatever happened, a file it could not read
+//! and a fault of the policy or the rules included (see [`VerifyArgs`]). The
 //! help is not a command's output: it is text whatever `--format` says,
 //! as clap's own `-h` / `--help` are.
 
@@ -24,6 +26,7 @@ mod format;
 mod read;
 mod sheets;
 mod text;
+mod verify;
 mod version;
 mod workbook;
 
@@ -31,6 +34,7 @@ pub use error::CliError;
 pub use format::{Format, Report, emit};
 pub use read::ReadArgs;
 pub use sheets::SheetsArgs;
+pub use verify::VerifyArgs;
 pub use version::VersionReport;
 
 /// The command line.
@@ -88,6 +92,9 @@ enum Command {
     /// Print a sheet's rows, one line each, as they are read.
     #[command(long_about = read::LONG_ABOUT, after_long_help = read::AFTER_LONG_HELP)]
     Read(ReadArgs),
+    /// Check a workbook against the host's policy and the caller's rules.
+    #[command(long_about = verify::LONG_ABOUT, after_long_help = verify::AFTER_LONG_HELP)]
+    Verify(VerifyArgs),
 }
 
 /// How a run that printed what it had to ended.
@@ -97,6 +104,9 @@ pub enum Outcome {
     Success,
     /// It printed why it did not: exit 1.
     Failure,
+    /// The policy or the rules it was given were not valid (`verify`), and
+    /// it printed why: exit 2, as for a command line clap refuses.
+    Invalid,
 }
 
 /// Runs the parsed command line, writing its output to `out` and, in
@@ -113,6 +123,7 @@ pub fn run(cli: &Cli, out: &mut dyn Write, err: &mut dyn Write) -> Result<Outcom
     let outcome = match &cli.command {
         Some(Command::Sheets(args)) => sheets::run(args, cli.format, out, err)?,
         Some(Command::Read(args)) => read::run(args, cli.format, out, err)?,
+        Some(Command::Verify(args)) => verify::run(args, cli.format, out)?,
         None if cli.version => {
             emit(cli.format, &VersionReport::current(), out)?;
             Outcome::Success
@@ -127,7 +138,8 @@ pub fn run(cli: &Cli, out: &mut dyn Write, err: &mut dyn Write) -> Result<Outcom
 }
 
 /// The exit status of a run that ended in `result`, writing an error's
-/// reason to `err`: 0 for [`Outcome::Success`], 1 for a failure.
+/// reason to `err`: 0 for [`Outcome::Success`], 1 for a failure, 2 for
+/// [`Outcome::Invalid`].
 ///
 /// A closed stdout (a pipe whose reader has gone, as `| head` leaves it)
 /// is 0, with nothing written: whoever closed it has what they wanted, and
@@ -136,6 +148,7 @@ pub fn exit_status(result: Result<Outcome, CliError>, err: &mut dyn Write) -> u8
     match result {
         Ok(Outcome::Success) => 0,
         Ok(Outcome::Failure) => 1,
+        Ok(Outcome::Invalid) => 2,
         Err(CliError::Write(e)) if e.kind() == io::ErrorKind::BrokenPipe => 0,
         Err(e) => {
             // Not eprintln!: it panics when stderr refuses the write too (a
