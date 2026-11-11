@@ -138,6 +138,66 @@ A name with no directory in it, in `XLSX_GRAFT_CLI` or passed, is looked up
 on `PATH` by `os/exec`. On Windows the CLI is an `.exe`: one with no
 extension, set or passed, gets `.exe` added.
 
+## Verifying a workbook
+
+```go
+verifier, err := xlsxgraft.NewVerifier(map[string]any{"maxFormulaBytes": 32768})
+if err != nil {
+	log.Fatal(err)
+}
+result, err := verifier.Verify(ctx, "book.xlsx", xlsxgraft.VerifyRules{
+	Targets:    []string{"excel >= 2016"},
+	AllowParts: []string{"macro"},
+})
+if err != nil {
+	log.Fatal(err)
+}
+fmt.Println(result.Success)
+for _, d := range result.Diagnostics {
+	fmt.Fprintf(os.Stderr, "%s %s: %s\n", d.Severity, d.Code, d.Message)
+}
+if result.Error != nil {
+	fmt.Fprintf(os.Stderr, "%s: %s\n", result.Error.Code, result.Error.Message)
+}
+```
+
+- `NewVerifier(policy, opts...)` takes the host's limits and rules as a
+  `map[string]any`. The keys are the engine's, in camelCase (`maxEntries`,
+  `failOn`, `forbid`), and are not changed, so the same policy file as the
+  CLI's `--policy` works once `json.Unmarshal` reads it into a map. A `nil` map
+  is the engine's defaults. The policy is not checked there: the engine checks
+  it at the first `Verify`, and a policy it does not take fails every result
+  with `policy_invalid` diagnostics. A map that cannot be written as JSON (NaN,
+  an infinity, a channel, a function) is an error of `NewVerifier`, as is a CLI
+  that cannot be found (`*CLINotFoundError`, found as `Open` finds it). The
+  verifier keeps the JSON of the policy as it is when `NewVerifier` runs. A
+  string of the policy that is not UTF-8 is written as U+FFFD (`json.Marshal`
+  does), and the engine judges the text it gets.
+- `Verify(ctx, path, rules)` and `VerifyBytes(ctx, data, rules)` add the rules
+  of the call, a `VerifyRules`, each field optional: `Targets`, `BestEffort`,
+  `AllowFunctions`, `AllowParts` (slices of strings) and `FailOn` (`"warn"` to
+  fail on a warning too). Nothing is checked here: a fault of the rules is a
+  `rules_invalid` or `target_invalid` diagnostic, and the workbook is not
+  opened.
+- The result is a success when the engine's `ok` is true: no error diagnostic,
+  and with `FailOn` `"warn"` (the call's or the policy's) no warning either, so
+  a result can fail with no error diagnostic. `result.Value` is always empty;
+  `result.Diagnostics` has what was found. `result.Error` is set when a file
+  cannot be read (`io`, the workbook or a temporary file), a path or a rule
+  holds a NUL (`invalid_arg`, the CLI is not run), or the CLI gave no result
+  (`exit_status`, `invalid_output`). A `FailOn` other than `"error"` or
+  `"warn"` and a rule that is not UTF-8 are refused by the CLI, so they are an
+  `exit_status`.
+- Each call writes a temporary file of its own for the policy, and for the data
+  of `VerifyBytes`, that only your user may read, and removes it when the call
+  returns. Changing `data` once the SDK has written the file has no effect,
+  even while the call runs.
+- The error beside the result is a `*CLINotFoundError` (the CLI cannot be
+  started) or the context's error (the CLI was killed); the result is then
+  empty.
+- A `Verifier` does not change once it is made: share one between goroutines,
+  and call it from them at once.
+
 Go 1.26 or newer. No dependencies.
 
 ## Development

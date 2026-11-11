@@ -10,7 +10,10 @@ namespace XlsxGraft;
  *
  * The engine is its CLI, run as a subprocess; nothing here reimplements it.
  * Calls return a {@see Result} rather than throwing. What throws is a setup
- * with no runnable CLI in it ({@see CliNotFoundException}).
+ * with no runnable CLI in it ({@see CliNotFoundException}), a policy given
+ * to {@see Verifier} that cannot be written as JSON, and a rule that is not
+ * a string (`InvalidArgumentException`). Rows are read
+ * with {@see XlsxReader} and workbooks verified with {@see Verifier}.
  *
  * ```php
  * $result = XlsxGraft::version();

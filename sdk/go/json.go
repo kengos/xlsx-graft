@@ -97,9 +97,11 @@ func objects(f *fields, o object, key string) ([]object, []json.RawMessage) {
 	return list, raws
 }
 
-// report is the `error` and the `diagnostics` of the object `sheets` prints
-// or of `read`'s end line.
+// report is the `ok`, the `error` and the `diagnostics` of the object `sheets`
+// or `verify` prints, or of `read`'s end line.
 type report struct {
+	// ok is the object's `ok`.
+	ok bool
 	// refused is why the engine refused what was asked, nil when it did not.
 	refused *Diagnostic
 	// diagnostics are every problem the engine found, in order.
@@ -111,7 +113,7 @@ type report struct {
 
 func reportOf(f *fields, o object) report {
 	var r report
-	get[bool](f, o, "ok")
+	r.ok = get[bool](f, o, "ok")
 	if raw, found := o["error"]; !found || !isNull(raw) {
 		refused := get[object](f, o, "error")
 		d := problem(get[string](f, refused, "code"), get[string](f, refused, "message"))

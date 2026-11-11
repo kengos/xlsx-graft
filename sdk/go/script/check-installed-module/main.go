@@ -1,7 +1,8 @@
 // Command check-installed-module is run by `make sdk:verify:go` after it
 // builds this module, copied out of the checkout, against the SDK's copy at
 // /tmp/build: it checks that the SDK came from there, alone, and that it
-// reaches the engine on the gated line's Go, its version and a sheet's rows.
+// reaches the engine on the gated line's Go, its version, a sheet's rows and
+// the verification of bytes.
 //
 //	check-installed-module <the SDK's copy> <engine/Cargo.toml> <Go release>
 package main
@@ -81,7 +82,13 @@ func main() {
 	})
 	check(err == nil && opened.Success && reflect.DeepEqual(opened.Value, []any{"Data", "x"}), "Open read %+v, %v", opened, err)
 
-	fmt.Printf("%s from %s runs engine %s and reads a sheet on %s\n", sdk, copied, result.Value, runtime.Version())
+	// Data that is no workbook fails with a diagnostic and no error.
+	verifier, err := xlsxgraft.NewVerifier(nil)
+	check(err == nil, "NewVerifier: %v", err)
+	verified, err := verifier.VerifyBytes(context.Background(), nil, xlsxgraft.VerifyRules{})
+	check(err == nil && !verified.Success && verified.Error == nil && len(verified.Diagnostics) > 0, "VerifyBytes gave %+v, %v", verified, err)
+
+	fmt.Printf("%s from %s runs engine %s, reads a sheet and verifies on %s\n", sdk, copied, result.Value, runtime.Version())
 }
 
 // workbook writes a workbook of one sheet, Data, whose one cell is the

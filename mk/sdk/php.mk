@@ -63,12 +63,14 @@ _sdk-image-php:
 # .phpunit.cache or .php-cs-fixer.cache owned by root. vendor/ is copied
 # rather than linked because Composer's autoloader finds the package's own
 # src/ beside the real path of vendor/. The copy sits at /tmp/repo/sdk/php
-# beside a link to the engine, so the tests read engine/Cargo.toml at the path
-# they would in the checkout. Whatever a host install left in the copy
-# (vendor/, build/, the caches) is removed first.
+# beside a link to the engine and one to fixtures/, so the tests read
+# engine/Cargo.toml and the workbooks at the path they would in the checkout.
+# Whatever a host install left in the copy (vendor/, build/, the caches) is
+# removed first.
 PHP_CHECKOUT := mkdir -p /tmp/repo/sdk; \
 	cp -r /repo/sdk/php /tmp/repo/sdk/php; \
 	ln -s /repo/engine /tmp/repo/engine; \
+	ln -s /repo/fixtures /tmp/repo/fixtures; \
 	cd /tmp/repo/sdk/php; \
 	rm -rf vendor build .phpunit.cache .php-cs-fixer.cache; \
 	cp -r /pkg/vendor vendor

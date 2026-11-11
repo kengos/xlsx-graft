@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace XlsxGraft;
 
 /**
- * Reads the JSON `xlsx-graft sheets` and `xlsx-graft read` print, a line
- * at a time, holding each line to its contract (docs/sdk.md § Listing
- * sheets and § Reading rows): a key missing or of another type throws an
+ * Reads the JSON `xlsx-graft sheets`, `xlsx-graft read` and
+ * `xlsx-graft verify` print, a line at a time, holding each line to its
+ * contract (docs/sdk.md § Listing sheets, § Reading rows and § Verifying
+ * (`verify`)): a key missing or of another type throws an
  * \UnexpectedValueException, which the caller turns into `invalid_output`.
  *
  * @internal
@@ -65,8 +66,8 @@ final class CliJson
     }
 
     /**
-     * The `error` and the `diagnostics` of the object `sheets` prints or of
-     * `read`'s end line: why the engine refused what was asked, and every
+     * The `error` and the `diagnostics` of the object `sheets` or `verify` prints,
+     * or of `read`'s end line: why the engine refused what was asked, and every
      * problem it found, in order, each with the JSON it was read from, so
      * the same one read by two runs can be told.
      *

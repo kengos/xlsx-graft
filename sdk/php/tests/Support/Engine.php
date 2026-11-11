@@ -37,6 +37,12 @@ final class Engine
         return $found[1];
     }
 
+    /** The path of the workbook `$name` in the repository's fixtures/. */
+    public static function fixture(string $name): string
+    {
+        return self::PACKAGE_ROOT.'/../../fixtures/'.$name;
+    }
+
     /** A directory of its own under the system's temporary directory. */
     public static function tempDir(): string
     {

@@ -18,7 +18,7 @@ final readonly class Diagnostic
     /**
      * @param string $code the stable, machine-readable part
      * @param string $message for people
-     * @param string $severity `error`, `warning` or `notice`
+     * @param string $severity `error`, `warn` or `notice`
      * @param array<mixed> $args the values the message names, by name
      * @param array<mixed> $location where in the workbook: its part, cell or row, as the engine says
      * @param array<mixed>|null $decidedBy the rule or the source the engine followed, when it says

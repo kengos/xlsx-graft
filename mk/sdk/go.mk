@@ -61,8 +61,9 @@ _sdk-image-go:
 
 # Every step runs on a copy of the checkout under /tmp, so nothing lands in the
 # mounted checkout: the cover profile is written under /tmp too. The copy sits
-# at /tmp/repo/sdk/go beside a link to the engine, so the tests read
-# engine/Cargo.toml at the path they would in the checkout.
+# at /tmp/repo/sdk/go beside links to the engine and to fixtures/, so the tests
+# read engine/Cargo.toml and the fixtures at the paths they would in the
+# checkout.
 # The module as the proxy zips it: a copy of sdk/go in /tmp/build with every
 # directory that has a go.mod of its own (tools/, script/check-installed-module/)
 # left out, as the zip leaves it out.
@@ -73,6 +74,7 @@ GO_MODULE_COPY := cp -r /repo/sdk/go /tmp/build; \
 GO_CHECKOUT := mkdir -p /tmp/repo/sdk; \
 	cp -r /repo/sdk/go /tmp/repo/sdk/go; \
 	ln -s /repo/engine /tmp/repo/engine; \
+	ln -s /repo/fixtures /tmp/repo/fixtures; \
 	cd /tmp/repo/sdk/go
 # One command per step under `sh -e`, so the first red one stops the rest.
 # `gofmt -l` lists what it would rewrite and exits 0 either way, so the list

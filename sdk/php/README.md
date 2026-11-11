@@ -88,6 +88,60 @@ There is no timeout: stop taking rows to stop a read, which takes effect
 at the next output the CLI flushes. PHP's `max_execution_time` does not count the time
 spent waiting for the CLI, but on Windows.
 
+## Verifying a workbook
+
+```php
+use XlsxGraft\Verifier;
+
+$verifier = new Verifier(policy: ['max_formula_bytes' => 32768]);
+$result = $verifier->verify('book.xlsx', targets: ['excel >= 2016'], allowParts: ['macro']);
+if ($result->failed()) {
+    echo "not verified\n";
+}
+if ($result->error !== null) {
+    fwrite(STDERR, "{$result->error->code}: {$result->error->message}\n");
+}
+foreach ($result->diagnostics as $d) {
+    fwrite(STDERR, "{$d->severity} {$d->code}: {$d->message}\n");
+}
+```
+
+- `new Verifier(policy: ..., cli: ...)` takes the host's policy, an array of
+  the engine's limits, `fail_on`, `deny_scheduled` and `forbid`. Keys are
+  snake_case or camelCase, in the arrays inside it too (they are written as
+  camelCase); the values are not changed. An empty array is the empty
+  policy, and so is leaving it out. The policy is written as JSON when the
+  verifier is made, so changing your array afterwards changes nothing, and
+  is not checked then: a policy the engine does not take is found by the
+  first `verify()`, as `policy_invalid` diagnostics. A policy that cannot be
+  written as JSON (INF, NAN, a string that is not UTF-8) throws an
+  `InvalidArgumentException`. The CLI is found when the verifier is made
+  (`CliNotFoundException`), as [below](#where-the-engine-cli-comes-from).
+- `verify($path, ...)` and `verifyBytes($data, ...)` take the caller's rules
+  as named arguments, each left out when not needed. Four are arrays of
+  strings: `targets` (the versions the workbook must run in), `bestEffort`
+  (the versions it should run in; a problem with one is a warning), `allowFunctions` and
+  `allowParts` (what the engine refuses by default, to let through); a value
+  in one that is not a string throws an `InvalidArgumentException`. `failOn`
+  is a string: `'warn'` to fail on a warning too.
+- The result is successful when the engine says the workbook is ok, and has
+  no value. Its diagnostics are the engine's, each with `decidedBy` and
+  `fix` when the engine gives them. `error` is set when a file cannot be
+  read (`io`, a workbook that is not there or a temporary file that cannot
+  be written) and when the CLI fails (`exit_status`, `invalid_output`); a
+  fault of the rules (`rules_invalid`, `target_invalid`) or of the policy
+  (`policy_invalid`) is a diagnostic, with no `error`. A path or a rule
+  holding a NUL is `invalid_arg`, and the CLI is not run. With `failOn:
+  'warn'` (or the policy's `fail_on`) a result fails on a warning alone.
+- This package does not check a rule's value: a `failOn` that is not `error`
+  or `warn`, or a value that is not UTF-8, is refused by the CLI, and the
+  result is an `exit_status` error quoting its message.
+- There is no timeout: PHP's `max_execution_time` does not count the time
+  spent waiting for the CLI, but on Windows.
+- The CLI reads a path, so each `verify()` writes the policy to a temporary
+  file, and `verifyBytes()` the bytes too, each readable only by your user
+  and removed when the call ends, however it ends.
+
 ## The engine's version
 
 ```php
@@ -106,8 +160,10 @@ if ($result->success) {
 Calls return a `Result` rather than throwing. What throws is a CLI that is
 missing or cannot be run (`CliNotFoundException`), a PHP that cannot start
 one included (`proc_open` disabled, or no temporary file for its stderr), a
-book used after its callback (`ClosedException`), a negative sheet index
-and a zone PHP does not know.
+book used after its callback (`ClosedException`), a negative sheet index,
+a zone PHP does not know, a policy given to `Verifier` that cannot be
+written as JSON, and a rule that is not a string
+(`InvalidArgumentException`).
 
 ## Where the engine CLI comes from
 

@@ -8,7 +8,11 @@ package xlsxgraft
 // refused, or the CLI failed. A read can fail with Error nil too: one that a
 // problem in its sheet stopped, whose diagnostics hold an error, as
 // `xlsx-graft read`'s `ok` is false then. A call that is not a read (the
-// engine's version) says why it failed in its diagnostics alone.
+// engine's version) says why it failed in its diagnostics alone. A verify
+// ([Verifier]) has no Value. Its Error is set when a file could not be read
+// or written (`io`), a path or a rule holds a NUL (`invalid_arg`), or the CLI
+// gave no result (`exit_status`, `invalid_output`). The faults of the
+// workbook, the policy and the rules are in Diagnostics.
 type Result[T any] struct {
 	Success     bool
 	Value       T
@@ -32,7 +36,7 @@ type Diagnostic struct {
 	Code string
 	// Message is for people.
 	Message string
-	// Severity is "error", "warning" or "notice".
+	// Severity is "error", "warn" or "notice".
 	Severity string
 	// Args are the values the message names, by name.
 	Args map[string]any
