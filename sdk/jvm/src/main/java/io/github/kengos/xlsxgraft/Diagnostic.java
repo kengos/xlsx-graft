@@ -67,7 +67,7 @@ public final class Diagnostic {
   /**
    * How much it matters.
    *
-   * @return {@code "error"}, {@code "warning"} or {@code "notice"}
+   * @return {@code "error"}, {@code "warn"} or {@code "notice"}
    */
   public String severity() {
     return severity;

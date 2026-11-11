@@ -69,6 +69,50 @@ alone and a time of day are not `Date`s, which would put them at a midnight
 or on a day the workbook never gave; `String()` of either is its ISO 8601
 form (`2024-01-31`, `18:00:00.000`).
 
+## Verifying a workbook
+
+```js
+import { Verifier } from 'xlsx-graft';
+
+const verifier = new Verifier({ policy: { maxFormulaBytes: 32768, failOn: 'warn' } });
+const result = verifier.verify('book.xlsx', {
+  targets: ['excel >= 2016'],
+  allowParts: ['macro'],
+});
+console.log(result.success ? 'ok' : 'not ok');
+for (const d of result.diagnostics) console.error(`${d.severity} ${d.code}: ${d.message}`);
+if (result.error) console.error(`${result.error.code}: ${result.error.message}`);
+```
+
+- `new Verifier({ policy })` takes the host's limits and rules as an object,
+  its keys as the engine names them (camelCase; none is renamed, so the same
+  policy file as the CLI's `--policy`, read with `JSON.parse`, works). The
+  engine checks it there: a policy it does not take throws a
+  `PolicyInvalidError`, whose `diagnostics` say what is wrong (for each key, a
+  `policy_invalid` diagnostic).
+- `verify(path, rules)` and `verifyBytes(uint8Array, rules)` take the rules of
+  the call as an object, each key optional: `targets`, `bestEffort`,
+  `allowFunctions`, `allowParts` (arrays of strings) and `failOn` (`'warn'` to
+  fail on a warning too). `verify` takes a path or a `file:` URL.
+  `verifyBytes` reads the array in place for the call, not copied.
+- The result is successful when the engine's `ok` is true: no error
+  diagnostic, and with `failOn: 'warn'` (the call's or the policy's) no
+  warning either, so such a result can fail with no error diagnostic.
+  `result.value` is always `null`; `result.diagnostics` has what was found.
+  `result.error` is set when the file cannot be read (`io`) or the call
+  itself failed (`panic`, `null_arg`, `unknown_status`,
+  `diagnostics_unreadable`). A fault of the rules is a `rules_invalid` or
+  `target_invalid` diagnostic, and the workbook is not opened.
+- A policy and rules that make more than 2 MiB of JSON throw a `RangeError`;
+  a value JSON cannot write (a BigInt, a cycle) throws a `TypeError`. For a
+  path with a lone surrogate, the package reads the file itself (Node.js opens
+  the name with U+FFFD in place of the lone surrogate): if it cannot, the
+  result is the `io` error and the rules are not checked.
+- A lone surrogate in a string of the policy or the rules is written as
+  U+FFFD, and the engine checks that string as it checks any other (a
+  `policy_invalid`, `target_invalid` or `rules_invalid` diagnostic).
+- A verifier does not change once it is made. A worker thread makes its own.
+
 ## The engine's version
 
 ```js
@@ -86,9 +130,12 @@ if (result.success) {
 
 Calls return a `Result` rather than throwing. What throws is a missing
 engine addon (`LibraryNotFoundError`), a book used after its callback
-(`ClosedError`), and a call made wrongly (a `TypeError` or a `RangeError`:
+(`ClosedError`), a policy the engine does not take (`PolicyInvalidError`), a
+call this package built wrongly, which the engine refuses (`XlsxGraftError`: a
+bug of the package), and a call made wrongly (a `TypeError` or a `RangeError`:
 no callback, a zone `Intl` does not take, a sheet that is neither a name
-nor an index).
+nor an index, a policy and rules of more than 2 MiB of JSON, a value JSON
+cannot write, a URL that is not a `file:` URL).
 
 The package is ESM; `require('xlsx-graft')` loads it as well, through
 Node.js's `require()` of ES modules.

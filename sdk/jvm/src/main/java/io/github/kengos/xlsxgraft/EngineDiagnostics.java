@@ -36,7 +36,8 @@ final class EngineDiagnostics {
         diagnostics);
   }
 
-  private static Diagnostic diagnostic(Map<String, Object> record) throws Json.UnreadableException {
+  /** The diagnostic the JSON object {@code record} holds, which VerifyReport reads too. */
+  static Diagnostic diagnostic(Map<String, Object> record) throws Json.UnreadableException {
     Object decidedBy = member(record, "decidedBy");
     return new Diagnostic(
         text(record, "code"),
@@ -49,27 +50,23 @@ final class EngineDiagnostics {
   }
 
   // A member that is there, null or not.
-  private static Object member(Map<String, Object> record, String name)
-      throws Json.UnreadableException {
+  static Object member(Map<String, Object> record, String name) throws Json.UnreadableException {
     if (!record.containsKey(name)) {
       throw new Json.UnreadableException("no `" + name + "`");
     }
     return record.get(name);
   }
 
-  private static String text(Map<String, Object> record, String name)
-      throws Json.UnreadableException {
+  static String text(Map<String, Object> record, String name) throws Json.UnreadableException {
     return of(String.class, member(record, name), name);
   }
 
   @SuppressWarnings("unchecked") // Json reads every object as a Map<String, Object>.
-  private static Map<String, Object> object(Object value, String name)
-      throws Json.UnreadableException {
+  static Map<String, Object> object(Object value, String name) throws Json.UnreadableException {
     return (Map<String, Object>) of(Map.class, value, name);
   }
 
-  private static <T> T of(Class<T> type, Object value, String name)
-      throws Json.UnreadableException {
+  static <T> T of(Class<T> type, Object value, String name) throws Json.UnreadableException {
     if (!type.isInstance(value)) {
       throw new Json.UnreadableException(
           "`"
