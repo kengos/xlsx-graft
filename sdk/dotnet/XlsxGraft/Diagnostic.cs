@@ -12,7 +12,7 @@ namespace XlsxGraft;
 /// ones compared by their content.
 /// </remarks>
 /// <param name="Code">The stable, machine-readable part.</param>
-/// <param name="Severity"><c>"error"</c>, <c>"warning"</c> or <c>"notice"</c>.</param>
+/// <param name="Severity"><c>"error"</c>, <c>"warn"</c> or <c>"notice"</c>.</param>
 /// <param name="Message">The part for people.</param>
 public sealed record Diagnostic(string Code, string Severity, string Message)
 {

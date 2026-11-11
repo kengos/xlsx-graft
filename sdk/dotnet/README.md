@@ -77,6 +77,54 @@ foreach (var d in result.Diagnostics)
 A workbook's dates and times are wall-clock times with no zone, and are
 given as such: no time zone is applied.
 
+## Verifying a workbook
+
+```csharp
+using System.Text.Json.Nodes;
+using XlsxGraft;
+
+var verifier = new Verifier(new JsonObject { ["maxFormulaBytes"] = 32768, ["failOn"] = "warn" });
+var result = verifier.Verify("book.xlsx", targets: ["excel >= 2016"], allowParts: ["macro"]);
+Console.WriteLine(result.Success ? "ok" : "not ok");
+foreach (var d in result.Diagnostics)
+{
+    Console.Error.WriteLine($"{d.Severity} {d.Code}: {d.Message}");
+}
+
+if (result.Error is { } error)
+{
+    Console.Error.WriteLine($"{error.Code}: {error.Message}");
+}
+```
+
+- `new Verifier(policy)` takes the host's limits and rules as a
+  `System.Text.Json.Nodes.JsonObject`, with the engine's camelCase keys, which
+  are not changed. The same policy file as the CLI's `--policy` is
+  `JsonNode.Parse(File.ReadAllText("policy.json"))!.AsObject()`. The engine
+  checks it there: a policy it does not take throws
+  `XlsxGraft.PolicyInvalidException`, whose `Diagnostics` say what is wrong
+  (for each key, a `policy_invalid` diagnostic).
+- `Verify(path, ...)` and `VerifyBytes(data, ...)` take the rules of the call as
+  named arguments, each optional: `targets`, `bestEffort`, `allowFunctions`,
+  `allowParts` (any `IEnumerable<string>`) and `failOn` (`"warn"` to fail on a
+  warning too). `VerifyBytes` pins `data` for the call and does not copy it,
+  so it must not change meanwhile.
+- The result is successful when the engine's `ok` is true: no error
+  diagnostic, and with `failOn: "warn"` (the call's or the policy's) no warning
+  either, so such a result can fail with no error diagnostic. A verify result
+  has no value; `result.Diagnostics` has what was found. `result.Error` is set
+  when the file cannot be read (`io`) or the call itself failed (`panic`,
+  `null_arg`, `unknown_status`, `diagnostics_unreadable`). A fault of the rules
+  is a `rules_invalid` or `target_invalid` diagnostic, and the workbook is not
+  opened.
+- A policy and rules that make more than 2 MiB of JSON, or a policy that holds
+  a value JSON cannot write (`double.NaN`, a `Type`, nesting too deep), throw
+  `ArgumentException`; a `null` path throws `ArgumentNullException`. For a path
+  that is not Unicode (a lone surrogate), the package reads the file itself: if
+  it cannot, the result is the `io` error and the rules are not checked.
+- A verifier does not change once it is made: share one between threads, and
+  call it from them at once.
+
 ## The engine's version
 
 ```csharp
@@ -95,7 +143,8 @@ else
 ```
 
 Calls return a `XlsxGraft.Result` rather than throwing. What throws is a
-missing engine library (`XlsxGraft.LibraryNotFoundException`), a book used
+missing engine library (`XlsxGraft.LibraryNotFoundException`), a verifier
+policy the engine does not take (`XlsxGraft.PolicyInvalidException`), a book used
 after it is disposed (`ObjectDisposedException`), and a call made wrongly
 (`ArgumentNullException`, `ArgumentOutOfRangeException` for an index below
 0, `InvalidOperationException` for a result read before the book is

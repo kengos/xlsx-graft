@@ -18,7 +18,7 @@ class Diagnostic:
     The engine's own diagnostics (:attr:`Result.diagnostics
     <xlsx_graft.Result.diagnostics>` of a read) carry every field of the JSON
     every host prints, keys as written there: ``severity`` (``"error"``,
-    ``"warning"`` or ``"notice"``), ``args``, ``location``, ``decided_by``
+    ``"warn"`` or ``"notice"``), ``args``, ``location``, ``decided_by``
     (its ``decidedBy``) and ``fix``. One the package makes from a C ABI
     status is an ``"error"`` with ``args`` and ``location`` empty and no
     ``decided_by`` or ``fix``.

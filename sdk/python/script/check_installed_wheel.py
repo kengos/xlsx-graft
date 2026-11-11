@@ -44,6 +44,12 @@ def main(venv: str, cargo_toml: str) -> None:
     if result.value != engine:
         sys.exit(f"xlsx_graft.version() is {result.value}, the engine is {engine}")
 
+    # The shipped engine has the verify functions: an empty workbook is
+    # refused by a diagnostic, not by a failure of the call.
+    verified = xlsx_graft.Verifier().verify_bytes(b"")
+    if verified.success or verified.error is not None or not verified.diagnostics:
+        sys.exit(f"Verifier.verify_bytes gave {verified}")
+
     print(
         f"installed xlsx-graft {xlsx_graft.__version__} from {where.parent}"
         f" loads engine {result.value}"

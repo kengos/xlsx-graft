@@ -53,6 +53,13 @@ var result = XlsxGraft.Engine.Version();
 Check(result.Success, $"Engine.Version() failed: {string.Join(", ", result.Diagnostics)}");
 Check(result.Value == engine, $"Engine.Version() is {result.Value}, the engine is {engine}");
 
+// The shipped engine has the verify functions: an empty workbook is refused
+// by a diagnostic, not by a failure of the call.
+var verified = new XlsxGraft.Verifier().VerifyBytes([]);
+Check(
+    verified.Failed && verified.Error is null && verified.Diagnostics.Count > 0,
+    $"Verifier.VerifyBytes gave success {verified.Success}, error {verified.Error}, {verified.Diagnostics.Count} diagnostics");
+
 Console.WriteLine($"installed XlsxGraft 0.0.0 from {installed} loads engine {result.Value}");
 
 static string Hash(string path) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));

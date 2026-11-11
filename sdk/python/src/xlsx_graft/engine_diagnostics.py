@@ -35,15 +35,22 @@ UNREAD = Report(has_errors=False, error=None, diagnostics=())
 def call(text: str) -> Report:
     """Raises one of :data:`UNREADABLE` for JSON not of that shape."""
     report = json.loads(text)
-    error = report["error"]
     return Report(
         has_errors=bool(report["has_errors"]),
-        error=None if error is None else status_diagnostic.of(error["code"], error["message"]),
-        diagnostics=tuple(_of(record) for record in report["diagnostics"]),
+        error=failure(report["error"]),
+        diagnostics=tuple(diagnostic(record) for record in report["diagnostics"]),
     )
 
 
-def _of(record: dict[str, Any]) -> Diagnostic:
+def failure(error: dict[str, Any] | None) -> Diagnostic | None:
+    """The package's diagnostic for the ``{"code", "message"}`` object the
+    engine gives as its ``error``, or ``None`` for no error.
+    """
+    return None if error is None else status_diagnostic.of(error["code"], error["message"])
+
+
+def diagnostic(record: dict[str, Any]) -> Diagnostic:
+    """One diagnostic of the engine's JSON, keys as the engine writes them."""
     return Diagnostic(
         code=record["code"],
         severity=record["severity"],

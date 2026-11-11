@@ -1,5 +1,7 @@
 // Reads the JSON xlsx_graft_book_diagnostics writes,
-// {"has_errors": B, "error": E, "diagnostics": [...]}.
+// {"has_errors": B, "error": E, "diagnostics": [...]}, and the records of
+// diagnostics and the error object of a verify result, which have the same
+// shape.
 
 using System.Text.Json;
 
@@ -26,11 +28,18 @@ internal static class EngineDiagnostics
             report.GetProperty("has_errors").GetBoolean(),
             error.ValueKind == JsonValueKind.Null
                 ? null
-                : StatusDiagnostic.Of(Text(error, "code"), Text(error, "message")),
+                : Failure(error),
             [.. report.GetProperty("diagnostics").EnumerateArray().Select(Of)]);
     }
 
-    private static Diagnostic Of(JsonElement record) =>
+    /// <summary>The diagnostic of an engine <c>error</c> object, <c>{"code": C, "message": M}</c>.</summary>
+    /// <exception cref="Exception">One that <see cref="Unreadable"/> names, for JSON not of that shape.</exception>
+    internal static Diagnostic Failure(JsonElement error) =>
+        StatusDiagnostic.Of(Text(error, "code"), Text(error, "message"));
+
+    /// <summary>The diagnostic of one record of a <c>diagnostics</c> array.</summary>
+    /// <exception cref="Exception">One that <see cref="Unreadable"/> names, for JSON not of that shape.</exception>
+    internal static Diagnostic Of(JsonElement record) =>
         new(Text(record, "code"), Text(record, "severity"), Text(record, "message"))
         {
             Args = record.GetProperty("args").Clone(),
