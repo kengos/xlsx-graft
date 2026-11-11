@@ -65,6 +65,49 @@ for d in result.diagnostics:
 A workbook's dates and times are wall-clock times with no zone, and are
 given as such: no time zone is applied.
 
+## Verifying a workbook
+
+```python
+import sys
+import xlsx_graft
+
+verifier = xlsx_graft.Verifier(policy={"max_formula_bytes": 32768, "fail_on": "warn"})
+result = verifier.verify("book.xlsx", targets=["excel >= 2016"], allow_parts=["macro"])
+print("ok" if result.success else "not ok")
+for d in result.diagnostics:
+    print(f"{d.severity} {d.code}: {d.message}", file=sys.stderr)
+if result.error:
+    print(f"{result.error.code}: {result.error.message}", file=sys.stderr)
+```
+
+- `Verifier(policy=)` takes the host's limits and rules as a dict, keys in
+  snake_case or camelCase (the same policy file as the CLI's `--policy`, read
+  with `json.load`, works). The engine checks it there: a policy it does not
+  take raises `xlsx_graft.PolicyInvalidError` (a `ValueError`), whose
+  `diagnostics` say what is wrong (for each key, a `policy_invalid`
+  diagnostic).
+- `verify(path, ...)` and `verify_bytes(data, ...)` take the rules of the call
+  as keyword arguments, each optional: `targets=`, `best_effort=`,
+  `allow_functions=`, `allow_parts=` (lists of strings) and `fail_on=`
+  (`"warn"` to fail on a warning too).
+- The result is successful when the engine's `ok` is true: no error
+  diagnostic, and with `fail_on="warn"` (the call's or the policy's) no
+  warning either, so such a result can fail with no error diagnostic.
+  `result.value` is always `None`; `result.diagnostics` has what was found.
+  `result.error` is set when the file cannot be read (`io`) or the call
+  itself failed (`panic`, `null_arg`, `unknown_status`,
+  `diagnostics_unreadable`). A fault of the rules is a `rules_invalid` or
+  `target_invalid` diagnostic, and the workbook is not opened.
+- A policy and rules that make more than 2 MiB of JSON, or a value JSON
+  cannot write, or a policy that is not a mapping, raise `ValueError` or
+  `TypeError`, and dicts and lists nested past Python's recursion limit raise
+  `RecursionError`; a path or data of the wrong type raises Python's own
+  `TypeError`. For a path that is not UTF-8, the package reads the file
+  itself: if it cannot, the result is the `io` error and the rules are not
+  checked.
+- A verifier does not change once it is made: share one between threads, and
+  call it from them at once.
+
 ## The engine's version
 
 ```python

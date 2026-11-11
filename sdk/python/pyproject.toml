@@ -88,6 +88,11 @@ select = [
   "RUF",
 ]
 
+# Verifier.verify takes the five rules of a call as keyword arguments, as the
+# other SDKs' verifiers do, rather than a **rules the type checker cannot read.
+[tool.ruff.lint.pylint]
+max-args = 8
+
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["PLR2004"]
 

@@ -15,12 +15,13 @@ from xlsx_graft.diagnostic import Diagnostic
 OK = 0
 PANIC = 2
 IO = 3
+INVALID_ARG = 4
 
 CODES = {
     1: ("null_arg", "the engine was passed a null pointer"),
     PANIC: ("panic", "the engine panicked; the call did not complete"),
     IO: ("io", "the host failed to open, read or write a file"),
-    4: ("invalid_arg", "the engine was passed text that is not UTF-8"),
+    INVALID_ARG: ("invalid_arg", "the engine was passed text that is not UTF-8"),
     5: ("workbook_unreadable", "the workbook cannot be read; the diagnostics say why"),
     6: ("sheet_not_found", "no such sheet"),
     7: ("sheet_ambiguous", "more than one sheet has the name, letter case aside"),

@@ -46,3 +46,31 @@ public class LibraryNotFoundException : XlsxGraftException
     {
     }
 }
+
+/// <summary>
+/// The policy given to a <see cref="Verifier"/> is not one the engine takes.
+/// </summary>
+/// <remarks>
+/// A mistake of the caller's, not a failed call, so it is thrown by the
+/// constructor rather than returned as a <see cref="Result"/>. It is thrown
+/// too when the engine's check of the policy itself failed (the error code is
+/// <c>panic</c>, <c>null_arg</c>, <c>unknown_status</c> or
+/// <c>diagnostics_unreadable</c>): the first of <see cref="Diagnostics"/> is
+/// then that error.
+/// </remarks>
+public class PolicyInvalidException : XlsxGraftException
+{
+    /// <summary>Creates the exception for the <paramref name="diagnostics"/> the engine gave for the policy.</summary>
+    /// <param name="diagnostics">
+    /// What is wrong with the policy: the engine's error first when it gave
+    /// one, then its diagnostics (a <c>policy_invalid</c> for each key).
+    /// </param>
+    public PolicyInvalidException(IReadOnlyList<Diagnostic> diagnostics)
+        : base($"the policy is not valid: {string.Join("; ", diagnostics.Select(d => d.Message))}")
+    {
+        Diagnostics = diagnostics;
+    }
+
+    /// <summary>What is wrong with the policy.</summary>
+    public IReadOnlyList<Diagnostic> Diagnostics { get; }
+}
