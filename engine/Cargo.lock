@@ -907,6 +907,7 @@ name = "xlsx-graft-reference"
 version = "0.0.0"
 dependencies = [
  "thiserror",
+ "xlsx-graft-diagnostics",
 ]
 
 [[package]]

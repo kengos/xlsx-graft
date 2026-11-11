@@ -10,5 +10,9 @@ repository.workspace = true
 # ReferenceError.
 thiserror = { workspace = true }
 
+[dev-dependencies]
+# The gate that every diagnostic code has a section in a diagnostics page.
+xlsx-graft-diagnostics = { workspace = true }
+
 [lints]
 workspace = true

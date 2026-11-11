@@ -6,6 +6,8 @@ use super::*;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
+mod diagnostics;
+
 /// The crate's `pages/` directory.
 fn pages_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("pages")

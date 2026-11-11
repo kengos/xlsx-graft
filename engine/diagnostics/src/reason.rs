@@ -74,9 +74,10 @@ reasons! {
         Empty => "empty",
         /// A second entry names what an earlier one does.
         Duplicate => "duplicate",
-        /// A function is named with the prefix a workbook writes it with
-        /// (`_xlfn.`), which is removed before a function is ruled on, so
-        /// the name would match nothing.
+        /// A function is named with a prefix a workbook writes it with
+        /// (`_xlfn.`, `_xlws.`, `_xludf.`: any prefix that starts with `_xl`,
+        /// in any letter case, and ends with `.`), which is removed before a
+        /// function is ruled on, so the name would match nothing.
         Prefixed => "prefixed",
     }
 

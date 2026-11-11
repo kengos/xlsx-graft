@@ -13,6 +13,11 @@
 //! `result` of the request block just before it. Any other JSON in a page
 //! goes in a fence with another language name, such as ```` ```text ````.
 //!
+//! The pages named `diagnostics-*` have no tools. Each explains the
+//! diagnostic codes of one area, one `## <code>` section per code, and the
+//! tests (`src/tests/diagnostics.rs`) check that every code has exactly one
+//! section. A PR that adds a code writes its section too, or the tests fail.
+//!
 //! The pages are inside the crate because `include_str!` embeds them when
 //! the crate is compiled, and `cargo package` leaves out every file outside
 //! the crate's directory.
@@ -48,11 +53,13 @@ pub const MAX_PAGE_BYTES: usize = 64 * 1024;
 /// returns beside the page list. It names the MCP tool `get_reference`.
 /// `pages/reference.md` says the same in other words; the two are kept in
 /// step by hand.
-pub const HOW_TO_READ: &str = "Each page is markdown about the tools named in that page's \
+pub const HOW_TO_READ: &str = "A page whose `tools` is not empty is markdown about the tools named in that page's \
      `tools` in this list: how to call each one, with an example call, and what the call \
      returns. Read the page of a tool before calling it. Fetch a page with get_reference, \
      passing its `uri`. Each tool's description in tools/list ends with the `uri` of its \
-     page.";
+     page. A page whose `tools` is empty explains diagnostic codes instead of tools: it \
+     has one `## <code>` section per code, and its `summary` says which codes it holds \
+     (a name ending in `*` stands for every code that starts with it).";
 
 /// Every embedded page whose front matter has the form [`Page`] describes
 /// and whose file is within [`MAX_PAGE_BYTES`], ordered by name.
