@@ -4,11 +4,18 @@
 
 mod pages;
 mod reference;
+mod verify;
 
-use super::{call, list};
-use crate::rpc::INVALID_PARAMS;
-use serde_json::json;
+use super::list;
+use crate::Context;
+use crate::rpc::{INVALID_PARAMS, RpcError};
+use serde_json::{Value, json};
 use xlsx_graft_core::version;
+
+/// The `tools/call` result of `params` under the default context.
+fn call(params: &Value) -> Result<Value, RpcError> {
+    super::call(params, &Context::default())
+}
 
 #[test]
 fn tools_list_returns_the_version_descriptor_with_every_field_as_its_first_entry() {

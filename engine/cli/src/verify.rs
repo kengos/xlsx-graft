@@ -14,11 +14,10 @@ use crate::{CliError, Format, Outcome, Report, emit};
 use clap::Args;
 pub(crate) use help::{AFTER_LONG_HELP, LONG_ABOUT};
 use serde_json::{Map, Value};
-use std::fs::File;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use xlsx_graft_host::{
-    FailOn, Input, MAX_SETTING_BYTES, Prepared, ReportText, prepare_parts, verify_path,
+    FailOn, Input, Prepared, ReportText, prepare_parts, read_setting, verify_path,
 };
 
 /// The arguments of `verify`.
@@ -67,7 +66,7 @@ pub(crate) fn run(
 
 /// The result, and whether the policy or the rules were not valid.
 fn check(args: &VerifyArgs) -> (xlsx_graft_host::Report, bool) {
-    let policy = match args.policy.as_deref().map(read_policy) {
+    let policy = match args.policy.as_deref().map(read_setting) {
         Some(Err(error)) => {
             let path = args.policy.as_deref().unwrap_or(Path::new(""));
             let message = format!("the policy {} could not be read: {error}", path.display());
@@ -97,15 +96,6 @@ fn outcome(report: &xlsx_graft_host::Report, invalid: bool) -> Outcome {
     } else {
         Outcome::Failure
     }
-}
-
-/// The policy file's bytes, up to one past what the host reads, so that a
-/// larger file is reported as too large without being read whole.
-fn read_policy(path: &Path) -> io::Result<Vec<u8>> {
-    let limit = u64::try_from(MAX_SETTING_BYTES).map_or(u64::MAX, |max| max.saturating_add(1));
-    let mut bytes = Vec::new();
-    File::open(path)?.take(limit).read_to_end(&mut bytes)?;
-    Ok(bytes)
 }
 
 /// The rules the arguments give, with the template's keys and only the keys

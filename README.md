@@ -66,9 +66,9 @@ template is reported, not rewritten (below).
   `targets: [excel >= 2024, excel-mac >= 2024]`, whatever its
   `bestEffort:` says; a `bestEffort:` version the default already covers
   adds nothing (one that a written `targets:` covers stays an error,
-  `target_invalid`). No host reads a template yet: verifying is reached
-  only through the engine's Rust API, which takes the lists from its
-  caller.
+  `target_invalid`). No host reads a template yet; the CLI, the SDKs and the
+  MCP server's `verify` take the same lists from their caller, as `targets`
+  and `bestEffort` of the call.
 - **Writing** (not built yet; this is its policy):
   - It writes Transitional.
   - It honours the template's `targets:`, `bestEffort:` and `allow` as

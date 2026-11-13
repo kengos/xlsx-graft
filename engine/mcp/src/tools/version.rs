@@ -1,6 +1,7 @@
 //! The `version` tool: the version of the engine the server was built from.
 
 use super::{Tool, no_arguments, structured};
+use crate::Context;
 use crate::rpc::RpcError;
 use serde_json::{Value, json};
 
@@ -27,7 +28,7 @@ fn output_schema() -> Value {
 
 /// Returns the engine version as `structuredContent` and as text. The tool
 /// ignores any `arguments`.
-fn run(_arguments: &Value) -> Result<Value, RpcError> {
+fn run(_arguments: &Value, _context: &Context) -> Result<Value, RpcError> {
     Ok(structured(
         &json!({ "version": xlsx_graft_core::version() }),
     ))

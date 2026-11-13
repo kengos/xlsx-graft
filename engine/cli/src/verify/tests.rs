@@ -1,10 +1,9 @@
-//! Unit tests for `verify`: the rules the arguments make, the policy file's
-//! read and the exit a result makes.
+//! Unit tests for `verify`: the rules the arguments make and the exit a
+//! result makes.
 
-use super::{VerifyArgs, fail_on, outcome, read_policy, rules};
+use super::{VerifyArgs, fail_on, outcome, rules};
 use crate::{Cli, Command, Outcome};
 use serde_json::json;
-use std::io::Write;
 use xlsx_graft_host::{FailOn, Report};
 
 fn args(arguments: &[&str]) -> VerifyArgs {
@@ -53,20 +52,6 @@ fn the_fail_on_of_an_unread_policy_is_the_callers() {
     assert_eq!(fail_on(&args(&[])), FailOn::Error);
     assert_eq!(fail_on(&args(&["--fail-on", "error"])), FailOn::Error);
     assert_eq!(fail_on(&args(&["--fail-on", "warn"])), FailOn::Warn);
-}
-
-#[test]
-fn a_policy_file_is_read_one_byte_past_what_the_host_takes() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("policy.json");
-    let size = xlsx_graft_host::MAX_SETTING_BYTES + 10;
-    std::fs::File::create(&path)
-        .unwrap()
-        .write_all(&vec![b' '; size])
-        .unwrap();
-    let bytes = read_policy(&path).unwrap();
-    assert_eq!(bytes.len(), xlsx_graft_host::MAX_SETTING_BYTES + 1);
-    assert!(read_policy(&dir.path().join("none.json")).is_err());
 }
 
 #[test]

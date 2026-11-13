@@ -38,7 +38,7 @@ mod support;
 mod text;
 mod walk;
 
-pub use input::{Input, MAX_REQUEST_BYTES, MAX_SETTING_BYTES};
+pub use input::{Input, MAX_REQUEST_BYTES, MAX_SETTING_BYTES, read_setting};
 pub use policy::Policy;
 pub use policy::limits::{HostLimits, LIMITS, LimitKey};
 pub use prepare::{
@@ -46,6 +46,9 @@ pub use prepare::{
 };
 pub use report::{Counts, FailOn, Failure, Report};
 pub use text::{DiagnosticsText, ReportText};
+/// A diagnostic with where it was found: what [`Policy::read`] returns for
+/// each fault, and what [`Report::diagnostics`] lists.
+pub use xlsx_graft_diagnostics::Record;
 
 use std::fs::File;
 use std::io::{BufReader, Cursor, Read, Seek};
@@ -81,13 +84,24 @@ pub fn verify<R: Read + Seek>(reader: R, prepared: &Prepared) -> Report {
 }
 
 /// Verifies the workbook at `path` under `prepared`; a file that cannot be
-/// opened is the report's `error`.
+/// opened, and a path that is not a regular file (a directory, a named pipe,
+/// a device; a link is followed), which is not opened at all so that opening
+/// it cannot block, is the report's `error`.
 pub fn verify_path(path: &Path, prepared: &Prepared) -> Report {
     let options = match prepared {
         Prepared::Ready(options) => options,
         Prepared::Invalid { .. } => return verify(Cursor::new(&[][..]), prepared),
     };
-    match File::open(path) {
+    let opened = match std::fs::metadata(path) {
+        Ok(metadata) if !metadata.is_file() => {
+            let message = format!("{} is not a regular file", path.display());
+            let failure = Some(Failure::io(message));
+            return Report::finished(Diagnostics::new(), options.fail_on, failure);
+        }
+        Ok(_) => File::open(path),
+        Err(error) => Err(error),
+    };
+    match opened {
         Ok(file) => verify(BufReader::new(file), prepared),
         Err(error) => {
             let message = format!("{} could not be opened: {error}", path.display());

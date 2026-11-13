@@ -7,6 +7,7 @@
 //! answer the same markdown for the same URI.
 
 use super::{IsError, Tool, no_arguments, structured, text_result};
+use crate::Context;
 use crate::rpc::{INVALID_PARAMS, RpcError};
 use serde_json::{Value, json};
 use xlsx_graft_reference::{HOW_TO_READ, page, pages};
@@ -64,7 +65,7 @@ fn list_output_schema() -> Value {
 /// Returns every embedded page's `uri`, `title`, `summary` and `tools` as
 /// `pages`, and [`HOW_TO_READ`] as `howToRead`. Any `arguments` are
 /// ignored.
-fn list(_arguments: &Value) -> Result<Value, RpcError> {
+fn list(_arguments: &Value, _context: &Context) -> Result<Value, RpcError> {
     let pages: Vec<Value> = pages()
         .iter()
         .map(|page| {
@@ -101,7 +102,7 @@ fn get_input_schema() -> Value {
 /// client's language model reads; the language model can call
 /// `list_reference` again to find the right URI. A call whose
 /// `arguments` has no string `uri` is a protocol error (`INVALID_PARAMS`).
-fn get(arguments: &Value) -> Result<Value, RpcError> {
+fn get(arguments: &Value, _context: &Context) -> Result<Value, RpcError> {
     let Some(uri) = arguments.get("uri").and_then(Value::as_str) else {
         return Err(RpcError::new(
             INVALID_PARAMS,

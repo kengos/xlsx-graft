@@ -4,6 +4,9 @@
 use crate::walk::{KeyPath, Reporter};
 use serde_json::{Map, Value};
 use std::borrow::Cow;
+use std::fs::File;
+use std::io::{self, Read};
+use std::path::Path;
 use xlsx_graft_diagnostics::SettingReason;
 
 /// The most bytes a policy or the rules may take as JSON text passed as
@@ -27,6 +30,21 @@ pub enum Input<'a> {
     /// JSON already read, such as the object a command line is put into;
     /// `null` is no setting at all.
     Value(&'a Value),
+}
+
+/// The bytes of the setting file at `path`, for [`Input::Bytes`]: up to one
+/// byte more than [`MAX_SETTING_BYTES`], so that a larger file is reported as
+/// too large (`policy_invalid`, reason `too_large`) without being read
+/// whole.
+///
+/// # Errors
+///
+/// The [`io::Error`] of opening or reading the file.
+pub fn read_setting(path: &Path) -> io::Result<Vec<u8>> {
+    let limit = u64::try_from(MAX_SETTING_BYTES).map_or(u64::MAX, |max| max.saturating_add(1));
+    let mut bytes = Vec::new();
+    File::open(path)?.take(limit).read_to_end(&mut bytes)?;
+    Ok(bytes)
 }
 
 /// The JSON `input` holds, or `None` with the fault reported.

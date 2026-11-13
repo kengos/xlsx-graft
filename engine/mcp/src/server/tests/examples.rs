@@ -2,13 +2,19 @@
 //! ```` ```json ```` block with a `method` is a request, and a block
 //! without one is the expected `result` of the request block just before
 //! it. A request followed by a result block fails this test when the
-//! `result` of the response differs from the result block. A request with no result block fails
-//! it when the response is a JSON-RPC error, or, for `tools/call`, a tool
+//! `result` of the response differs from the result block. A request with
+//! no result block fails it when the response is a JSON-RPC error, or, for `tools/call`, a tool
 //! result with `isError: true`. Each row of the tool table also needs a
 //! `tools/call` example for its tool in the page the row names.
 //!
 //! The requests run with the `engine/mcp` directory as the working
-//! directory.
+//! directory. Before a request is sent, the `fixtures/` at the start of its
+//! `params.arguments.path` is replaced with the absolute path of the
+//! repository's `fixtures/` directory ([`FIXTURES_DIR`]). Before a
+//! response is compared with its result block, the `origin` of each
+//! diagnostic in its `structuredContent` is removed: it is the engine's
+//! source line, outside the contract, so a result block is written without
+//! it.
 
 use super::talk;
 use serde_json::Value;
@@ -21,6 +27,45 @@ use xlsx_graft_reference::pages;
 /// so a release does not need the page rewritten. A result block in any
 /// other page is compared as written.
 const VERSION_IN_PAGES: &str = "0.0.0";
+
+/// What the pages write for the repository's `fixtures/` directory, such as
+/// `fixtures/table.xlsx`. The requests run with `engine/mcp` as the working
+/// directory, so the test replaces it at the start of a request's
+/// `params.arguments.path` with [`FIXTURES_DIR`] before sending the request.
+const FIXTURES_IN_PAGES: &str = "fixtures/";
+
+/// The absolute path of the repository's `fixtures/` directory, with the
+/// trailing `/`, that replaces [`FIXTURES_IN_PAGES`] in a request.
+const FIXTURES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/");
+
+/// Replaces `fixtures/` at the start of `request`'s `params.arguments.path`,
+/// when the request has such a path, with [`FIXTURES_DIR`].
+fn with_fixtures_dir(request: &mut Value) {
+    let Some(path) = request.pointer_mut("/params/arguments/path") else {
+        return;
+    };
+    if let Some(rest) = path
+        .as_str()
+        .and_then(|p| p.strip_prefix(FIXTURES_IN_PAGES))
+    {
+        *path = Value::String(format!("{FIXTURES_DIR}{rest}"));
+    }
+}
+
+/// Removes the `origin` of each diagnostic in the response's
+/// `result.structuredContent`, when it has any.
+fn without_origins(response: &mut Value) {
+    let diagnostics = response.pointer_mut("/result/structuredContent/diagnostics");
+    for diagnostic in diagnostics
+        .and_then(Value::as_array_mut)
+        .into_iter()
+        .flatten()
+    {
+        if let Some(diagnostic) = diagnostic.as_object_mut() {
+            diagnostic.remove("origin");
+        }
+    }
+}
 
 /// The text of every ```` ```json ```` block in `markdown`, in order. A
 /// fence indented inside a list item counts too. An opening fence whose
@@ -93,9 +138,12 @@ fn every_example_call_answers_as_its_result_block_or_without_an_error_and_every_
                 examples.insert((page.name().to_string(), tool.to_string()));
             }
             // One line: the transport reads one request per line.
-            let responses = talk(&example.to_string());
+            let mut sent = example.clone();
+            with_fixtures_dir(&mut sent);
+            let mut responses = talk(&sent.to_string());
             assert_eq!(responses.len(), 1, "{}: {block}", page.uri());
-            let response = &responses[0];
+            let response = &mut responses[0];
+            without_origins(response);
             let result_block = blocks.next_if(|next| is_result_block(next));
             if let Some(result_block) = result_block {
                 let result_block = if page.name() == "version" {

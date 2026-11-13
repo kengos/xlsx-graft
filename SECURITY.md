@@ -62,10 +62,18 @@ content or a function even where the template allows it;
 `Rules::deny_scheduled` denies now the functions the table marks for denial
 in a later version, unless the template allows them.
 
-Today `verify` runs only through the Rust API of `engine/verify`
-(`xlsx_graft_verify::verify`), built from `main`; the CLI, the C ABI
-library, the Node.js addon, the SDKs and the MCP server do not run it
-yet.
+`verify` runs through the Rust API of `engine/verify`
+(`xlsx_graft_verify::verify`), the CLI (`xlsx-graft verify`), the C ABI
+library, the Node.js addon, the seven SDKs and the MCP server's `verify`
+tool. In each of them except the Rust API, the host sets the policy: the
+CLI and the MCP server read it from a JSON file (`--policy`), the C ABI
+library and the addon take it as the `policy` of their options JSON, and an
+SDK takes it as an object (`Verifier.new(policy:)` and its equivalents). The
+policy has `forbid` (the policy's `Rules::forbid_part` and
+`Rules::forbid_function`), `denyScheduled` (`Rules::deny_scheduled`),
+`failOn` and the limits (`xlsx_graft_verify::Limits`). A limit may be raised
+or lowered, but not past its hard max, which keeps the memory use of a
+result bounded.
 
 - **`verify` passes what it should refuse.** With the default rules and
   the default function table (below), `verify` reports no error for a
@@ -117,6 +125,12 @@ yet.
   memory unsafety at the C ABI or the addon, an SDK that passes the engine a
   value other than the one its caller gave, or, in the PHP and Go SDKs that
   run the CLI as a subprocess, an argument that the CLI reads as an option.
+  - Also in scope: a value quoted from the workbook in an MCP result (in the
+    `args`, `location`, `message` or `fix` of a diagnostic, and in the text
+    part that repeats them) that is longer than 200 characters, or that still
+    holds a control character or a bidirectional formatting character. A
+    `message` or a `fix` that holds such a value is longer than 200 characters
+    by its own words; the bound is on each quoted value.
 
 **Known gaps**: `verify` does not check these yet. They are listed in the
 `# Not yet` section of `engine/verify/src/lib.rs`, so you need not report
@@ -138,6 +152,17 @@ that one of them causes is still in scope:
 - `verify` missing something Excel repairs (a relationship whose target
   is missing, for example) when the workbook carries nothing dangerous.
   That is a bug; open an issue.
+- What an AI client does with a string quoted from the workbook in an MCP
+  result. The tool says in its description and in the text of every result
+  that the values of a diagnostic's `args`, `location`, `message` and `fix` can quote
+  the workbook and are data, not instructions; whether
+  the client treats them so is the client's behavior.
+- The files the MCP server reads: its `verify` tool reads any file that the
+  user running the server can read, for any `path`, except a path that is not
+  a regular file (a directory, a named pipe, a device), which is not opened and
+  gives an `io` error. There is no `--root`. That is by design; to limit the
+  files, run the server as a user or in a container that can read only
+  those.
 - Content that the Rust caller allows (`Rules::allow_function`,
   `Rules::allow_part`; a template's `functions.allow` and `parts.allow`,
   once templates are read) and the host's policy does not forbid, and what a
@@ -167,7 +192,7 @@ There is no bug bounty.
 The engine's `verify`, with its default function table, refuses a workbook
 whose formulas call a function the engine has not reviewed and found safe.
 Every interface that runs `verify` (the CLI, the C ABI library, the Node.js
-addon, the SDKs and the MCP server, once they run it) uses this table. A
+addon, the SDKs and the MCP server) uses this table. A
 Rust caller of the engine can give `verify` a `FunctionTable` of its own.
 Every function in the table is one of:
 

@@ -1,6 +1,6 @@
 //! Unit tests for reading a setting's JSON under a size bound.
 
-use super::{Input, MAX_SETTING_BYTES, read};
+use super::{Input, MAX_SETTING_BYTES, read, read_setting};
 use crate::support::{faults, json};
 use crate::walk::{Reporter, Side};
 use serde_json::Value;
@@ -60,4 +60,15 @@ fn json_nested_past_what_is_read_is_not_json() {
     assert_eq!(value, None);
     assert_eq!(said.len(), 1);
     assert!(said[0].starts_with("policy_invalid |malformed|line 1 column "));
+}
+
+#[test]
+fn a_setting_file_is_read_one_byte_past_what_the_host_takes() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("policy.json");
+    std::fs::write(&path, vec![b' '; MAX_SETTING_BYTES + 10]).unwrap();
+    assert_eq!(read_setting(&path).unwrap().len(), MAX_SETTING_BYTES + 1);
+    std::fs::write(&path, b"{}").unwrap();
+    assert_eq!(read_setting(&path).unwrap(), b"{}");
+    assert!(read_setting(&dir.path().join("none.json")).is_err());
 }

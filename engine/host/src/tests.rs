@@ -176,6 +176,20 @@ fn a_file_that_cannot_be_opened_is_an_io_error_in_the_report() {
     assert_eq!(value["error"]["code"], "io");
 }
 
+#[test]
+fn a_path_that_is_not_a_regular_file_is_an_io_error_and_is_not_opened() {
+    let dir = tempfile::tempdir().unwrap();
+    let report = verify_path(dir.path(), &prepared("", ""));
+    assert!(!report.ok);
+    let failure = report.error.as_ref().unwrap();
+    assert_eq!(failure.code, "io");
+    assert_eq!(
+        failure.message,
+        format!("{} is not a regular file", dir.path().display())
+    );
+    assert!(report.diagnostics.is_empty());
+}
+
 /// A reader that fails as soon as it is read or sought.
 struct Broken;
 

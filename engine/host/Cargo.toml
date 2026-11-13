@@ -18,5 +18,9 @@ xlsx-graft-diagnostics = { workspace = true }
 # The check itself, and the limits and rules it runs under.
 xlsx-graft-verify = { workspace = true }
 
+[dev-dependencies]
+# A directory of its own for the setting file a test writes.
+tempfile = { workspace = true }
+
 [lints]
 workspace = true

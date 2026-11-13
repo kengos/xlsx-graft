@@ -1,8 +1,9 @@
 //! Unit tests for `list_reference` and `get_reference`: the page list, one
 //! page's markdown, a URI that names no page, and a call without a `uri`.
 
+use super::call;
 use crate::rpc::INVALID_PARAMS;
-use crate::tools::{call, list};
+use crate::tools::list;
 use serde_json::{Value, json};
 use xlsx_graft_reference::{HOW_TO_READ, ReferenceError, pages};
 
