@@ -38,7 +38,7 @@ mod support;
 mod text;
 mod walk;
 
-pub use input::{Input, MAX_REQUEST_BYTES, MAX_SETTING_BYTES};
+pub use input::{Input, MAX_REQUEST_BYTES, MAX_SETTING_BYTES, read_setting};
 pub use policy::Policy;
 pub use policy::limits::{HostLimits, LIMITS, LimitKey};
 pub use prepare::{

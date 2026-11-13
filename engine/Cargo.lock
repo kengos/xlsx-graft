@@ -852,6 +852,7 @@ version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
  "xlsx-graft-diagnostics",
  "xlsx-graft-verify",
@@ -864,6 +865,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "xlsx-graft-core",
+ "xlsx-graft-host",
  "xlsx-graft-reference",
 ]
 

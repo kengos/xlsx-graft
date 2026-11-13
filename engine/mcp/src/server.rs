@@ -1,12 +1,12 @@
 //! The dispatch loop: the initialize handshake, method routing, and which
 //! JSON-RPC error each bad request gets.
 
-use crate::McpError;
 use crate::rpc::{
     Frame, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR, RpcError, clip, error_response,
     read_frame, result_response, write_frame,
 };
 use crate::tools;
+use crate::{Context, McpError};
 use serde_json::{Value, json};
 use std::io::{BufRead, Write};
 
@@ -23,7 +23,7 @@ const PROTOCOL_VERSION: &str = "2025-06-18";
 const SUPPORTED_PROTOCOL_VERSIONS: &[&str] = &[PROTOCOL_VERSION];
 
 /// Answers newline-delimited JSON-RPC requests from `reader` on `writer`
-/// until `reader` ends.
+/// until `reader` ends, running every tool under `context`.
 ///
 /// A malformed, unknown or failing request is answered with a JSON-RPC error
 /// and the loop goes on. A notification (a request with a method but no `id`)
@@ -33,7 +33,11 @@ const SUPPORTED_PROTOCOL_VERSIONS: &[&str] = &[PROTOCOL_VERSION];
 ///
 /// [`McpError::Io`] when `reader` cannot be read or `writer` refuses a
 /// response.
-pub fn serve<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) -> Result<(), McpError> {
+pub fn serve<R: BufRead, W: Write>(
+    reader: &mut R,
+    writer: &mut W,
+    context: &Context,
+) -> Result<(), McpError> {
     loop {
         match read_frame(reader)? {
             Frame::Eof => return Ok(()),
@@ -46,7 +50,7 @@ pub fn serve<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) -> Result<(),
                 if line.trim().is_empty() {
                     continue;
                 }
-                if let Some(response) = handle_line(&line) {
+                if let Some(response) = handle_line(&line, context) {
                     write_frame(writer, &response)?;
                 }
             }
@@ -56,7 +60,7 @@ pub fn serve<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) -> Result<(),
 
 /// Parses one line and dispatches it; `None` means nothing to send (a
 /// notification, which is never answered, not even with an error).
-fn handle_line(line: &str) -> Option<Value> {
+fn handle_line(line: &str, context: &Context) -> Option<Value> {
     let message: Value = match serde_json::from_str(line) {
         Ok(value) => value,
         Err(err) => {
@@ -83,19 +87,19 @@ fn handle_line(line: &str) -> Option<Value> {
     // No id: a notification. Nothing here acts on one, and none is answered.
     let id = id?;
     let params = request.get("params").unwrap_or(&Value::Null);
-    Some(match dispatch(method, params) {
+    Some(match dispatch(method, params, context) {
         Ok(result) => result_response(id, result),
         Err(error) => error_response(id, &error),
     })
 }
 
 /// Routes a request to its method.
-fn dispatch(method: &str, params: &Value) -> Result<Value, RpcError> {
+fn dispatch(method: &str, params: &Value, context: &Context) -> Result<Value, RpcError> {
     match method {
         "initialize" => Ok(initialize_result(params)),
         "ping" => Ok(json!({})),
         "tools/list" => Ok(tools::list()),
-        "tools/call" => tools::call(params),
+        "tools/call" => tools::call(params, context),
         _ => Err(RpcError::new(
             METHOD_NOT_FOUND,
             format!("unknown method: {}", clip(method)),

@@ -4,7 +4,8 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
-    match xlsx_graft_mcp::serve(&mut io::stdin().lock(), &mut io::stdout().lock()) {
+    let context = xlsx_graft_mcp::Context::default();
+    match xlsx_graft_mcp::serve(&mut io::stdin().lock(), &mut io::stdout().lock(), &context) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             // Not eprintln!: it panics when stderr refuses the write too (a

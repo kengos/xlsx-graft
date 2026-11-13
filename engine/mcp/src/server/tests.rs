@@ -7,7 +7,7 @@ mod handshake;
 mod protocol;
 
 use super::serve;
-use crate::McpError;
+use crate::{Context, McpError};
 use serde_json::Value;
 use std::io::{self, BufReader, Cursor, Read};
 
@@ -17,7 +17,12 @@ const PING: &str = r#"{"jsonrpc":"2.0","id":9,"method":"ping"}"#;
 /// response lines.
 fn talk(input: &str) -> Vec<Value> {
     let mut out = Vec::new();
-    serve(&mut Cursor::new(input.as_bytes()), &mut out).unwrap();
+    serve(
+        &mut Cursor::new(input.as_bytes()),
+        &mut out,
+        &Context::default(),
+    )
+    .unwrap();
     String::from_utf8(out)
         .unwrap()
         .lines()
@@ -34,7 +39,12 @@ fn an_empty_stdin_ends_cleanly_with_nothing_written() {
 fn a_stdout_that_refuses_a_response_ends_the_loop_with_an_io_error() {
     // A zero-length buffer takes no bytes, like a full disk.
     let mut full: &mut [u8] = &mut [];
-    let err = serve(&mut Cursor::new(PING.as_bytes()), &mut full).unwrap_err();
+    let err = serve(
+        &mut Cursor::new(PING.as_bytes()),
+        &mut full,
+        &Context::default(),
+    )
+    .unwrap_err();
     assert!(matches!(err, McpError::Io(e) if e.kind() == io::ErrorKind::WriteZero));
 }
 
@@ -50,7 +60,7 @@ fn a_stdin_that_fails_ends_the_loop_with_an_io_error() {
     }
 
     let mut out = Vec::new();
-    let err = serve(&mut BufReader::new(Broken), &mut out).unwrap_err();
+    let err = serve(&mut BufReader::new(Broken), &mut out, &Context::default()).unwrap_err();
     assert!(matches!(err, McpError::Io(e) if e.kind() == io::ErrorKind::ConnectionReset));
     assert!(out.is_empty());
 }

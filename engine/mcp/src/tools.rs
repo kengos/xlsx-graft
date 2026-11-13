@@ -12,6 +12,7 @@
 mod reference;
 mod version;
 
+use crate::Context;
 use crate::rpc::{INVALID_PARAMS, RpcError, clip};
 use serde_json::{Map, Value, json};
 use xlsx_graft_reference::URI_PREFIX;
@@ -35,13 +36,14 @@ pub(crate) struct Tool {
     /// from a tool that declares an `outputSchema`.
     pub(crate) output_schema: Option<fn() -> Value>,
     /// Runs the tool on the call's `arguments` (`null` when the call has
-    /// none) and returns the `tools/call` result.
+    /// none), under the server's `context`, and returns the `tools/call`
+    /// result.
     ///
     /// Returns `Err` only for a protocol error, such as `arguments` that do
     /// not match `input_schema`; the server sends it as a JSON-RPC error
     /// response. A failure while the tool runs is an `Ok` result with
     /// `isError: true`, as MCP 2025-06-18 separates the two.
-    pub(crate) run: fn(&Value) -> Result<Value, RpcError>,
+    pub(crate) run: fn(&Value, &Context) -> Result<Value, RpcError>,
     /// The name of the reference page that documents the tool:
     /// `engine/reference/pages/<page>.md`, whose front matter names the
     /// tool in its `tools`. `tools/list` ends the description with the
@@ -81,7 +83,7 @@ fn descriptor(tool: &Tool) -> Value {
 ///
 /// A tool that does not exist, or a call without a name, is a protocol error
 /// (`INVALID_PARAMS`), as MCP 2025-06-18 says for an unknown tool.
-pub(crate) fn call(params: &Value) -> Result<Value, RpcError> {
+pub(crate) fn call(params: &Value, context: &Context) -> Result<Value, RpcError> {
     let Some(name) = params.get("name").and_then(Value::as_str) else {
         return Err(RpcError::new(
             INVALID_PARAMS,
@@ -94,7 +96,7 @@ pub(crate) fn call(params: &Value) -> Result<Value, RpcError> {
             format!("unknown tool: {}", clip(name)),
         ));
     };
-    (tool.run)(params.get("arguments").unwrap_or(&Value::Null))
+    (tool.run)(params.get("arguments").unwrap_or(&Value::Null), context)
 }
 
 /// An input schema that declares no properties. A tool with this schema
