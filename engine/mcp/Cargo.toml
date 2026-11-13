@@ -21,5 +21,9 @@ xlsx-graft-host = { workspace = true }
 # The reference pages list_reference and get_reference serve.
 xlsx-graft-reference = { workspace = true }
 
+[dev-dependencies]
+# A directory of its own for the policy files a test writes.
+tempfile = { workspace = true }
+
 [lints]
 workspace = true

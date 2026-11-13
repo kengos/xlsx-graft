@@ -10,6 +10,7 @@
 //! name no tool themselves.
 
 mod reference;
+mod verify;
 mod version;
 
 use crate::Context;
@@ -54,7 +55,7 @@ pub(crate) struct Tool {
 }
 
 /// Every tool, in the order `tools/list` returns them.
-pub(crate) const TOOLS: &[Tool] = &[version::TOOL, reference::LIST, reference::GET];
+pub(crate) const TOOLS: &[Tool] = &[version::TOOL, reference::LIST, reference::GET, verify::TOOL];
 
 /// The `tools/list` result.
 pub(crate) fn list() -> Value {
@@ -124,10 +125,16 @@ fn text_result(body: &str, is_error: IsError) -> Value {
 /// A successful tool result carrying `value` as `structuredContent`, and the
 /// same JSON as a text part for a client that reads only `content`.
 fn structured(value: &Value) -> Value {
+    structured_with_text(value, &value.to_string(), IsError::No)
+}
+
+/// A tool result carrying `value` as `structuredContent` and `text`, which
+/// need not be the JSON of `value`, as the one text part of `content`.
+fn structured_with_text(value: &Value, text: &str, is_error: IsError) -> Value {
     json!({
-        "content": [{ "type": "text", "text": value.to_string() }],
+        "content": [{ "type": "text", "text": text }],
         "structuredContent": value,
-        "isError": false,
+        "isError": matches!(is_error, IsError::Yes),
     })
 }
 

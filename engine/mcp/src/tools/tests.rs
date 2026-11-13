@@ -4,6 +4,7 @@
 
 mod pages;
 mod reference;
+mod verify;
 
 use super::list;
 use crate::Context;

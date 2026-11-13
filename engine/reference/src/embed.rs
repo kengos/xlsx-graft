@@ -34,5 +34,6 @@ pub(crate) const PAGES: &[PageSource] = &[
     page!("diagnostics-workbook"),
     page!("diagnostics-zip"),
     page!("reference"),
+    page!("verify"),
     page!("version"),
 ];

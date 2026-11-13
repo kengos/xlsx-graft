@@ -13,6 +13,7 @@
 
 mod output;
 mod session;
+mod startup;
 
 use serde_json::Value;
 use std::io::Write;

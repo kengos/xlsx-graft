@@ -863,6 +863,7 @@ name = "xlsx-graft-mcp"
 version = "0.0.0"
 dependencies = [
  "serde_json",
+ "tempfile",
  "thiserror",
  "xlsx-graft-core",
  "xlsx-graft-host",
