@@ -57,7 +57,8 @@ class Verifier:
         not take the policy, :class:`~xlsx_graft.LibraryNotFoundError` when
         no engine library is found, ``TypeError`` for a policy that is not a
         mapping or holds a value JSON cannot write, ``ValueError`` for a
-        NaN or an infinity in it, and ``RecursionError`` for dicts and lists
+        NaN, an infinity, or a string (a key or a value) of the policy
+        holding a lone surrogate, and ``RecursionError`` for dicts and lists
         nested past Python's recursion limit.
         """
         self._call = VerifyCall(Library.open(path=library))
@@ -95,9 +96,10 @@ class Verifier:
         ``io`` ``error`` and the rules are not checked.
 
         Raises ``TypeError`` for a path of the wrong kind or a rule that JSON
-        cannot write, and ``ValueError`` for a NaN or an infinity in a rule or
-        for a policy and rules that make more than 2 MiB of JSON. A rule nested
-        past Python's recursion limit raises ``RecursionError``.
+        cannot write, and ``ValueError`` for a NaN, an infinity, or a string
+        holding a lone surrogate in a rule, or for a policy and rules that
+        make more than 2 MiB of JSON. A rule nested past Python's recursion
+        limit raises ``RecursionError``.
         """
         options = self._options(targets, best_effort, allow_functions, allow_parts, fail_on)
         encoded = os.fsencode(path)

@@ -98,13 +98,14 @@ if result.error:
   itself failed (`panic`, `null_arg`, `unknown_status`,
   `diagnostics_unreadable`). A fault of the rules is a `rules_invalid` or
   `target_invalid` diagnostic, and the workbook is not opened.
-- A policy and rules that make more than 2 MiB of JSON, or a value JSON
-  cannot write, or a policy that is not a mapping, raise `ValueError` or
-  `TypeError`, and dicts and lists nested past Python's recursion limit raise
-  `RecursionError`; a path or data of the wrong type raises Python's own
-  `TypeError`. For a path that is not UTF-8, the package reads the file
-  itself: if it cannot, the result is the `io` error and the rules are not
-  checked.
+- A policy and rules that make more than 2 MiB of JSON, a NaN or an
+  infinity, or a string (a key or a value) holding a lone surrogate (which
+  UTF-8 cannot encode) raise `ValueError`; a value JSON cannot write, or a
+  policy that is not a mapping, raises `TypeError`. Dicts and lists nested
+  past Python's recursion limit raise `RecursionError`; a path or data of the
+  wrong type raises Python's own `TypeError`. For a path that is not UTF-8,
+  the package reads the file itself: if it cannot, the result is the `io`
+  error and the rules are not checked.
 - A verifier does not change once it is made: share one between threads, and
   call it from them at once.
 

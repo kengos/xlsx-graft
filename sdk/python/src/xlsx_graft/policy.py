@@ -17,9 +17,9 @@ def policy_json(policy: object) -> str:
     becomes ``maxEntries``, and a camelCase key stays.
 
     Raises ``TypeError`` for a policy that is not a mapping or holds a value
-    JSON cannot write, ``ValueError`` for a NaN or an infinity, and
-    ``RecursionError`` for dicts and lists nested past Python's recursion
-    limit.
+    JSON cannot write, ``ValueError`` for a NaN, an infinity, or a string (a
+    key or a value) holding a lone surrogate, and ``RecursionError`` for
+    dicts and lists nested past Python's recursion limit.
     """
     if not isinstance(policy, Mapping):
         message = f"policy: is a mapping or None, not {type(policy).__name__}"
@@ -28,7 +28,24 @@ def policy_json(policy: object) -> str:
 
 
 def rules_json(value: Any) -> str:
-    """``value`` as compact JSON, with no NaN or infinity (``ValueError``)."""
+    """``value`` as compact JSON in ASCII (``\\uXXXX`` for each character outside ASCII).
+
+    Raises ``ValueError`` for a NaN, an infinity, or a string (a key or a
+    value) holding a lone surrogate, which UTF-8 cannot encode.
+    """
+    # The first call to json.dumps keeps non-ASCII characters so that encoding
+    # the text as UTF-8 raises UnicodeEncodeError for a lone surrogate. The
+    # second call writes the JSON sent to the engine: ASCII, with \uXXXX for
+    # each character outside ASCII, and the 2 MiB limit counts those bytes.
+    text = json.dumps(value, allow_nan=False, ensure_ascii=False, separators=(",", ":"))
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError as error:
+        message = (
+            f"a string of the policy or the rules holds a lone surrogate "
+            f"(U+{ord(text[error.start]):04X}), which UTF-8 cannot encode"
+        )
+        raise ValueError(message) from None
     return json.dumps(value, allow_nan=False, separators=(",", ":"))
 
 
