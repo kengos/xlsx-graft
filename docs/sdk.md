@@ -695,7 +695,7 @@ and Go SDKs take the same shape in each language's idiom.
   | SDK | Policy the engine does not take | More than 2 MiB, a value JSON cannot write, an argument of the wrong kind | `INVALID_ARG` (a bug of the SDK) |
   | --- | --- | --- | --- |
   | Ruby | `PolicyInvalid` | `ArgumentError` (a policy that is not a Hash); a path or data of the wrong class raises Ruby's own `TypeError` or `NoMethodError` | `Error` |
-  | Python | `PolicyInvalidError` | `ValueError` (more than 2 MiB, NaN or Infinity), `TypeError` (a policy that is not a mapping, a value of a type JSON cannot write, a path or data of the wrong kind), `RecursionError` (dicts and lists nested past Python's recursion limit) | `Error` |
+  | Python | `PolicyInvalidError` | `ValueError` (more than 2 MiB, NaN or Infinity, text that cannot be encoded as UTF-8: an unpaired surrogate), `TypeError` (a policy that is not a mapping, a value of a type JSON cannot write, a path or data of the wrong kind), `RecursionError` (dicts and lists nested past Python's recursion limit) | `Error` |
   | .NET | `PolicyInvalidException` | `ArgumentException` (more than 2 MiB; a policy `JsonObject` that cannot be written as JSON: NaN, a `Type` value, nesting too deep; the SDK wraps the writer's exception in it) | `XlsxGraftException` |
   | Java | `PolicyInvalidException` | `IllegalArgumentException` (more than 2 MiB, NaN or Infinity, a value of an unknown type, nesting too deep, text that cannot be encoded as UTF-8: an unpaired surrogate); `NullPointerException` for a null `path`, `data` or `rules` | `XlsxGraftException` |
   | JavaScript | `PolicyInvalidError` | `RangeError` (more than 2 MiB), `TypeError` (a BigInt, a cycle, a URL that is not a `file:` URL) | `XlsxGraftError` |
@@ -728,10 +728,11 @@ and Go SDKs take the same shape in each language's idiom.
 
   A string of the policy or the rules that holds a lone surrogate is not an
   error in .NET and JavaScript: the SDK writes U+FFFD in its place, and the
-  engine judges the text it gets, as a diagnostic (Java raises
-  `IllegalArgumentException`, above). Go does the same for a string of the
-  policy that is not UTF-8 (`json.Marshal` writes U+FFFD); PHP's
-  `InvalidArgumentException` is raised for one (above).
+  engine judges the text it gets, as a diagnostic. Go does the same for a
+  string of the policy that is not UTF-8 (`json.Marshal` writes U+FFFD).
+  Java raises `IllegalArgumentException`, Python raises `ValueError` and PHP
+  raises `InvalidArgumentException` for one, before the engine or the CLI is
+  called (above).
 - **A path that is not UTF-8** is read by the SDK and verified as bytes, so
   the engine never gets it; a file that cannot be read is an `io` error, and
   then the rules are not checked (for any other path they are, and a fault of
