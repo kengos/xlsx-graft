@@ -111,6 +111,10 @@ class TestVerify:
         with pytest.raises(TypeError):
             verifier.verify(TABLE, targets=[object()])  # type: ignore[list-item]
 
+    def test_raises_value_error_for_a_lone_surrogate_in_a_rule(self, verifier: Verifier) -> None:
+        with pytest.raises(ValueError, match="lone surrogate"):
+            verifier.verify_bytes(b"", targets=["\ud800"])
+
     def test_raises_value_error_for_options_of_more_than_2_mib(self, verifier: Verifier) -> None:
         with pytest.raises(ValueError, match="the engine takes 2097152"):
             verifier.verify(TABLE, allow_functions=["A" * (2 << 20)])
@@ -227,6 +231,14 @@ class TestPolicy:
     def test_raises_value_error_for_a_nan_in_the_policy(self, engine_library: str) -> None:
         with pytest.raises(ValueError, match="not JSON compliant"):
             Verifier({"max_entries": float("nan")}, library=engine_library)
+
+    def test_raises_value_error_before_the_engine_checks_a_policy_with_a_lone_surrogate(
+        self, engine_library: str
+    ) -> None:
+        policy = {"forbid": {"functions": [{"name": "\ud800"}]}}
+        with pytest.raises(ValueError, match="lone surrogate") as raised:
+            Verifier(policy, library=engine_library)
+        assert not isinstance(raised.value, PolicyInvalidError)
 
 
 def test_passes_library_on_to_library_open(

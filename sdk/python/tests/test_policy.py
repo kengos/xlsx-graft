@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from xlsx_graft.policy import policy_json
+from xlsx_graft.policy import policy_json, rules_json
 
 
 class TestPolicyJson:
@@ -39,7 +39,26 @@ class TestPolicyJson:
         with pytest.raises(TypeError):
             policy_json({"max_entries": object()})
 
+    def test_raises_value_error_for_a_lone_surrogate_in_a_key_or_a_value(self) -> None:
+        with pytest.raises(ValueError, match=r"lone surrogate \(U\+D800\), which UTF-8"):
+            policy_json({"targets": ["\ud800"]})
+        with pytest.raises(ValueError, match=r"lone surrogate \(U\+DC00\)"):
+            policy_json({"a\udc00": 1})
+
     @pytest.mark.parametrize("value", [float("nan"), float("inf")])
     def test_raises_value_error_for_a_nan_or_an_infinity(self, value: float) -> None:
         with pytest.raises(ValueError, match="not JSON compliant"):
             policy_json({"max_entries": value})
+
+
+class TestRulesJson:
+    def test_raises_value_error_for_a_lone_surrogate_in_rules(self) -> None:
+        with pytest.raises(ValueError, match=r"lone surrogate \(U\+D800\)"):
+            rules_json({"targets": ["excel >= 2016\ud800"]})
+
+    def test_writes_non_ascii_characters_as_ascii_escapes(self) -> None:
+        assert rules_json({"a": "\U0001f600\u00e9"}) == '{"a":"\\ud83d\\ude00\\u00e9"}'
+
+    def test_raises_value_error_for_a_surrogate_pair_written_as_two_code_units(self) -> None:
+        with pytest.raises(ValueError, match=r"lone surrogate \(U\+D83D\)"):
+            rules_json({"a": "\ud83d\ude00"})
