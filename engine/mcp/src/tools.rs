@@ -10,14 +10,19 @@
 //! name no tool themselves.
 
 mod arguments;
+mod describe_sheet;
 mod reference;
 mod schema;
+mod tree;
 mod verify;
 mod version;
 
 use crate::Context;
 use crate::rpc::{INVALID_PARAMS, RpcError, clip};
+use serde::Serialize;
 use serde_json::{Map, Value, json};
+use std::fmt::Display;
+use xlsx_graft_host::View;
 use xlsx_graft_reference::URI_PREFIX;
 
 /// One MCP tool: the descriptor `tools/list` returns and the function
@@ -57,7 +62,14 @@ pub(crate) struct Tool {
 }
 
 /// Every tool, in the order `tools/list` returns them.
-pub(crate) const TOOLS: &[Tool] = &[version::TOOL, reference::LIST, reference::GET, verify::TOOL];
+pub(crate) const TOOLS: &[Tool] = &[
+    version::TOOL,
+    reference::LIST,
+    reference::GET,
+    verify::TOOL,
+    tree::TOOL,
+    describe_sheet::TOOL,
+];
 
 /// The `tools/list` result.
 pub(crate) fn list() -> Value {
@@ -138,6 +150,26 @@ fn structured_with_text(value: &Value, text: &str, is_error: IsError) -> Value {
         "structuredContent": value,
         "isError": matches!(is_error, IsError::Yes),
     })
+}
+
+/// The result of a view (`tree`, `describe_sheet`): `view` as
+/// `structuredContent`, and as the one text part `notice`, a blank line and
+/// `text`.
+///
+/// `isError` is true when the view has an `error`: the host could not read
+/// the file, or (`describe_sheet`) the sheet could not be chosen or read. A
+/// view whose diagnostics include an error and that has no `error` is
+/// `ok: false` and not an error.
+fn view_result<T: Serialize>(view: &View<T>, notice: &str, text: &dyn Display) -> Value {
+    // A view's maps all have string keys, so this does not fail; `Null` is
+    // only the value the type needs for a case that cannot happen.
+    let value = serde_json::to_value(view).unwrap_or(Value::Null);
+    let is_error = if view.error.is_some() {
+        IsError::Yes
+    } else {
+        IsError::No
+    };
+    structured_with_text(&value, &format!("{notice}\n\n{text}"), is_error)
 }
 
 #[cfg(test)]

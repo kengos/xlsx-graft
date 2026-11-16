@@ -46,6 +46,13 @@ template is reported, not rewritten (below).
     list is still an error.
   - Sheet names are compared after Unicode lowercasing, the same in every
     locale.
+- **Viewing** shows what a workbook holds, without checking it: `tree` (the
+  parts and their relationships) and `describe-sheet` (the MCP tool is
+  `describe_sheet`: the cached values and types of the cells of one sheet,
+  no formulas and no displayed values), in the CLI and the MCP server. A
+  string quoted from the workbook is tidied for display; the exact values
+  come from the CLI's `read` and `sheets` commands and the SDKs (the MCP
+  server has no tool for them).
 - **Verifying** reports every problem, up to `maxDiagnostics`, each with
   what decided it (`decidedBy`) when anything citable did:
   - `standard`: a clause of any specification in the table above,
