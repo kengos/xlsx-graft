@@ -669,10 +669,14 @@ and Go SDKs take the same shape in each language's idiom.
   when the verifier is made, which finds a policy that cannot be written as
   JSON and a CLI that cannot be found, and the engine finds a policy it does
   not take at the first `verify`, as `policy_invalid` diagnostics of the
-  result. It writes the JSON to a temporary file (`xlsx-graft-<random>.json`,
-  readable by its user only) at each `verify`, passes it as `--policy=<file>`
-  and removes it when the run ends, however it ends; a file it cannot write is
-  an `io` error of the result and the CLI is not run.
+  result. It writes the JSON to a temporary file at each `verify` (PHP:
+  `xlsx-graft-<random>/xlsx-graft.json`, a directory made for it that only its
+  user may enter; Go: `xlsx-graft-<random>.json`, readable by its user only),
+  passes it as `--policy=<file>` and removes it (and in PHP the directory)
+  when the run ends, however it ends; a file it cannot write is an `io` error
+  of the result and the CLI is not run. PHP's `mkdir` ignores its mode on
+  Windows, where the directory takes the access list of PHP's temporary
+  directory (`sys_get_temp_dir()`, the user's `%TEMP%` by default).
 - **The result is a Result with no value.** It is successful when the
   engine's `ok` is true. The SDK uses the result's `error` only when `ok` is
   false. It is `io` when the file cannot be read, and the SDK adds what the
@@ -753,7 +757,7 @@ and Go SDKs take the same shape in each language's idiom.
   | .NET | The span is pinned for the call and read in place. It must not change until the call returns. |
   | Java | JNA passes the array through JNI, which may copy or pin it; the SDK copies nothing, the caller must not change the array until the call returns. |
   | JavaScript | The engine reads the `Uint8Array` in place during the call (JavaScript runs nothing else meanwhile). A `SharedArrayBuffer` that another thread may write is the caller's to keep still. |
-  | PHP, Go | The SDK writes the bytes to a temporary file (`xlsx-graft-<random>.xlsx`, readable by its user only) before it runs the CLI, which reads a path, and removes the file when the run ends. A change to the bytes once the SDK has written the file has no effect. A file the SDK cannot write is an `io` error of the result, and the CLI is not run. |
+  | PHP, Go | The SDK writes the bytes to a temporary file before it runs the CLI, which reads a path: in PHP `xlsx-graft-<random>/xlsx-graft.xlsx`, in a directory made for it that only its user may enter; in Go `xlsx-graft-<random>.xlsx`, readable by its user only. It removes the file (and in PHP the directory) when the run ends. On Windows PHP's `mkdir` ignores its mode, and the directory takes the access list of PHP's temporary directory (`sys_get_temp_dir()`, the user's `%TEMP%` by default). A change to the bytes once the SDK has written the file has no effect. A file the SDK cannot write is an `io` error of the result, and the CLI is not run. |
 - **A verifier does not change after it is made**, so threads share one and
   call it at once (Ruby, Python, .NET and Java). In JavaScript a verifier is
   likewise unchanging, but it belongs to the thread that made it: a worker
@@ -867,9 +871,13 @@ later SDK takes the same shape in its own language's idiom.
   runs the block, its first run failing with `exit_status` (quoting why),
   as a book that holds the result does; a path holding a NUL, which no
   command line carries, is `invalid_arg` and does not run it. Bytes are
-  written to a file of the book's own, only its user may read, removed
-  when the book closes (a fatal error, which runs no `finally`, leaves
-  it); `io` when they cannot be, which does not run the block.
+  written to a file of the book's own, removed when the book closes (a
+  fatal error, which runs no `finally`, leaves the file, and in PHP its
+  directory): in PHP the file is in a directory made for it that only its
+  user may enter (on Windows, where PHP's `mkdir` ignores its mode, the
+  directory takes the access list of PHP's temporary directory), and the file
+  and the directory are removed; in Go the file is readable by its user
+  only; `io` when the bytes cannot be written, which does not run the block.
 - **What an SDK over the C ABI keeps.** A lock of the book's, taken for
   every call into it and its rows, closes included, as the header asks,
   what a call lends copied out before letting it go; every input passed
