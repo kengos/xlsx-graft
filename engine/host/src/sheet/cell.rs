@@ -1,6 +1,7 @@
 //! [`GridCell`]: one cell of the grid, with its type and value as the CLI's
 //! `read` writes them, and the JSON of it.
 
+use crate::value::serialize_value;
 use serde::Serialize;
 use serde::ser::{SerializeMap, Serializer};
 use xlsx_graft_diagnostics::CellEcho;
@@ -77,8 +78,23 @@ impl GridValue {
         }
     }
 
+    /// The value as the reader's [`Value`], borrowing the text of a string
+    /// or an error value.
+    pub(crate) fn as_value(&self) -> Value<'_> {
+        match self {
+            Self::String(text) => Value::String(text.as_str()),
+            Self::Number(number) => Value::Number(*number),
+            Self::Bool(bool) => Value::Bool(*bool),
+            Self::Date(date) => Value::Date(*date),
+            Self::Time(time) => Value::Time(*time),
+            Self::DateTime(at) => Value::DateTime(*at),
+            Self::Elapsed(elapsed) => Value::Elapsed(*elapsed),
+            Self::Error(text) => Value::Error(text.as_str()),
+        }
+    }
+
     /// Whether the text of the value was cut.
-    fn truncated(&self) -> bool {
+    pub(super) fn truncated(&self) -> bool {
         match self {
             Self::String(text) | Self::Error(text) => text.truncated(),
             _ => false,
@@ -91,31 +107,12 @@ impl Serialize for GridCell {
         let truncated = self.value.truncated();
         let mut map = serializer.serialize_map(Some(if truncated { 4 } else { 3 }))?;
         map.serialize_entry("ref", &format_args!("{}", self.reference))?;
-        match &self.value {
-            GridValue::String(text) => typed(&mut map, "string", text.as_str())?,
-            GridValue::Number(number) => typed(&mut map, "number", number)?,
-            GridValue::Bool(bool) => typed(&mut map, "boolean", bool)?,
-            GridValue::Date(date) => typed(&mut map, "date", &format_args!("{date}"))?,
-            GridValue::Time(time) => typed(&mut map, "time", &format_args!("{time}"))?,
-            GridValue::DateTime(at) => typed(&mut map, "datetime", &format_args!("{at}"))?,
-            GridValue::Elapsed(elapsed) => typed(&mut map, "elapsed", &elapsed.milliseconds())?,
-            GridValue::Error(text) => typed(&mut map, "error", text.as_str())?,
-        }
+        serialize_value(&mut map, self.value.as_value())?;
         if truncated {
             map.serialize_entry("truncated", &true)?;
         }
         map.end()
     }
-}
-
-/// Writes `type` and `value` to `map`.
-fn typed<M: SerializeMap, V: Serialize + ?Sized>(
-    map: &mut M,
-    kind: &str,
-    value: &V,
-) -> Result<(), M::Error> {
-    map.serialize_entry("type", kind)?;
-    map.serialize_entry("value", value)
 }
 
 #[cfg(test)]

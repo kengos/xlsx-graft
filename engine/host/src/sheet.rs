@@ -29,7 +29,8 @@
 //!   and its `state` (`visible`, `hidden`, `veryHidden`). It is `null` when
 //!   no sheet was chosen (the workbook could not be read, or no sheet is
 //!   the one asked for, or two have its name) and when the package could not
-//!   be read (`error.code` is `io`).
+//!   be read before a sheet was chosen (`error.code` is `io`). When `io`
+//!   occurs while the rows of the chosen sheet are read, `sheet` is set.
 //! - `dimension` is the `ref` of the sheet's `dimension`, as written, as an
 //!   [`Echo`] (it is not checked to be a range, and writers do not all keep
 //!   it right); `null` when the sheet has none.

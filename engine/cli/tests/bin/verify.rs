@@ -2,15 +2,8 @@
 //! format, the exit status of each way it ends, and the help. The JSON
 //! cases pin the contract: whole lines are compared.
 
-use crate::{run, stderr, stdout};
+use crate::{fixture, run, stderr, stdout};
 use serde_json::Value;
-use std::path::Path;
-
-/// The path of the fixture `name`.
-fn fixture(name: &str) -> String {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures");
-    dir.join(name).to_str().unwrap().to_owned()
-}
 
 /// The result `output` printed, which is one line of JSON.
 fn result(output: &std::process::Output) -> Value {

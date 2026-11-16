@@ -54,6 +54,7 @@ mod sheet;
 mod support;
 mod text;
 mod tree;
+mod value;
 mod view;
 mod walk;
 
@@ -72,6 +73,7 @@ pub use text::{DiagnosticsText, ReportText};
 pub use tree::{
     Tree, TreePart, TreeRelationship, TreeTarget, TreeText, tree, tree_bytes, tree_path,
 };
+pub use value::{Escape, serialize_value, write_escaped, write_value};
 pub use view::View;
 /// A diagnostic with where it was found: what [`Policy::read`] returns for
 /// each fault, and what [`Report::diagnostics`] lists.

@@ -5,6 +5,7 @@ use super::cell::GridValue;
 use super::{Grid, GridSheet, Span};
 use crate::report::Counts;
 use crate::text::DiagnosticsText;
+use crate::value::{self, Escape};
 use crate::view::View;
 use std::fmt::{self, Write as _};
 use xlsx_graft_read::CellRef;
@@ -200,44 +201,15 @@ fn column_letters(column: u16) -> String {
         .to_owned()
 }
 
-/// Writes `value` as `read --format text` does, but for the `|`: a number
-/// as Rust writes it, in an exponent's form below 1e-5 and from 1e16; a
-/// boolean `TRUE` or `FALSE`; a date or time in ISO 8601; elapsed time in
-/// hours that do not wrap at a day (`26:03:00.000`); a string or an error
-/// value escaped, and ending in `…` when it was cut.
+/// Writes `value` as `read --format text` does, with the `|` of a string or
+/// an error value escaped too, and `…` after the text of a string or an error
+/// value that was cut.
 fn write_value(f: &mut fmt::Formatter<'_>, value: &GridValue) -> fmt::Result {
-    match value {
-        GridValue::String(text) | GridValue::Error(text) => {
-            for char in text.as_str().chars() {
-                match char {
-                    '\\' => f.write_str("\\\\")?,
-                    '\t' => f.write_str("\\t")?,
-                    '\n' => f.write_str("\\n")?,
-                    '\r' => f.write_str("\\r")?,
-                    '|' => f.write_str("\\|")?,
-                    char => f.write_char(char)?,
-                }
-            }
-            if text.truncated() {
-                f.write_char('…')?;
-            }
-            Ok(())
-        }
-        GridValue::Number(number) if *number == 0.0 || (1e-5..1e16).contains(&number.abs()) => {
-            write!(f, "{number}")
-        }
-        GridValue::Number(number) => write!(f, "{number:e}"),
-        GridValue::Bool(bool) => f.write_str(if *bool { "TRUE" } else { "FALSE" }),
-        GridValue::Date(date) => write!(f, "{date}"),
-        GridValue::Time(time) => write!(f, "{time}"),
-        GridValue::DateTime(at) => write!(f, "{at}"),
-        GridValue::Elapsed(elapsed) => {
-            let ms = elapsed.milliseconds();
-            let (hours, minutes) = (ms / 3_600_000, ms / 60_000 % 60);
-            let (seconds, ms) = (ms / 1_000 % 60, ms % 1_000);
-            write!(f, "{hours}:{minutes:02}:{seconds:02}.{ms:03}")
-        }
+    value::write_value(f, value.as_value(), Escape::Table)?;
+    if value.truncated() {
+        f.write_char('…')?;
     }
+    Ok(())
 }
 
 #[cfg(test)]

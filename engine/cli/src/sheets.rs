@@ -7,7 +7,7 @@
 
 mod help;
 
-use crate::text::{escape, problems};
+use crate::text::problems;
 use crate::workbook::{self, Refused};
 use crate::{CliError, Format, Outcome};
 use clap::Args;
@@ -17,6 +17,7 @@ use std::fmt::Write as _;
 use std::io::Write;
 use std::path::PathBuf;
 use xlsx_graft_diagnostics::{Diagnostics, Record};
+use xlsx_graft_host::{Escape, write_escaped};
 use xlsx_graft_read::{Refusal, Sheet, SheetKind, SheetState};
 
 /// The arguments of `sheets`.
@@ -120,7 +121,7 @@ fn text(listing: &Listing, out: &mut dyn Write, err: &mut dyn Write) -> std::io:
         line.clear();
         // Writing to a String does not fail.
         let _ = write!(line, "{}\t", sheet.index);
-        escape(&mut line, &sheet.name);
+        let _ = write_escaped(&mut line, &sheet.name, Escape::Line);
         let _ = writeln!(line, "\t{}\t{}", sheet.kind, sheet.state);
         out.write_all(line.as_bytes())?;
     }

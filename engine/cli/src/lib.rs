@@ -4,7 +4,8 @@
 //! ABI and the MCP server. `main.rs` parses [`Cli`]
 //! ([`Cli::try_parse_args`]), hands it to [`run`] and exits with the
 //! [`exit_status`] of what it returns; everything testable lives here.
-//! There are `--version` and the `sheets`, `read` and `verify` commands.
+//! There are `--version` and the `sheets`, `read`, `verify`, `tree` and
+//! `describe-sheet` commands.
 //!
 //! Every command's output is printed as text or as JSON by `--format`:
 //! `--version` through [`emit`], one value; `sheets` one value too
@@ -12,7 +13,11 @@
 //! The JSON is a contract: its keys and their types do not change once
 //! released, so a script can read them without parsing the text.
 //! `verify` prints its result whatever happened, a file it could not read
-//! and a fault of the policy or the rules included (see [`VerifyArgs`]). The
+//! and a fault of the policy or the rules included (see [`VerifyArgs`]);
+//! `tree` and `describe-sheet` do too, a file or a sheet they could not read
+//! being their view's `error` (see [`TreeArgs`], [`DescribeSheetArgs`]),
+//! except that `describe-sheet` prints no view for a range, a number of rows
+//! or a number of columns the host does not take (exit 2). The
 //! help is not a command's output: it is text whatever `--format` says,
 //! as clap's own `-h` / `--help` are.
 
@@ -21,19 +26,24 @@ use clap::{CommandFactory, Parser, Subcommand};
 use std::ffi::OsString;
 use std::io::{self, Write};
 
+mod describe_sheet;
 mod error;
 mod format;
 mod read;
 mod sheets;
 mod text;
+mod tree;
 mod verify;
 mod version;
+mod view;
 mod workbook;
 
+pub use describe_sheet::DescribeSheetArgs;
 pub use error::CliError;
 pub use format::{Format, Report, emit};
 pub use read::ReadArgs;
 pub use sheets::SheetsArgs;
+pub use tree::TreeArgs;
 pub use verify::VerifyArgs;
 pub use version::VersionReport;
 
@@ -95,6 +105,16 @@ enum Command {
     /// Check a workbook against the host's policy and the caller's rules.
     #[command(long_about = verify::LONG_ABOUT, after_long_help = verify::AFTER_LONG_HELP)]
     Verify(VerifyArgs),
+    /// List a workbook's parts and the relationships between them, as a tree.
+    #[command(long_about = tree::LONG_ABOUT, after_long_help = tree::AFTER_LONG_HELP)]
+    Tree(TreeArgs),
+    /// Show the cells of one sheet, as a table of the first rows and columns.
+    #[command(
+        name = "describe-sheet",
+        long_about = describe_sheet::LONG_ABOUT,
+        after_long_help = describe_sheet::AFTER_LONG_HELP
+    )]
+    DescribeSheet(DescribeSheetArgs),
 }
 
 /// How a run that printed what it had to ended.
@@ -104,8 +124,10 @@ pub enum Outcome {
     Success,
     /// It printed why it did not: exit 1.
     Failure,
-    /// The policy or the rules it was given were not valid (`verify`), and
-    /// it printed why: exit 2, as for a command line clap refuses.
+    /// The policy or the rules it was given were not valid (`verify`), or
+    /// the range, the number of rows or the number of columns it was given
+    /// were not valid (`describe-sheet`), and it printed why: exit 2, as for
+    /// a command line clap refuses.
     Invalid,
 }
 
@@ -124,6 +146,8 @@ pub fn run(cli: &Cli, out: &mut dyn Write, err: &mut dyn Write) -> Result<Outcom
         Some(Command::Sheets(args)) => sheets::run(args, cli.format, out, err)?,
         Some(Command::Read(args)) => read::run(args, cli.format, out, err)?,
         Some(Command::Verify(args)) => verify::run(args, cli.format, out)?,
+        Some(Command::Tree(args)) => tree::run(args, cli.format, out)?,
+        Some(Command::DescribeSheet(args)) => describe_sheet::run(args, cli.format, out, err)?,
         None if cli.version => {
             emit(cli.format, &VersionReport::current(), out)?;
             Outcome::Success

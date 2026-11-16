@@ -1,25 +1,10 @@
 //! What every command prints the same way in text, which is for a person
-//! and not a contract: a string escaped to stay on its line and in its
-//! column, and the problems found, a line each on stderr.
+//! and not a contract: the problems found, a line each on stderr.
 
 use crate::workbook::Refused;
 use std::fmt;
 use std::io::Write;
 use xlsx_graft_diagnostics::Record;
-
-/// Writes `text` to `line`, its backslash, tab, line feed and carriage
-/// return written `\\`, `\t`, `\n` and `\r`.
-pub(crate) fn escape(line: &mut String, text: &str) {
-    for char in text.chars() {
-        match char {
-            '\\' => line.push_str("\\\\"),
-            '\t' => line.push_str("\\t"),
-            '\n' => line.push_str("\\n"),
-            '\r' => line.push_str("\\r"),
-            char => line.push(char),
-        }
-    }
-}
 
 /// Writes each of `diagnostics`, then `error`, as a line to `err`. A
 /// stderr that refuses them is passed over: the status still says the
