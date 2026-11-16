@@ -190,10 +190,13 @@ impl Report {
 impl Failure {
     /// An `io` failure: `message` says what could not be done.
     pub(crate) fn io(message: String) -> Self {
-        Self {
-            code: "io",
-            message,
-        }
+        Self::new("io", message)
+    }
+
+    /// A failure with `code` and `message`; [`Failure::io`] gives it the
+    /// code `io`.
+    pub(crate) fn new(code: &'static str, message: String) -> Self {
+        Self { code, message }
     }
 }
 

@@ -27,6 +27,17 @@
 //! The policy and the rules are JSON a host passes in: they are read as
 //! untrusted input, under a size bound ([`MAX_SETTING_BYTES`],
 //! [`MAX_REQUEST_BYTES`]), and an unknown key is a fault.
+//!
+//! # Views
+//!
+//! A view shows what a workbook holds rather than checking it. [`tree`],
+//! [`tree_path`] and [`tree_bytes`] give the [`View`] of a [`Tree`]: the
+//! parts of the package and the relationships between them, which
+//! [`View::to_json`] writes as the JSON each host returns and [`TreeText`]
+//! writes as the tree a person reads. A view takes the [`HostLimits`] of a
+//! policy and no rules, and has the `ok`, `error` and `diagnostics` of a
+//! [`Report`], with the keys of what it shows after them. A view has no
+//! `failOn` and no `counts`; see [`View`] for what decides its `ok`.
 
 mod input;
 mod open;
@@ -37,6 +48,8 @@ mod rules;
 #[cfg(test)]
 mod support;
 mod text;
+mod tree;
+mod view;
 mod walk;
 
 pub use input::{Input, MAX_REQUEST_BYTES, MAX_SETTING_BYTES, read_setting};
@@ -47,6 +60,10 @@ pub use prepare::{
 };
 pub use report::{Counts, FailOn, Failure, Report};
 pub use text::{DiagnosticsText, ReportText};
+pub use tree::{
+    Tree, TreePart, TreeRelationship, TreeTarget, TreeText, tree, tree_bytes, tree_path,
+};
+pub use view::View;
 /// A diagnostic with where it was found: what [`Policy::read`] returns for
 /// each fault, and what [`Report::diagnostics`] lists.
 pub use xlsx_graft_diagnostics::Record;

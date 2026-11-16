@@ -855,6 +855,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "xlsx-graft-diagnostics",
+ "xlsx-graft-package",
  "xlsx-graft-verify",
 ]
 
