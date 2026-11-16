@@ -10,6 +10,7 @@ use crate::CliError;
 use serde::ser::SerializeMap;
 use serde::{Serialize, Serializer};
 use std::io::Write;
+use xlsx_graft_host::serialize_value;
 use xlsx_graft_read::{Row, Value};
 
 /// Prints each line to `out`, through a buffer of its own it reuses.
@@ -67,32 +68,12 @@ impl Serialize for Cells<'_> {
 }
 
 /// `{"type": <type>, "value": <value>}`.
-pub(super) struct Cell<'v>(pub(super) Value<'v>);
+struct Cell<'v>(Value<'v>);
 
 impl Serialize for Cell<'_> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut map = serializer.serialize_map(Some(2))?;
-        match self.0 {
-            Value::Empty => typed(&mut map, "empty", &())?,
-            Value::String(text) => typed(&mut map, "string", text)?,
-            Value::Number(number) => typed(&mut map, "number", &number)?,
-            Value::Bool(bool) => typed(&mut map, "boolean", &bool)?,
-            Value::Date(date) => typed(&mut map, "date", &format_args!("{date}"))?,
-            Value::Time(time) => typed(&mut map, "time", &format_args!("{time}"))?,
-            Value::DateTime(at) => typed(&mut map, "datetime", &format_args!("{at}"))?,
-            Value::Elapsed(elapsed) => typed(&mut map, "elapsed", &elapsed.milliseconds())?,
-            Value::Error(text) => typed(&mut map, "error", text)?,
-        }
+        serialize_value(&mut map, self.0)?;
         map.end()
     }
-}
-
-/// Writes `type` and `value` to `map`.
-fn typed<M: SerializeMap, V: Serialize + ?Sized>(
-    map: &mut M,
-    kind: &str,
-    value: &V,
-) -> Result<(), M::Error> {
-    map.serialize_entry("type", kind)?;
-    map.serialize_entry("value", value)
 }

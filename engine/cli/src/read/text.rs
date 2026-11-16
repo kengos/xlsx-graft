@@ -3,7 +3,8 @@
 //! Each row is a line on stdout: its number, then the value of each column
 //! from A, separated by tabs. A string's or an error value's backslash,
 //! tab, line feed and carriage return are written `\\`, `\t`, `\n` and
-//! `\r`, so a value never splits its line or its column. A number is
+//! `\r`, so a value never splits its line or its column (the host's
+//! `write_value` writes each value, with `Escape::Line`). A number is
 //! written as Rust writes it, but in an exponent's form below 1e-5 and
 //! from 1e16; a boolean `TRUE` or `FALSE`, as Excel shows one; a date or
 //! time in ISO 8601 (`2024-01-31T08:30:00.000`), and elapsed time in hours
@@ -12,10 +13,11 @@
 
 use super::{End, Sink};
 use crate::CliError;
-use crate::text::{escape, problems};
-use std::fmt::{self, Write as _};
+use crate::text::problems;
+use std::fmt::Write as _;
 use std::io::Write;
-use xlsx_graft_read::{Row, Value};
+use xlsx_graft_host::{Escape, write_value};
+use xlsx_graft_read::Row;
 
 /// Prints the rows to `out` and the problems to `err`.
 pub(super) struct Text<'a> {
@@ -42,7 +44,7 @@ impl Sink for Text<'_> {
         let _ = write!(self.line, "{}", row.number());
         for value in row.values() {
             self.line.push('\t');
-            let _ = write_value(&mut self.line, value);
+            let _ = write_value(&mut self.line, value, Escape::Line);
         }
         self.line.push('\n');
         self.out
@@ -55,30 +57,5 @@ impl Sink for Text<'_> {
         self.out.flush().map_err(CliError::Write)?;
         problems(self.err, &end.diagnostics, end.error.as_ref());
         Ok(())
-    }
-}
-
-/// Writes `value` to `line` as the module docs say.
-pub(super) fn write_value(line: &mut String, value: Value<'_>) -> fmt::Result {
-    match value {
-        Value::Empty => Ok(()),
-        Value::String(text) | Value::Error(text) => {
-            escape(line, text);
-            Ok(())
-        }
-        Value::Number(number) if number == 0.0 || (1e-5..1e16).contains(&number.abs()) => {
-            write!(line, "{number}")
-        }
-        Value::Number(number) => write!(line, "{number:e}"),
-        Value::Bool(bool) => line.write_str(if bool { "TRUE" } else { "FALSE" }),
-        Value::Date(date) => write!(line, "{date}"),
-        Value::Time(time) => write!(line, "{time}"),
-        Value::DateTime(at) => write!(line, "{at}"),
-        Value::Elapsed(elapsed) => {
-            let ms = elapsed.milliseconds();
-            let (hours, minutes) = (ms / 3_600_000, ms / 60_000 % 60);
-            let (seconds, ms) = (ms / 1_000 % 60, ms % 1_000);
-            write!(line, "{hours}:{minutes:02}:{seconds:02}.{ms:03}")
-        }
     }
 }

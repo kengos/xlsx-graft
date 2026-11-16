@@ -1,16 +1,9 @@
 //! Unit tests for what every command prints the same way in text.
 
-use super::{Problem, escape, problems};
+use super::{Problem, problems};
 use crate::workbook::Refused;
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Limit, Location};
 use xlsx_graft_read::Refusal;
-
-#[test]
-fn a_string_keeps_its_line_and_column() {
-    let mut line = String::new();
-    escape(&mut line, "a\\b\tc\nd\re");
-    assert_eq!(line, r"a\\b\tc\nd\re");
-}
 
 #[test]
 fn a_diagnostic_in_text_says_its_severity_code_place_and_message() {
