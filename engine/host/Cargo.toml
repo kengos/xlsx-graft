@@ -15,6 +15,9 @@ thiserror = { workspace = true }
 # Every fault of the policy and the rules is a Diagnostic, and so is every
 # problem of the workbook, written as the result's JSON.
 xlsx-graft-diagnostics = { workspace = true }
+# The package a tree of the workbook is read from: its parts and the
+# relationships between them.
+xlsx-graft-package = { workspace = true }
 # The check itself, and the limits and rules it runs under.
 xlsx-graft-verify = { workspace = true }
 
