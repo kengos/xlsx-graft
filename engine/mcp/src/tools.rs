@@ -9,7 +9,9 @@
 //! `engine/reference/src/embed.rs`. `list` and `call` read the table and
 //! name no tool themselves.
 
+mod arguments;
 mod reference;
+mod schema;
 mod verify;
 mod version;
 

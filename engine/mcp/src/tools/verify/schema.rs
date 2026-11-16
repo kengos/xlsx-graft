@@ -1,6 +1,7 @@
 //! The JSON Schemas of the `verify` tool: its arguments and the
 //! `structuredContent` of its result.
 
+use crate::tools::schema;
 use serde_json::{Value, json};
 
 /// `{ path, targets?, bestEffort?, failOn? }` and nothing else.
@@ -49,26 +50,8 @@ pub(super) fn output() -> Value {
                 },
                 "required": ["error", "warn", "notice"],
             },
-            "error": {
-                "type": ["object", "null"],
-                "properties": {
-                    "code": { "type": "string" },
-                    "message": { "type": "string" },
-                },
-                "required": ["code", "message"],
-            },
-            "diagnostics": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "code": { "type": "string" },
-                        "severity": { "type": "string" },
-                        "message": { "type": "string" },
-                    },
-                    "required": ["code", "severity", "message"],
-                },
-            },
+            "error": schema::error(),
+            "diagnostics": schema::diagnostics(),
         },
         "required": ["ok", "failOn", "counts", "error", "diagnostics"],
     })

@@ -4,9 +4,9 @@
 
 mod schema;
 
-use super::{IsError, Tool, structured_with_text};
+use super::{IsError, Tool, arguments, structured_with_text};
 use crate::Context;
-use crate::rpc::{INVALID_PARAMS, RpcError, clip};
+use crate::rpc::RpcError;
 use serde_json::{Map, Value};
 use std::path::Path;
 use xlsx_graft_host::{Input, Prepared, ReportText, prepare, verify_path};
@@ -49,15 +49,14 @@ const QUOTED_NOTICE: &str = "A diagnostic's args, location, message and fix can 
 /// is not a regular file, or the rules were not valid. A workbook that is refused is `ok: false` and
 /// not an error.
 fn run(arguments: &Value, context: &Context) -> Result<Value, RpcError> {
-    let Some(arguments) = arguments.as_object() else {
-        return Err(needs_path());
-    };
-    let Some(path) = arguments.get("path").and_then(Value::as_str) else {
-        return Err(needs_path());
-    };
-    let rules = rules(arguments)?;
+    let arguments = arguments::read(
+        arguments,
+        "verify",
+        &["path", "targets", "bestEffort", "failOn"],
+    )?;
+    let rules = rules(arguments.map);
     let prepared = prepare(context.policy(), Input::Value(&rules));
-    let report = verify_path(Path::new(path), &prepared);
+    let report = verify_path(Path::new(arguments.path), &prepared);
     let did_not_run = report.error.is_some() || matches!(prepared, Prepared::Invalid { .. });
     // A report's maps all have string keys, so this does not fail; `Null` is
     // only the value the type needs for a case that cannot happen.
@@ -71,27 +70,14 @@ fn run(arguments: &Value, context: &Context) -> Result<Value, RpcError> {
     Ok(structured_with_text(&value, &text, is_error))
 }
 
-/// The protocol error of a call without a string `path`.
-fn needs_path() -> RpcError {
-    RpcError::new(INVALID_PARAMS, "verify needs a string `path`")
-}
-
 /// The rules `arguments` give: the keys of [`RULE_KEYS`] it holds, as they
-/// are. A key other than those and `path` is a protocol error.
-fn rules(arguments: &Map<String, Value>) -> Result<Value, RpcError> {
+/// are.
+fn rules(arguments: &Map<String, Value>) -> Value {
     let mut rules = Map::new();
     for (key, value) in arguments {
         if RULE_KEYS.contains(&key.as_str()) {
             rules.insert(key.clone(), value.clone());
-        } else if key != "path" {
-            return Err(RpcError::new(
-                INVALID_PARAMS,
-                format!(
-                    "verify takes path, targets, bestEffort and failOn, not {}",
-                    clip(key)
-                ),
-            ));
         }
     }
-    Ok(Value::Object(rules))
+    Value::Object(rules)
 }

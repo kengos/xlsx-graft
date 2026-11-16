@@ -2,6 +2,7 @@
 //! calls that are refused. The reference tools and the check of each tool's
 //! page are in the submodules.
 
+mod arguments;
 mod pages;
 mod reference;
 mod verify;
