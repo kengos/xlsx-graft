@@ -468,7 +468,7 @@ not (Go). It is never a result.
   | The run | The result |
   | --- | --- |
   | exit 0, stdout a JSON object with what the call reads (`version` a string) | successful, with the value |
-  | exit other than 0, or killed by a signal (but [`sheets`](#listing-sheets-sheets)' exit 1 with its object, [`read`](#reading-rows-read)'s with its end line and [`verify`](#verifying-verify)'s 1 or 2 with its object) | failed, diagnostic `exit_status`: the status or the signal, and the start of stderr |
+  | exit other than 0, or killed by a signal (but [`sheets`](#listing-sheets-sheets)' exit 1 with its object, [`read`](#reading-rows-read)'s with its end line and [`verify`](#verifying-verify)'s 1 or 2 with its object, and [`tree`](#listing-parts-tree)'s and [`describe-sheet`](#describing-a-sheet-describe-sheet)'s 1 with its object) | failed, diagnostic `exit_status`: the status or the signal, and the start of stderr |
   | exit 0, stdout not JSON, not an object, or without what the call reads | failed, diagnostic `invalid_output`: the start of stdout, if any |
 
   A diagnostic's message quotes at most 200 characters of the output, cut
@@ -621,6 +621,74 @@ verifies with it, as an SDK over the C ABI calls `xlsx_graft_verify_path`.
   (`new` does not check it, unlike the `new` of an SDK over the C ABI, which
   checks it with `xlsx_graft_policy_check`). When the policy file cannot be
   read, the rules are not checked: the object has `error` and no diagnostic.
+
+### Listing parts (`tree`)
+
+`xlsx-graft tree <path> --format json` prints one JSON object, the parts of
+the workbook's package and the relationships between them; the CLI's
+`tree --help` gives the whole contract, which the C ABI and the MCP server
+return too.
+
+- **The arguments** are the path alone, written after `--`.
+- **The object** is `{"ok", "error", "diagnostics", "complete",
+  "relationshipsKnown", "relationships", "parts"}`. `ok` is true when `error`
+  is null and no diagnostic is an error. `error` is null, or `{"code": "io",
+  "message": TEXT}` when the file cannot be opened, is not a regular file, or
+  stopped being readable while it was read; what is wrong inside the file
+  (not a zip, a part that cannot be read) is a diagnostic. `parts` is empty
+  when the package could not be opened (not a zip, say), and when `error` is
+  `io`. A name, an id, a type, a content type and an external target are
+  quoted from the workbook and tidied for display (control characters,
+  bidirectional formatting characters, the line and paragraph separators and
+  the tag characters removed, and a value over 200 characters cut, ending in
+  `…`), so they are not exact values: they are not for comparing or for
+  using again as a path, and no command prints them exactly.
+- **The exit status** is 0 when `ok` and 1 when not, a file that cannot be
+  opened included. **The object is on stdout with exit 0 and 1 alike** (and
+  stderr is empty). Exit 2 has no object (stdout empty, clap's message on
+  stderr): a command line the SDK built wrong, `exit_status`.
+- **What is a result**: exit 0 or 1 with the object, a result (successful
+  when `ok`). Exit 0 with no object, or one without `ok`, is
+  `invalid_output`.
+
+### Describing a sheet (`describe-sheet`)
+
+`xlsx-graft describe-sheet <path> --format json` prints one JSON object, the
+cells of one sheet within a window; the CLI's `describe-sheet --help` gives
+the whole contract, which the C ABI and the MCP server return too.
+
+- **The arguments** are `[--sheet NAME | --sheet-index N] [--range RANGE]
+  [--max-rows N] [--max-columns N]`, and the path. Without a sheet, the first
+  (index 0) is described, whatever its kind. An SDK writes each as one
+  argument, `--name=value`, and the path after `--`.
+- **The object** is `{"ok", "error", "diagnostics", "sheet", "dimension",
+  "used", "shown", "truncated", "complete", "rows", "merges"}`. `error` is
+  null, or `{"code": CODE, "message": TEXT}`, CODE one of `io` (the file
+  cannot be opened, is not a regular file, stopped being readable while it was
+  read, or the temporary file for a large shared strings table cannot be
+  written), `workbook_unreadable`, `sheet_not_found`, `sheet_ambiguous`,
+  `sheet_not_worksheet` and `sheet_unreadable`; `sheet` is null when none was
+  chosen, and when the `io` error occurred before a sheet was chosen; `sheet`
+  is set when the `io` error occurred while the sheet's rows were read. A
+  cell is `{"ref", "type", "value"}`, where `type` and `value` are as `read` gives them, and
+  has `"truncated": true` only when its text was cut. The sheet's name,
+  `dimension` and the text of a cell are tidied for display (control
+  characters other than the tab, the line feed and the carriage return,
+  bidirectional formatting characters, the line and paragraph separators and
+  the tag characters removed; a cell's text cut at 1,000 characters, and
+  `truncated` says so; a name or a dimension cut at 200 characters, ending in
+  `…`). The exact text of a cell comes from `read` and the exact name of the
+  sheet from `sheets`; no command prints `dimension` exactly.
+- **The exit status** is 0 when `ok`, 1 when not (a file that cannot be
+  opened, and a sheet that cannot be chosen or read, included), and 2 when
+  `--range` is not an A1 range or `--max-rows` or `--max-columns` is out of
+  its bounds (or the command line is not one clap takes). **The object is on
+  stdout with exit 0 and 1 alike** (and stderr is empty). Exit 2 has no object
+  (stdout empty, the reason on stderr): a command line the SDK built wrong,
+  `exit_status`.
+- **What is a result**: exit 0 or 1 with the object, a result (successful
+  when `ok`). Exit 0 with no object, or one without `ok`, is
+  `invalid_output`.
 
 ## Verifying in an SDK
 
