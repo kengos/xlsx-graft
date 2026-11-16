@@ -101,10 +101,38 @@ release\:dry-run\:crates: ## cargo publish --dry-run of the crates published to 
 # `publish = false`, so the three are excluded by name; the check then expects
 # exactly the crates that are published, so a crate left out here or added
 # without its `publish = false` fails it.
+# `cargo publish --workspace --dry-run` verifies each crate against a
+# temporary registry, where the other workspace crates are registry packages of
+# the workspace's version. Cargo decides whether to rebuild a registry package
+# from its version and source, not from the mtimes of its files, so:
+# - when a fingerprint of a workspace crate built from an earlier commit is in
+#   the target directory of the verify builds, cargo uses that build without
+#   compiling the crate of this commit (on CI, engine/target is restored from
+#   the cache of an earlier run);
+# - when a workspace crate unpacked from an earlier commit's .crate is under
+#   $CARGO_HOME/registry/src, cargo uses that directory without unpacking the
+#   new .crate (on a local run, the named volume that CARGO_VOLUME names keeps
+#   that directory; on CI the volume starts empty).
+# The recipe therefore removes, before the dry run, the fingerprints of the
+# workspace crates in the target directory of the verify builds and the
+# unpacked workspace crates under $CARGO_HOME/registry/src. Cargo writes the
+# verify builds to a target directory of their own, target/publish-verify, so
+# that removing those fingerprints does not make the other gates
+# (target/debug, target/release, target/llvm-cov-target) compile the workspace
+# crates again; the next dry run reuses the dependencies' builds in
+# target/publish-verify. target/publish-verify/package holds the temporary
+# registry and the unpacked .crate files of the previous dry run, and is
+# removed for the same reason as target/package. The cargo volume is shared by
+# every working tree, so when two dry runs run at once, one may remove the
+# unpacked crates the other is compiling, and the other then fails to compile
+# them.
 _release-dry-run-crates:
 	@echo "== release dry run: crates.io =="
-	$(CARGO_IN_DOCKER) 'rm -rf target/package; \
-		cargo publish --workspace --dry-run --locked --allow-dirty $(CARGO_JOBS); \
+	$(CARGO_IN_DOCKER) 'rm -rf target/package target/publish-verify/package; \
+		mkdir -p target/publish-verify; \
+		find target/publish-verify -path "*/.fingerprint/xlsx-graft-*" -prune -exec rm -rf {} +; \
+		rm -rf "$$CARGO_HOME"/registry/src/*/xlsx-graft-*; \
+		cargo publish --workspace --dry-run --locked --allow-dirty --target-dir target/publish-verify $(CARGO_JOBS); \
 		cargo package --workspace $(CRATES_NOT_PUBLISHED) --no-verify --locked --allow-dirty $(CARGO_JOBS); \
 		out=/repo/$(RELEASE_DRY_RUN)/crates; rm -rf "$$out"; mkdir -p "$$out"; \
 		cp target/package/*.crate "$$out/"'
