@@ -44,7 +44,7 @@ impl Limits {
     /// The default `max_merged_cells`, 262,144: each range kept costs some
     /// 100 bytes as overlaps are looked for, under 30 MiB at the most, and
     /// the columns they reach 1 MiB at the most.
-    pub const DEFAULT_MAX_MERGED_CELLS: u64 = 262_144;
+    pub const DEFAULT_MAX_MERGED_CELLS: u64 = ReadLimits::DEFAULT_MAX_MERGED_CELLS;
 }
 
 impl Default for Limits {

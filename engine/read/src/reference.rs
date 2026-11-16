@@ -3,6 +3,7 @@
 //! it).
 
 use crate::ValueError;
+use std::fmt;
 
 /// Where a cell stands: its column and row, both from 1.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,6 +55,16 @@ impl CellRef {
         }
     }
 
+    /// The cell at `column` and `row`, `None` when either is outside the
+    /// sheet: a column of 0 or past XFD, or a row of 0 or past 1,048,576
+    /// (§18.17.5.1).
+    #[must_use]
+    pub fn new(column: u16, row: u32) -> Option<Self> {
+        let columns = 1..=Self::MAX_COLUMN;
+        let rows = 1..=Self::MAX_ROW;
+        (columns.contains(&column) && rows.contains(&row)).then_some(Self { column, row })
+    }
+
     /// The column, 1 (A) to 16,384 (XFD).
     #[must_use]
     pub fn column(self) -> u16 {
@@ -64,5 +75,24 @@ impl CellRef {
     #[must_use]
     pub fn row(self) -> u32 {
         self.row
+    }
+}
+
+impl fmt::Display for CellRef {
+    /// The A1 reference: the column's letters in upper case, then the row.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // The letters of a column are its number in bijective base 26,
+        // found from the last letter back.
+        let mut letters = Vec::new();
+        let mut rest = self.column;
+        while rest > 0 {
+            let digit = usize::from(rest.saturating_sub(1) % 26);
+            letters.extend(('A'..='Z').nth(digit));
+            rest = rest.saturating_sub(1) / 26;
+        }
+        for letter in letters.iter().rev() {
+            write!(f, "{letter}")?;
+        }
+        write!(f, "{}", self.row)
     }
 }

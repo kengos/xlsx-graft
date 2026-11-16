@@ -11,13 +11,14 @@
 
 use super::Halt;
 use super::cell::{Cells, Open};
+use super::extent::Extent;
 use super::shape::{self, Child, Frame, attributes, child};
 use crate::compat::{Ignorable, MARKUP_COMPATIBILITY};
 use crate::schema::{NAMESPACES, UNDERSTOOD, is_blank, namespace, refuse, resolve};
 use crate::shared_strings::escape::Xstring;
 use crate::shared_strings::rst;
 use std::io::BufRead;
-use xlsx_graft_diagnostics::SchemaReason;
+use xlsx_graft_diagnostics::{Limit, SchemaReason};
 use xlsx_graft_xml::events::{BytesStart, Event};
 use xlsx_graft_xml::{XmlStreamError, XmlStreamReader};
 
@@ -37,13 +38,15 @@ pub(super) struct Walk {
     value: Xstring,
     /// Where the rows and cells read so far stand, and the cell being read.
     pub(super) open: Open,
+    /// The `dimension` and the merged ranges read.
+    pub(super) extent: Extent,
     /// The buffer each event is read into.
     buf: Vec<u8>,
 }
 
 impl Walk {
     /// A walk of a part not yet read.
-    pub(super) fn new() -> Self {
+    pub(super) fn new(max_merged_cells: Limit) -> Self {
         Self {
             flavor: None,
             frames: Vec::new(),
@@ -51,6 +54,7 @@ impl Walk {
             skipped: 0,
             value: Xstring::default(),
             open: Open::default(),
+            extent: Extent::new(max_merged_cells),
             buf: Vec::new(),
         }
     }
@@ -116,6 +120,10 @@ impl Walk {
         cells: &mut Cells<'_>,
     ) -> Result<bool, Halt> {
         if self.skipped > 0 {
+            // A `mergeCell` right inside `mergeCells`.
+            if self.extent.in_merges && self.skipped == 1 && self.is_merge_cell(reader, start) {
+                self.extent.merge(start);
+            }
             self.skipped = self.skipped.saturating_add(u64::from(opened));
             return Ok(false);
         }
@@ -157,12 +165,14 @@ impl Walk {
             Some(_) if namespace.is_some_and(|ns| self.ignorable.contains(ns)) => Child::Skip,
             Some(_) => return Err(unexpected()),
         };
-        let mut frame = match child {
-            Child::Skip => {
-                self.skipped = u64::from(opened);
-                return Ok(false);
-            }
-            Child::Read(frame) => frame,
+        match child {
+            Child::Dimension => self.extent.dimension(start),
+            Child::Merges => self.extent.in_merges = opened,
+            Child::Skip | Child::Read(_) => {}
+        }
+        let Child::Read(mut frame) = child else {
+            self.skipped = u64::from(opened);
+            return Ok(false);
         };
         self.ignorable.enter();
         let values = attributes(&frame, start, reader, &mut self.ignorable, offset)?;
@@ -183,10 +193,24 @@ impl Walk {
         if opened { Ok(false) } else { self.end(cells) }
     }
 
+    /// Whether `start` is a `mergeCell` in the sheet's own namespace.
+    fn is_merge_cell<B: BufRead>(
+        &self,
+        reader: &XmlStreamReader<B>,
+        start: &BytesStart<'_>,
+    ) -> bool {
+        let (resolved, local) = reader.resolve_element(start.name());
+        let ours = (self.flavor)
+            .and_then(|flavor| NAMESPACES.get(flavor))
+            .copied();
+        namespace(&resolved) == ours && local.as_ref() == "mergeCell"
+    }
+
     /// Reads the end of the element read last. `true` when it ends a row.
     fn end(&mut self, cells: &mut Cells<'_>) -> Result<bool, Halt> {
         if self.skipped > 0 {
             self.skipped = self.skipped.saturating_sub(1);
+            self.extent.in_merges &= self.skipped > 0;
             return Ok(false);
         }
         self.ignorable.leave();

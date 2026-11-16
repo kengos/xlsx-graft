@@ -18,6 +18,12 @@ xlsx-graft-diagnostics = { workspace = true }
 # The package a tree of the workbook is read from: its parts and the
 # relationships between them.
 xlsx-graft-package = { workspace = true }
+# The limits a workbook's cells are read under, which `read_limits` makes, and
+# the sheet's rows `describe_sheet` reads.
+xlsx-graft-read = { workspace = true }
+# The temporary files the shared strings table moves to when it is large: the
+# spool factory `describe_sheet` passes to `Book::open`.
+xlsx-graft-spool = { workspace = true }
 # The check itself, and the limits and rules it runs under.
 xlsx-graft-verify = { workspace = true }
 

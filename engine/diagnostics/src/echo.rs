@@ -14,6 +14,8 @@
 use serde::{Serialize, Serializer};
 use std::fmt;
 
+pub(crate) mod cell;
+
 /// The most characters an [`Echo`] keeps, not counting the `…` that marks a
 /// clipped one.
 pub const MAX_ECHO: usize = 200;
@@ -64,7 +66,7 @@ impl Echo {
 /// Deliberately narrow: the zero-width joiner and non-joiner are format
 /// characters too, but they are meaningful inside real text (Indic scripts,
 /// Arabic, emoji sequences), so they stay.
-fn is_unsafe(c: char) -> bool {
+pub(crate) fn is_unsafe(c: char) -> bool {
     c.is_control()
         || matches!(c,
             '\u{061c}'                  // arabic letter mark

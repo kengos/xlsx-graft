@@ -856,6 +856,8 @@ dependencies = [
  "thiserror",
  "xlsx-graft-diagnostics",
  "xlsx-graft-package",
+ "xlsx-graft-read",
+ "xlsx-graft-spool",
  "xlsx-graft-verify",
 ]
 

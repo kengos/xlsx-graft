@@ -140,6 +140,27 @@ pub(crate) const EXPECTED: &[Expected] = &[
             "Sheet1!1: 1",
         ],
     },
+    // Merged cells (A1:C1, a heading, and A3:A5, a label down three rows),
+    // an empty row (7) and an empty column (D), a string with a line feed,
+    // a string with a vertical bar and a date made by a formula: verify
+    // pushes no diagnostic, and read gives each merged range's value in its
+    // top-left cell alone. Excel writes the other cells of a merged range as
+    // `c` elements without a value (B1, C1, A4, A5), which read as empty.
+    Expected {
+        file: "merged.xlsx",
+        verify: &[],
+        read: &[
+            "date system Compatibility1900",
+            "sheet \"Sheet1\" Worksheet",
+            "Sheet1!1: \"Quarterly report\" |  | ",
+            "Sheet1!2: \"Group\" | \"Item\" | \"Amount\" |  | \"after the gap\"",
+            "Sheet1!3: \"Fruit\" | \"apple\" | 1.5",
+            "Sheet1!4:  | \"line one\\nline two\" | 2",
+            "Sheet1!5:  | \"a|b\" | 3",
+            "Sheet1!6:  | \"date\" | 2024-01-15",
+            "Sheet1!8: \"Total\" |  | 6.5",
+        ],
+    },
     // A pivot table (sheet Pivot) over a table (sheet Data), made in Excel
     // with a Japanese user interface: the row labels, the grand total and
     // the data field carry the names Excel gave them. verify pushes no

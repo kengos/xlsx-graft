@@ -87,6 +87,10 @@ pub(super) enum Child {
     Read(Frame),
     /// An element to skip, with all it holds.
     Skip,
+    /// `dimension`, skipped but for its `ref`.
+    Dimension,
+    /// `mergeCells`, skipped but for the `ref` of its `mergeCell` children.
+    Merges,
 }
 
 /// A cell's type, its `t` (ST_CellType, §18.18.11).
@@ -145,6 +149,8 @@ pub(super) fn child(parent: &mut Frame, local: &str, offset: u64) -> Option<Chil
                     *data = true;
                     Child::Read(Frame::SheetData)
                 }
+                "dimension" => Child::Dimension,
+                "mergeCells" => Child::Merges,
                 _ => Child::Skip,
             };
             let repeats = matches!(local, "cols" | "conditionalFormatting");

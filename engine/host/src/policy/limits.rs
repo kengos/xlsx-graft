@@ -39,23 +39,36 @@
 //! | `maxMergedCells` | 262,144 | 4,194,304 | each range kept costs some 100 bytes as overlaps are looked for: 400 MiB |
 //! | `maxCellFormats` | 65,536 | 1,048,576 | the styles' formats are counted and a cell's reference checked against the count |
 //! | `maxNumberFormats` | 65,536 | 1,048,576 | as `maxCellFormats` |
-//! | `maxDiagnostics` | 1,000 | 10,000 | each diagnostic kept is held, and written into the result: about 2 KiB, and 10 KiB at the most (an echo is up to 800 bytes, and a diagnostic holds several), so the result stays under 100 MB |
+//! | `maxSharedStrings` | 16,777,216 | 4,294,967,296 | a cell points at a shared string by an `unsignedInt`, so no cell reaches a string past the 2^32nd; the table moves to a spool past its threshold, so memory does not decide it |
+//! | `maxSharedStringsBytes` | 4,294,967,295 | 4,294,967,295 | the position of the end of each string is 32 bits |
+//! | `sharedStringsSpillBytes` | 32 MiB | 1 GiB | the strings and their positions stay in memory up to this much, and a write buffer of half of it each after they move to a spool |
+//! | `maxRowBytes` | 64 MiB | 1 GiB | the text of one row is held in memory |
+//! | `maxDiagnostics` | 1,000 | 10,000 | each diagnostic kept is held, and written into the result: about 2 KiB, and 10 KiB at the most (an echo is up to 800 bytes, and a diagnostic holds several), so the diagnostics stay under 100 MB (in a verify report that is the whole result; a view that shows cells has them on top of that) |
+//!
+//! `maxSharedStrings`, `maxSharedStringsBytes`, `sharedStringsSpillBytes` and
+//! `maxRowBytes` are used only by the views that read cells
+//! (`describe_sheet`); verify does not use them.
 //!
 //! `maxDiagnostics` is the number of diagnostics the result lists; the ones
 //! past it are counted in the `diagnostics_truncated` notice.
 
 use xlsx_graft_diagnostics::{Diagnostics, Limit};
+use xlsx_graft_read::ReadLimits;
 use xlsx_graft_verify::Limits;
 
 /// The largest whole number a JSON number carries exactly as a double.
 const MAX_SAFE: u64 = (1 << 53) - 1;
 
 /// What [`Policy`](crate::Policy) sets: the limits verify holds a workbook
-/// to, and how many diagnostics the result lists.
+/// to, the limits only a view that reads cells uses, and how many
+/// diagnostics the result lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HostLimits {
     /// The limits [`verify`](xlsx_graft_verify::verify) holds a workbook to.
     pub verify: Limits,
+    /// The limits only a view that reads cells (`describe_sheet`) uses;
+    /// verify does not read them.
+    pub read: ReadOnlyLimits,
     /// The most diagnostics the result lists. Policy name `maxDiagnostics`.
     pub max_diagnostics: Limit,
 }
@@ -64,7 +77,61 @@ impl Default for HostLimits {
     fn default() -> Self {
         Self {
             verify: Limits::default(),
+            read: ReadOnlyLimits::default(),
             max_diagnostics: Limit::default_of(Diagnostics::DEFAULT_LIMIT),
+        }
+    }
+}
+
+/// The limits of reading a workbook's cells that verify does not read: the
+/// shared strings table's, and a row's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReadOnlyLimits {
+    /// The most strings the shared strings table may hold. Policy name
+    /// `maxSharedStrings`.
+    pub max_shared_strings: Limit,
+    /// The most bytes of text the shared strings table may hold in all.
+    /// Policy name `maxSharedStringsBytes`.
+    pub max_shared_strings_bytes: Limit,
+    /// The bytes of text and offsets the shared strings table holds in
+    /// memory before it moves both to a spool. Policy name
+    /// `sharedStringsSpillBytes`.
+    pub shared_strings_spill_bytes: Limit,
+    /// The most bytes of text one row of a sheet may hold. Policy name
+    /// `maxRowBytes`.
+    pub max_row_bytes: Limit,
+}
+
+impl Default for ReadOnlyLimits {
+    fn default() -> Self {
+        Self {
+            max_shared_strings: Limit::default_of(ReadLimits::DEFAULT_MAX_SHARED_STRINGS),
+            max_shared_strings_bytes: Limit::default_of(
+                ReadLimits::DEFAULT_MAX_SHARED_STRINGS_BYTES,
+            ),
+            shared_strings_spill_bytes: Limit::default_of(
+                ReadLimits::DEFAULT_SHARED_STRINGS_SPILL_BYTES,
+            ),
+            max_row_bytes: Limit::default_of(ReadLimits::DEFAULT_MAX_ROW_BYTES),
+        }
+    }
+}
+
+impl HostLimits {
+    /// The limits a workbook's cells are read under: the XML limits,
+    /// `maxMergedCells`, `maxCellFormats` and `maxNumberFormats` of
+    /// `verify`, and the four of `read`.
+    #[must_use]
+    pub fn read_limits(&self) -> ReadLimits {
+        ReadLimits {
+            xml: self.verify.package.xml,
+            max_shared_strings: self.read.max_shared_strings,
+            max_shared_strings_bytes: self.read.max_shared_strings_bytes,
+            shared_strings_spill_bytes: self.read.shared_strings_spill_bytes.value,
+            max_cell_formats: self.verify.max_cell_formats,
+            max_number_formats: self.verify.max_number_formats,
+            max_merged_cells: self.verify.max_merged_cells,
+            max_row_bytes: self.read.max_row_bytes,
         }
     }
 }
@@ -122,6 +189,10 @@ limit_keys! {
     "maxMergedCells", 1 << 22, |l| &mut l.verify.max_merged_cells;
     "maxCellFormats", 1 << 20, |l| &mut l.verify.max_cell_formats;
     "maxNumberFormats", 1 << 20, |l| &mut l.verify.max_number_formats;
+    "maxSharedStrings", 1 << 32, |l| &mut l.read.max_shared_strings;
+    "maxSharedStringsBytes", u32::MAX as u64, |l| &mut l.read.max_shared_strings_bytes;
+    "sharedStringsSpillBytes", 1 << 30, |l| &mut l.read.shared_strings_spill_bytes;
+    "maxRowBytes", 1 << 30, |l| &mut l.read.max_row_bytes;
     "maxDiagnostics", 10_000, |l| &mut l.max_diagnostics;
 }
 
