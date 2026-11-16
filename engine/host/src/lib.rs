@@ -29,6 +29,7 @@
 //! [`MAX_REQUEST_BYTES`]), and an unknown key is a fault.
 
 mod input;
+mod open;
 mod policy;
 mod prepare;
 mod report;
@@ -50,8 +51,8 @@ pub use text::{DiagnosticsText, ReportText};
 /// each fault, and what [`Report::diagnostics`] lists.
 pub use xlsx_graft_diagnostics::Record;
 
-use std::fs::File;
-use std::io::{BufReader, Cursor, Read, Seek};
+use crate::open::open_regular;
+use std::io::{Cursor, Read, Seek};
 use std::path::Path;
 use xlsx_graft_diagnostics::Diagnostics;
 use xlsx_graft_verify::{DefaultFunctions, VerifyError};
@@ -92,22 +93,9 @@ pub fn verify_path(path: &Path, prepared: &Prepared) -> Report {
         Prepared::Ready(options) => options,
         Prepared::Invalid { .. } => return verify(Cursor::new(&[][..]), prepared),
     };
-    let opened = match std::fs::metadata(path) {
-        Ok(metadata) if !metadata.is_file() => {
-            let message = format!("{} is not a regular file", path.display());
-            let failure = Some(Failure::io(message));
-            return Report::finished(Diagnostics::new(), options.fail_on, failure);
-        }
-        Ok(_) => File::open(path),
-        Err(error) => Err(error),
-    };
-    match opened {
-        Ok(file) => verify(BufReader::new(file), prepared),
-        Err(error) => {
-            let message = format!("{} could not be opened: {error}", path.display());
-            let failure = Some(Failure::io(message));
-            Report::finished(Diagnostics::new(), options.fail_on, failure)
-        }
+    match open_regular(path) {
+        Ok(reader) => verify(reader, prepared),
+        Err(failure) => Report::finished(Diagnostics::new(), options.fail_on, Some(failure)),
     }
 }
 
