@@ -32,6 +32,11 @@ pub struct ReadLimits {
     /// The most number formats (`numFmt` in `numFmts`) the styles may hold.
     /// Policy name `maxNumberFormats`.
     pub max_number_formats: Limit,
+    /// The most merged ranges (`mergeCell` in `mergeCells`) of one sheet
+    /// whose `ref` is kept; one past it is counted, and
+    /// [`SheetRows::push_merge_limit`](crate::SheetRows::push_merge_limit)
+    /// reports it as `merged_cells_too_many`. Policy name `maxMergedCells`.
+    pub max_merged_cells: Limit,
     /// The most bytes of text, as UTF-8, one row of a sheet may hold: its
     /// strings and error values together, and the text of the value being
     /// read, a number's included. One XML event is held to
@@ -55,6 +60,10 @@ impl ReadLimits {
     /// The default `max_number_formats`: as many as there are `numFmtId`
     /// values Excel admits (MS-OI29500 on §18.18.47, note a).
     pub const DEFAULT_MAX_NUMBER_FORMATS: u64 = 65_536;
+    /// The default `max_merged_cells`, 262,144: each range kept is 16 bytes
+    /// (two cell references of 8 bytes), 4 MiB at the most, and up to 8 MiB
+    /// while the list of ranges grows.
+    pub const DEFAULT_MAX_MERGED_CELLS: u64 = 262_144;
     /// The default `max_row_bytes`, 64 MiB.
     pub const DEFAULT_MAX_ROW_BYTES: u64 = 64 * 1024 * 1024;
 }
@@ -68,6 +77,7 @@ impl Default for ReadLimits {
             shared_strings_spill_bytes: Self::DEFAULT_SHARED_STRINGS_SPILL_BYTES,
             max_cell_formats: Limit::default_of(Self::DEFAULT_MAX_CELL_FORMATS),
             max_number_formats: Limit::default_of(Self::DEFAULT_MAX_NUMBER_FORMATS),
+            max_merged_cells: Limit::default_of(Self::DEFAULT_MAX_MERGED_CELLS),
             max_row_bytes: Limit::default_of(Self::DEFAULT_MAX_ROW_BYTES),
         }
     }

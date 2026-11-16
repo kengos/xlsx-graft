@@ -3,7 +3,8 @@
 
 use super::{HostLimits, LIMITS, MAX_SAFE};
 use std::collections::BTreeSet;
-use xlsx_graft_diagnostics::LimitSource;
+use xlsx_graft_diagnostics::{Limit, LimitSource};
+use xlsx_graft_read::ReadLimits;
 
 /// `n` written with a comma between thousands, as the table writes it.
 fn with_commas(n: u64) -> String {
@@ -34,12 +35,16 @@ fn spellings(n: u64) -> Vec<String> {
 
 #[test]
 fn every_limit_has_its_own_name_and_a_default_inside_its_hard_max() {
-    assert_eq!(LIMITS.len(), 21);
+    assert_eq!(LIMITS.len(), 25);
     let names: BTreeSet<&str> = LIMITS.iter().map(|key| key.name).collect();
     assert_eq!(names.len(), LIMITS.len());
     for key in LIMITS {
+        // The spill threshold is a size at which the table moves, not a
+        // most or a least.
         assert!(
-            key.name.starts_with("max") || key.name.starts_with("min"),
+            key.name.starts_with("max")
+                || key.name.starts_with("min")
+                || key.name == "sharedStringsSpillBytes",
             "{}",
             key.name
         );
@@ -98,4 +103,37 @@ fn the_documentation_holds_a_row_for_each_limit_with_its_default_and_hard_max() 
             "{row}"
         );
     }
+}
+
+#[test]
+fn the_limits_cells_are_read_under_are_the_defaults_until_a_policy_sets_them() {
+    assert_eq!(HostLimits::default().read_limits(), ReadLimits::default());
+}
+
+#[test]
+fn the_limits_cells_are_read_under_come_from_verify_and_from_read() {
+    let mut limits = HostLimits::default();
+    for (name, value) in [
+        ("maxXmlDepth", 7),
+        ("maxMergedCells", 8),
+        ("maxCellFormats", 9),
+        ("maxNumberFormats", 10),
+        ("maxSharedStrings", 11),
+        ("maxSharedStringsBytes", 12),
+        ("sharedStringsSpillBytes", 13),
+        ("maxRowBytes", 14),
+    ] {
+        let key = LIMITS.iter().find(|key| key.name == name).unwrap();
+        key.set(&mut limits, value);
+    }
+    let policy = Limit::policy_of;
+    let read = limits.read_limits();
+    assert_eq!(read.xml.max_depth, policy(7));
+    assert_eq!(read.max_merged_cells, policy(8));
+    assert_eq!(read.max_cell_formats, policy(9));
+    assert_eq!(read.max_number_formats, policy(10));
+    assert_eq!(read.max_shared_strings, policy(11));
+    assert_eq!(read.max_shared_strings_bytes, policy(12));
+    assert_eq!(read.shared_strings_spill_bytes, 13);
+    assert_eq!(read.max_row_bytes, policy(14));
 }

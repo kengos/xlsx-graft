@@ -977,11 +977,13 @@ diagnostics! {
         fix: Some(Fix::workbook("unmerge one of the two ranges"));
 
     /// A sheet merges more ranges than the limit: those past it are not
-    /// checked, so the sheet is refused.
+    /// looked at. Verify refuses the sheet; a view that lists the merged
+    /// ranges (`describe_sheet`) lists only the first ones, as many as the
+    /// limit.
     MergedCellsTooMany {
         /// How many ranges it merges.
         count: u64,
-        /// The most merged ranges checked.
+        /// The most merged ranges looked at.
         limit: Limit,
     } => "merged_cells_too_many", Error,
         message: format!("the sheet merges {count} ranges; the limit is {limit}"),

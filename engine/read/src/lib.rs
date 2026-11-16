@@ -18,11 +18,14 @@
 //! [`Refusal`], so every host refuses alike.
 //!
 //! What a worksheet is read to and refused for is [`SheetRows`]'s to
-//! say. Reading stops at the first problem, with its one diagnostic: the
-//! rows before it have come, and none comes after. One event of the XML is
-//! held at a time, under `maxXmlEventBytes`, and one row, under
-//! `maxRowBytes`, so what a reader holds does not grow with the sheet's
-//! rows.
+//! say. Beside its rows it gives the `ref` of its `dimension` and the
+//! merged ranges of its `mergeCells`, read without checking either, so a
+//! wrong one never stops the rows; more merged ranges than `maxMergedCells`
+//! only cut the list kept, and [`SheetRows::push_merge_limit`] reports it.
+//! Reading stops at the first problem, with its one diagnostic: the rows
+//! before it have come, and none comes after. One event of the XML is held
+//! at a time, under `maxXmlEventBytes`, and one row, under `maxRowBytes`, so
+//! what a reader holds does not grow with the sheet's rows.
 //!
 //! # Finding a part
 //!
@@ -254,6 +257,7 @@ mod book;
 mod compat;
 mod error;
 mod limits;
+mod range;
 mod reference;
 mod row;
 mod schema;
@@ -267,6 +271,7 @@ mod workbook_part;
 pub use book::{Book, Refusal, SheetChoice, SheetLookup};
 pub use error::ReadError;
 pub use limits::ReadLimits;
+pub use range::CellRange;
 pub use reference::CellRef;
 pub use row::Row;
 pub use shared_strings::{Lookup, SHARED_STRINGS, SharedStrings, StringTable};

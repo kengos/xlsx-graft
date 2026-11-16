@@ -4,10 +4,11 @@
 //! ([`PartStream`]); the walk of its XML is `walk.rs`.
 
 mod cell;
+mod extent;
 mod shape;
 mod walk;
 
-use crate::{DateSystem, ReadError, ReadLimits, Row, SharedStrings, Styles};
+use crate::{CellRange, DateSystem, ReadError, ReadLimits, Row, SharedStrings, Styles};
 use cell::Cells;
 use std::cell::RefCell;
 use std::io::{self, BufReader, Read, Seek};
@@ -28,11 +29,14 @@ use xlsx_graft_xml::XmlStreamReader;
 /// A worksheet (ECMA-376-1:2016 §18.3) is read as a stream: of
 /// `worksheet`, only `sheetData` is read, and of it each `row` and each
 /// `c`; every other child, a cell's formula (`f`, its cached value `v`
-/// being the value) and the extension lists are skipped unread, the
-/// `dimension` included, which writers do not all keep right. Only the
-/// rows written come, each with its number, and each holds the value of
-/// every column from A to its last cell, a column with no cell being
-/// empty.
+/// being the value) and the extension lists are skipped unread, but for
+/// two: the `dimension` and the `mergeCells` give only their `ref`
+/// ([`dimension`](Self::dimension), [`merges`](Self::merges)), and what
+/// else they hold, and whether they are well formed, is not checked, as
+/// writers do not all keep them right and a sheet's rows are read whatever
+/// they say. Only the rows written come, each with its number, and each
+/// holds the value of every column from A to its last cell, a column with
+/// no cell being empty.
 ///
 /// - **Where**: a row's `r` is its number, from 1 to 1,048,576, and a
 ///   cell's `r` its A1 reference, up to XFD, in its row. Without `r`, a
@@ -57,6 +61,11 @@ use xlsx_graft_xml::XmlStreamReader;
 ///   empty error value), and an `s` that is not an `unsignedInt` on a
 ///   number, is `xml_schema_invalid`. A number's `s` is the cell format the
 ///   styles part says the kind of; a string's is not read.
+/// - **Merged ranges**: `maxMergedCells` decides how many ranges
+///   [`merges`](Self::merges) keeps, the first ones. More `mergeCell`
+///   elements than that never stop the rows nor add a diagnostic while
+///   they are read; [`push_merge_limit`](Self::push_merge_limit) says it
+///   once the rows are read.
 /// - **Schema**: as for the workbook part, against CT_Worksheet,
 ///   CT_SheetData, CT_Row and CT_Cell (Strict `sml.xsd`, and the
 ///   Transitional twin, whose `legacyDrawing` and `legacyDrawingHF` are
@@ -87,6 +96,8 @@ pub struct SheetRows<R> {
     scratch: String,
     /// The most bytes of text a row may hold.
     max_row_bytes: Limit,
+    /// Whether the part was read to its end with nothing stopping it.
+    complete: bool,
 }
 
 /// The part read through `stream`, from the package it shares with the
@@ -124,6 +135,38 @@ impl<R: Read + Seek> Read for PartStream<R> {
     }
 }
 
+impl<R> SheetRows<R> {
+    /// The `ref` of the sheet's `dimension`, as written (the attribute's
+    /// value as XML 1.0 normalizes it, not checked to be a range, and cut
+    /// after its first 1,000 characters), `None` when the sheet has no
+    /// `dimension`. Known once the first row has come, or the reading has
+    /// ended: the `dimension` stands before `sheetData`.
+    #[must_use]
+    pub fn dimension(&self) -> Option<&str> {
+        self.walk.extent.dimension.as_deref()
+    }
+
+    /// The merged ranges, the `ref` of each `mergeCells/mergeCell`, in the
+    /// sheet's order, the most `maxMergedCells` of them; a `ref` that is
+    /// not a range of cells is passed over. Known once
+    /// [`next_row`](Self::next_row) has returned `false`. More ranges than
+    /// that are not reported while the rows are read: the caller learns of
+    /// them from [`push_merge_limit`](Self::push_merge_limit).
+    #[must_use]
+    pub fn merges(&self) -> &[CellRange] {
+        &self.walk.extent.merges
+    }
+
+    /// Whether the part was read to its end with nothing stopping it: the
+    /// reading did not stop at a problem in the part, and the zip entry is
+    /// not damaged. `true` only after [`next_row`](Self::next_row) has
+    /// returned `false`.
+    #[must_use]
+    pub fn complete(&self) -> bool {
+        self.complete
+    }
+}
+
 impl<R: Read + Seek> SheetRows<R> {
     /// The rows of the part `stream` reads from `package`, at `location`.
     pub(crate) fn new(
@@ -146,9 +189,10 @@ impl<R: Read + Seek> SheetRows<R> {
             styles,
             date_system,
             location,
-            walk: Walk::new(),
+            walk: Walk::new(limits.max_merged_cells),
             scratch: String::new(),
             max_row_bytes: limits.max_row_bytes,
+            complete: false,
         }
     }
 
@@ -195,12 +239,13 @@ impl<R: Read + Seek> SheetRows<R> {
     /// Ends the reading at `halt`, or at the end of the part: reads the
     /// part to its end and pushes what stopped it.
     fn finish(
-        &self,
+        &mut self,
         xml: XmlStreamReader<BufReader<PartStream<R>>>,
         halt: Option<Halt>,
         diagnostics: &mut Diagnostics,
     ) -> Result<bool, ReadError> {
         let mut source = xml.into_inner();
+        let halted = halt.is_some();
         let refused = match halt {
             None => None,
             Some(Halt::Failed(error)) => return Err(error),
@@ -228,6 +273,7 @@ impl<R: Read + Seek> SheetRows<R> {
         {
             diagnostics.push(diagnostic, self.location.clone());
         }
+        self.complete = !halted && !stopped;
         Ok(false)
     }
 }

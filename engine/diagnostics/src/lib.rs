@@ -44,6 +44,7 @@ mod target;
 pub use code::{Code, Diagnostic};
 pub use collect::Diagnostics;
 pub use decided::{DecidedBy, Fix};
+pub use echo::cell::{CellEcho, MAX_CELL_ECHO};
 pub use echo::{Echo, MAX_ECHO};
 pub use limit::{Limit, LimitSource};
 pub use location::Location;

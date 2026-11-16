@@ -2,6 +2,7 @@
 //! and the helpers the files under `rows/` share.
 
 mod choice;
+mod extent;
 mod failures;
 mod order;
 mod reading;

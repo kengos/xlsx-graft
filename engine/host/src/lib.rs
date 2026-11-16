@@ -34,7 +34,11 @@
 //! [`tree_path`] and [`tree_bytes`] give the [`View`] of a [`Tree`]: the
 //! parts of the package and the relationships between them, which
 //! [`View::to_json`] writes as the JSON each host returns and [`TreeText`]
-//! writes as the tree a person reads. A view takes the [`HostLimits`] of a
+//! writes as the tree a person reads. [`describe_sheet`],
+//! [`describe_sheet_path`] and [`describe_sheet_bytes`] give the [`View`] of
+//! a [`Grid`]: the cells of one sheet, which a [`SheetRequest`] says (the
+//! sheet, a range, and how many rows and columns), and which [`GridText`]
+//! writes as a table. A view takes the [`HostLimits`] of a
 //! policy and no rules, and has the `ok`, `error` and `diagnostics` of a
 //! [`Report`], with the keys of what it shows after them. A view has no
 //! `failOn` and no `counts`; see [`View`] for what decides its `ok`.
@@ -45,6 +49,7 @@ mod policy;
 mod prepare;
 mod report;
 mod rules;
+mod sheet;
 #[cfg(test)]
 mod support;
 mod text;
@@ -54,11 +59,15 @@ mod walk;
 
 pub use input::{Input, MAX_REQUEST_BYTES, MAX_SETTING_BYTES, read_setting};
 pub use policy::Policy;
-pub use policy::limits::{HostLimits, LIMITS, LimitKey};
+pub use policy::limits::{HostLimits, LIMITS, LimitKey, ReadOnlyLimits};
 pub use prepare::{
     Options, Prepared, RequestError, check_policy, prepare, prepare_parts, prepare_request,
 };
 pub use report::{Counts, FailOn, Failure, Report};
+pub use sheet::{
+    Grid, GridCell, GridRow, GridSheet, GridText, SheetRequest, SheetRequestError, Truncated,
+    describe_sheet, describe_sheet_bytes, describe_sheet_path,
+};
 pub use text::{DiagnosticsText, ReportText};
 pub use tree::{
     Tree, TreePart, TreeRelationship, TreeTarget, TreeText, tree, tree_bytes, tree_path,
@@ -67,6 +76,8 @@ pub use view::View;
 /// A diagnostic with where it was found: what [`Policy::read`] returns for
 /// each fault, and what [`Report::diagnostics`] lists.
 pub use xlsx_graft_diagnostics::Record;
+/// Which sheet a [`SheetRequest`] asks for: by name or by index.
+pub use xlsx_graft_read::SheetChoice;
 
 use crate::open::open_regular;
 use std::io::{Cursor, Read, Seek};

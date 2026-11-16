@@ -301,12 +301,12 @@ Two merged ranges of a sheet overlap, or are the same range. Excel repairs the w
 
 ## merged_cells_too_many
 
-A sheet merges more ranges than the limit. The ranges past the limit are not checked, so the sheet is refused.
+A sheet merges more ranges than the limit. The ranges past the limit are not looked at. Verify refuses the sheet; a view that lists the merged ranges (`describe_sheet`) lists only the first ones, as many as the limit.
 
 - Severity: `error`
 - Args:
   - `count` (number): How many ranges the sheet merges.
-  - `limit` (number): The most merged ranges checked.
+  - `limit` (number): The most merged ranges looked at.
 - Decided by: the limit `maxMergedCells`, which a policy can change
 - Fix: raise the limit in the policy (`fix.in` is `policy`); `fix.line` is `maxMergedCells: <count>`
 
