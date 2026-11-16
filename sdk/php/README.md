@@ -29,10 +29,13 @@ foreach ($result->diagnostics as $d) {
 - `timezone` (a name or a `DateTimeZone`) and `cli` (the CLI's path) may
   be left out.
 - `XlsxReader::openBytes($bytes, ...)` reads a workbook from its bytes,
-  written to a temporary file of the book's own, which only your user may
-  read, removed when it closes. When it cannot be written, the result fails
-  with `io` and the callback is not called; so does a path holding a NUL
-  given to `open`, with `invalid_arg`.
+  written to a temporary file of the book's own, in a directory of its own
+  that only your user may enter, the file and its directory removed when it
+  closes. On Windows PHP's `mkdir` ignores its mode, and the directory takes
+  the access list of PHP's temporary directory (`sys_get_temp_dir()`, the
+  user's `%TEMP%` by default). When the bytes cannot be written, the result
+  fails with `io` and the callback is not called; so does a path holding a
+  NUL given to `open`, with `invalid_arg`.
 - `$book->sheet()` takes a name (letter case aside) or an index (from 0,
   hidden sheets and chartsheets counted); the first sheet when given
   neither. To look for a sheet, look in `$book->sheets()`: a sheet asked
@@ -139,8 +142,11 @@ foreach ($result->diagnostics as $d) {
 - There is no timeout: PHP's `max_execution_time` does not count the time
   spent waiting for the CLI, but on Windows.
 - The CLI reads a path, so each `verify()` writes the policy to a temporary
-  file, and `verifyBytes()` the bytes too, each readable only by your user
-  and removed when the call ends, however it ends.
+  file, and `verifyBytes()` the bytes too, each in a directory of its own
+  that only your user may enter, the file and its directory removed when the
+  call ends, however it ends. On Windows PHP's `mkdir` ignores its mode, and
+  each directory takes the access list of PHP's temporary directory
+  (`sys_get_temp_dir()`, the user's `%TEMP%` by default).
 
 ## The engine's version
 

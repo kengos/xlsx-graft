@@ -256,16 +256,17 @@ final class XlsxReaderTest extends TestCase
         self::assertEquals(Result::ok([new Row(7, [])]), $result);
     }
 
-    public function testBytesGoToAFileOnlyTheUserMayReadRemovedAtTheClose(): void
+    public function testBytesGoToAFileInADirectoryOnlyTheUserMayEnterRemovedAtTheClose(): void
     {
         $core = BookCore::ofBytes(Engine::cli(), 'bytes', new Zone(new \DateTimeZone('UTC')), $this->dir);
         self::assertInstanceOf(BookCore::class, $core);
-        $files = glob("{$this->dir}/xlsx-graft-*.xlsx") ?: [];
+        $files = glob("{$this->dir}/xlsx-graft-*/xlsx-graft.xlsx") ?: [];
 
         self::assertCount(1, $files);
-        self::assertSame(['bytes', 0o600], [file_get_contents($files[0]), fileperms($files[0]) & 0o777]);
+        self::assertSame(['bytes', 0o700], [file_get_contents($files[0]), fileperms(dirname($files[0])) & 0o777]);
         $core->close();
         self::assertFileDoesNotExist($files[0]);
+        self::assertSame([], glob("{$this->dir}/xlsx-graft-*"));
     }
 
     public function testBytesThatCannotBeWrittenAreIo(): void
@@ -274,7 +275,7 @@ final class XlsxReaderTest extends TestCase
 
         self::assertInstanceOf(Diagnostic::class, $diagnostic);
         self::assertSame('io', $diagnostic->code);
-        self::assertStringStartsWith("the workbook could not be written to a temporary file (fopen({$this->dir}/none/xlsx-graft-", $diagnostic->message);
+        self::assertStringStartsWith("the workbook could not be written to a temporary file ({$this->dir}/none/xlsx-graft-", $diagnostic->message);
     }
 
     public function testTheCallersExceptionPropagatesTheBookClosedFirst(): void

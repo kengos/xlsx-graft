@@ -48,7 +48,7 @@ final class VerifyRunTest extends TestCase
         self::assertEquals(Result::ok(null), $result);
         $args = explode("\n", rtrim((string) file_get_contents("{$this->dir}/args"), "\n"));
         self::assertSame(['verify', '--format', 'json'], array_slice($args, 0, 3));
-        self::assertMatchesRegularExpression('#^--policy='.preg_quote($this->dir, '#').'/xlsx-graft-[0-9a-f]{16}\.json$#', $args[3]);
+        self::assertMatchesRegularExpression('#^--policy='.preg_quote($this->dir, '#').'/xlsx-graft-[0-9a-f]{16}/xlsx-graft\.json$#', $args[3]);
         self::assertSame(['--target=-x', '--target=excel 2016', '--fail-on=warn', '--', 'book.xlsx'], array_slice($args, 4));
         self::assertSame('{"maxEntries":1}', file_get_contents("{$this->dir}/policy"));
         self::assertSame([], glob("{$this->dir}/xlsx-graft-*"));
@@ -64,11 +64,11 @@ final class VerifyRunTest extends TestCase
 
     public function testBytesAreWrittenToAFileTheCliReadsAndRemovedAfter(): void
     {
-        $body = 'for last; do :; done; cp "$last" "$(dirname "$0")/data"; ls -l "$last" | cut -c1-10 > "$(dirname "$0")/mode"; echo '.escapeshellarg(self::OK);
+        $body = 'for last; do :; done; cp "$last" "$(dirname "$0")/data"; ls -ld "$(dirname "$last")" | cut -c1-10 > "$(dirname "$0")/mode"; echo '.escapeshellarg(self::OK);
         $result = VerifyRun::bytes(Engine::fakeCli($this->dir, $body), '{}', 'bytes', [], $this->dir);
 
         self::assertTrue($result->success);
-        self::assertSame(['bytes', "-rw-------\n"], [file_get_contents("{$this->dir}/data"), file_get_contents("{$this->dir}/mode")]);
+        self::assertSame(['bytes', "drwx------\n"], [file_get_contents("{$this->dir}/data"), file_get_contents("{$this->dir}/mode")]);
         self::assertSame([], glob("{$this->dir}/xlsx-graft-*"));
     }
 
@@ -102,9 +102,9 @@ final class VerifyRunTest extends TestCase
         $policy = VerifyRun::path($cli, '{}', 'book.xlsx', [], $none);
 
         self::assertSame('io', $data->error?->code);
-        self::assertStringStartsWith("the workbook could not be written to a temporary file (fopen({$none}/xlsx-graft-", $data->error->message);
+        self::assertStringStartsWith("the workbook could not be written to a temporary file ({$none}/xlsx-graft-", $data->error->message);
         self::assertSame('io', $policy->error?->code);
-        self::assertStringStartsWith("the policy could not be written to a temporary file (fopen({$none}/xlsx-graft-", $policy->error->message);
+        self::assertStringStartsWith("the policy could not be written to a temporary file ({$none}/xlsx-graft-", $policy->error->message);
         self::assertFileDoesNotExist("{$this->dir}/called");
     }
 

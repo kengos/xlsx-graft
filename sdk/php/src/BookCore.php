@@ -50,8 +50,8 @@ final class BookCore
 
     /**
      * The book of the workbook `$data` holds, written to a file of its own
-     * in `$dir` (the CLI reads a path), which only this user may read; or
-     * why it cannot be written.
+     * (the CLI reads a path) in a directory of its own in `$dir` that only
+     * this user may enter; or why it cannot be written.
      */
     public static function ofBytes(string $cli, string $data, Zone $zone, string $dir): self|Diagnostic
     {

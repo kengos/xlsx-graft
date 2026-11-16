@@ -6,8 +6,9 @@ namespace XlsxGraft;
 
 /**
  * One run of `xlsx-graft verify`: the files it needs (the workbook's bytes
- * and the policy, each in a file only this user may read), the arguments,
- * and the result, with the files removed after it however it ends.
+ * and the policy, each in a file in a directory only this user may enter),
+ * the arguments, and the result, with the files and their directories
+ * removed after the run however it ends.
  *
  * @internal
  */

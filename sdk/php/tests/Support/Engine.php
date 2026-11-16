@@ -67,7 +67,7 @@ final class Engine
     public static function removeDir(string $dir): void
     {
         foreach (glob("{$dir}/*") ?: [] as $file) {
-            unlink($file);
+            is_dir($file) ? self::removeDir($file) : unlink($file);
         }
         rmdir($dir);
     }

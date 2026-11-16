@@ -87,9 +87,10 @@ final class Verifier
 
     /**
      * Verifies the workbook whose bytes `$data` holds, written to a temporary
-     * file that only your user may read and removed after the run; a file
-     * that cannot be written is `io`. Once the file is written, changes
-     * to `$data` change nothing.
+     * file in a directory that only your user may enter (on Windows, the
+     * directory takes the access list of PHP's temporary directory), both
+     * removed after the run; a file that cannot be written is `io`. Once the
+     * file is written, changes to `$data` change nothing.
      *
      * @param array<string>|null $targets
      * @param array<string>|null $bestEffort
