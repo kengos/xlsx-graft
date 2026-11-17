@@ -27,6 +27,7 @@ macro_rules! page {
 /// Every page, ordered by name. The list order is the order
 /// [`crate::pages`] returns them in.
 pub(crate) const PAGES: &[PageSource] = &[
+    page!("describe-sheet"),
     page!("diagnostics-content"),
     page!("diagnostics-host"),
     page!("diagnostics-package"),
@@ -34,6 +35,7 @@ pub(crate) const PAGES: &[PageSource] = &[
     page!("diagnostics-workbook"),
     page!("diagnostics-zip"),
     page!("reference"),
+    page!("tree"),
     page!("verify"),
     page!("version"),
 ];

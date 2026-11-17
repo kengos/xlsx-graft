@@ -2,8 +2,11 @@
 //! calls that are refused. The reference tools and the check of each tool's
 //! page are in the submodules.
 
+mod arguments;
+mod describe_sheet;
 mod pages;
 mod reference;
+mod tree;
 mod verify;
 
 use super::list;

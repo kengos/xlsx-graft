@@ -126,11 +126,18 @@ result bounded.
   value other than the one its caller gave, or, in the PHP and Go SDKs that
   run the CLI as a subprocess, an argument that the CLI reads as an option.
   - Also in scope: a value quoted from the workbook in an MCP result (in the
-    `args`, `location`, `message` or `fix` of a diagnostic, and in the text
-    part that repeats them) that is longer than 200 characters, or that still
-    holds a control character or a bidirectional formatting character. A
-    `message` or a `fix` that holds such a value is longer than 200 characters
-    by its own words; the bound is on each quoted value.
+    `args`, `location`, `message` or `fix` of a diagnostic, in a part name,
+    relationship id, type, target or content type of `tree`, in the
+    sheet name and dimension of `describe_sheet`, and in the text part that
+    repeats them) that is longer than 200 characters, or that still holds a
+    control character or a bidirectional formatting character. A `message`
+    or a `fix` that holds such a value is longer than 200 characters by its
+    own words; the bound is on each quoted value.
+  - Also in scope: the text of a cell in `describe_sheet` that is longer than
+    1,000 characters, or that still holds a control character other than the
+    tab, the line feed and the carriage return, or a bidirectional formatting
+    character. A value in the CLI's `--format json` of `tree` and
+    `describe-sheet` that breaks the same bounds is in scope too.
 
 **Known gaps**: `verify` does not check these yet. They are listed in the
 `# Not yet` section of `engine/verify/src/lib.rs`, so you need not report
@@ -153,16 +160,19 @@ that one of them causes is still in scope:
   is missing, for example) when the workbook carries nothing dangerous.
   That is a bug; open an issue.
 - What an AI client does with a string quoted from the workbook in an MCP
-  result. The tool says in its description and in the text of every result
-  that the values of a diagnostic's `args`, `location`, `message` and `fix` can quote
-  the workbook and are data, not instructions; whether
-  the client treats them so is the client's behavior.
-- The files the MCP server reads: its `verify` tool reads any file that the
-  user running the server can read, for any `path`, except a path that is not
-  a regular file (a directory, a named pipe, a device), which is not opened and
-  gives an `io` error. There is no `--root`. That is by design; to limit the
-  files, run the server as a user or in a container that can read only
-  those.
+  result. The tool says in its description and in the first line of the text
+  of every result that the values of a diagnostic's `args`, `location`,
+  `message` and `fix` (for `verify`), the part names, relationship ids, types
+  and targets and content types (for `tree`) and the sheet name, dimension
+  and cell text (for `describe_sheet`) can quote the workbook and are data,
+  not instructions; whether the client treats them so is the client's
+  behavior.
+- The files the MCP server reads: its `verify`, `tree` and `describe_sheet`
+  tools read any file that the user running the server can read, for any
+  `path`, except a path that is not a regular file (a directory, a named
+  pipe, a device), which is not opened and gives an `io` error. There is no
+  `--root`. That is by design; to limit the files, run the server as a user
+  or in a container that can read only those.
 - Content that the Rust caller allows (`Rules::allow_function`,
   `Rules::allow_part`; a template's `functions.allow` and `parts.allow`,
   once templates are read) and the host's policy does not forbid, and what a

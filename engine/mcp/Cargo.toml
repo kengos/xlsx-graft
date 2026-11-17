@@ -11,12 +11,16 @@ name = "xlsx-graft-mcp"
 path = "src/main.rs"
 
 [dependencies]
+# `Serialize`, the bound `view_result` in `tools.rs` puts on the content of a
+# host `View` it writes as `structuredContent`.
+serde = { workspace = true }
 # Every JSON-RPC message, in and out.
 serde_json = { workspace = true }
 # McpError.
 thiserror = { workspace = true }
 xlsx-graft-core = { workspace = true }
-# The policy the server starts with, and the verify check that runs under it.
+# The policy the server starts with, and the verify check, the tree and the
+# sheet view that run under it.
 xlsx-graft-host = { workspace = true }
 # The reference pages list_reference and get_reference serve.
 xlsx-graft-reference = { workspace = true }
