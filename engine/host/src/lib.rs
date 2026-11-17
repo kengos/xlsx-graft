@@ -1,6 +1,7 @@
 //! xlsx-graft host: what the hosts (the CLI, the C ABI and the MCP server)
-//! share to verify a workbook, so that each reads the policy and the rules,
-//! and writes the result, the same way.
+//! share to verify a workbook and to view one (its tree and the cells of a
+//! sheet), so that each reads the policy, the rules and the options of a
+//! view, and writes the result, the same way.
 //!
 //! A verification has three parts:
 //!
@@ -74,7 +75,7 @@ pub use tree::{
     Tree, TreePart, TreeRelationship, TreeTarget, TreeText, tree, tree_bytes, tree_path,
 };
 pub use value::{Escape, serialize_value, write_escaped, write_value};
-pub use view::View;
+pub use view::{View, ViewOptionsError, sheet_options, tree_options};
 /// A diagnostic with where it was found: what [`Policy::read`] returns for
 /// each fault, and what [`Report::diagnostics`] lists.
 pub use xlsx_graft_diagnostics::Record;

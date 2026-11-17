@@ -437,6 +437,104 @@ JSON as `value`.
   the CLI, so they do not check on build: a fault of the policy shows up as
   `policy_invalid` diagnostics in the result of the first verify.
 
+### Viewing through the C ABI
+
+`xlsx_graft_tree_path` and `xlsx_graft_tree_bytes` show the parts of a
+workbook and the relationships between them (the JSON of `tree`, see
+[Listing parts](#listing-parts-tree)); `xlsx_graft_describe_sheet_path` and
+`xlsx_graft_describe_sheet_bytes` show the cells of one sheet (the JSON of
+`describe-sheet`, see [Describing a sheet](#describing-a-sheet-describe-sheet)).
+Each writes a view handle (`XlsxGraftView`) holding the result as JSON;
+`xlsx_graft_view_result` lends the JSON and `xlsx_graft_view_close` frees the
+handle. The Node.js addon's `treePath(path, options)`,
+`treeBytes(buffer, options)`, `describeSheetPath(path, options)` and
+`describeSheetBytes(buffer, options)` make, copy and close the handle inside
+the call, take `options` as JSON text (a string: JS `null` is not accepted,
+the text `null` is), and return `{status, value, message}` with the result's
+JSON as `value`. `message` is the reason on `XLSX_GRAFT_ERR_REQUEST_INVALID`,
+and absent on every other status of these four functions.
+
+- **One function: call, copy the result, close, parse**, as for a verify
+  handle. The view handle holds nothing but the JSON, so an SDK never makes
+  it an object of its own.
+- **`options` is one JSON object** of at most 2 MiB; empty, only white space,
+  or `null` is `{}`. A tree takes no key. The keys of `describe_sheet`, in
+  camelCase, each optional, are:
+  - `sheet`: a sheet name (a string); not together with `sheetIndex`.
+  - `sheetIndex`: the sheet's index in the workbook's list (an integer from
+    0). Without `sheet` and `sheetIndex` the first sheet is shown.
+  - `range`: an A1 range such as `A1:H50`. The cells shown start at its top
+    left cell (at A1 without `range`), are at most `maxRows` rows and
+    `maxColumns` columns, and never go past the range.
+  - `maxRows`: 1 to 10000 (100 without it).
+  - `maxColumns`: 1 to 1000 (30 without it).
+
+  The limits a workbook is read under are the CLI's defaults; the C ABI takes
+  no policy.
+- **Statuses: which fault returns which status.** A call checks, in this
+  order, the pointers, the path, the options as a whole, the values of the
+  keys the view takes, and then the workbook, and returns the first fault it
+  finds; `*out_view` is written only on `XLSX_GRAFT_OK`.
+  - `XLSX_GRAFT_ERR_INVALID_ARG` is only for a path that is not UTF-8 or
+    options that are not a JSON object the engine reads (at most 2 MiB;
+    empty, only white space or `null` is `{}`; a string with an unpaired
+    surrogate escape such as `"\ud800"` and a number beyond a double's range
+    such as `1e400` are not JSON to the engine) whose keys are all keys of
+    the view. It is a fault of the code that built the call, which an SDK
+    raises as a bug of its own (for a path that is not UTF-8, read that file
+    and pass its bytes to the `_bytes` function). No message is written for
+    `xlsx_graft_error_message` (one of an earlier call may remain), so the
+    SDK does not read it.
+  - `XLSX_GRAFT_ERR_REQUEST_INVALID` (11, `describe_sheet` only) is every
+    fault of the value of a key the view takes. The SDK reads
+    `xlsx_graft_error_message` right away on the same thread, before
+    anything that could block or move to another thread (as for `IO`), and
+    raises the language's argument error with that message. The message is
+    English and may change, so an SDK's tests do not compare it across SDKs.
+  - `XLSX_GRAFT_OK` is returned otherwise: a file that cannot be opened or
+    read (`error.code` `io`), a sheet that is not found (`sheet_not_found`)
+    and a workbook with errors are the result's `error` or `ok: false`, not a
+    status, and no message is written.
+
+  | # | Fault (`describe_sheet`) | Status | Message |
+  | --- | --- | --- | --- |
+  | 1 | a pointer that must not be null is (a null path, data or options of length 0 is read as empty) | `NULL_ARG` | no |
+  | 2 | the path is not UTF-8 (`_path` functions) | `INVALID_ARG` | no |
+  | 3 | the options are larger than 2 MiB | `INVALID_ARG` | no |
+  | 4 | the options are not JSON the engine reads (not UTF-8, a syntax error, an unpaired surrogate escape, a number beyond a double's range) | `INVALID_ARG` | no |
+  | 5 | the options are neither an object nor `null` (`[]`, `1`, `"x"`) | `INVALID_ARG` | no |
+  | 6 | a key the view does not take, `path` included | `INVALID_ARG` | no |
+  | 7 | `sheet` is not a string (`null` too) | `REQUEST_INVALID` | yes |
+  | 8 | `sheetIndex` is not a JSON integer from 0 to the platform's `usize` maximum (`null`, `5.0`, `-1`, `"1"`, a larger number) | `REQUEST_INVALID` | yes |
+  | 9 | `sheet` and `sheetIndex` together | `REQUEST_INVALID` | yes |
+  | 10 | `range` is not a string | `REQUEST_INVALID` | yes |
+  | 11 | `maxRows` or `maxColumns` is not a JSON integer from 0 to 2^64 - 1, in that order | `REQUEST_INVALID` | yes |
+  | 12 | `range` is not an A1 range | `REQUEST_INVALID` | yes |
+  | 13 | `maxRows` is outside 1 to 10000, then `maxColumns` outside 1 to 1000 | `REQUEST_INVALID` | yes |
+  | 14 | the workbook cannot be opened or read, the sheet is not found or cannot be chosen, or the workbook has errors | `OK`, in the result | no |
+
+  The rows are in the order the faults are found. A tree has rows 1 to 6 and
+  14 only (it takes no key, so any key is row 6). A key whose value is `null`
+  is not absent but row 7, 8, 10 or 11, so an SDK sends only the keys it was
+  given. **SDK duty:** when its caller gives a string that is not well-formed
+  Unicode (in JS, `String.prototype.isWellFormed()` is false) or an integer
+  beyond a double's range, the SDK raises its own argument error without
+  calling; any other fault of the options is an SDK bug. The statuses
+  `NULL_ARG` and `PANIC` are as for every call; after `PANIC` no handle was
+  written. `xlsx_graft_view_result` returns `OK`, `NULL_ARG` when `view`,
+  `out_ptr` or `out_len` is null, and `PANIC`; `xlsx_graft_view_close`
+  returns `OK` (a null handle does nothing) or `PANIC`.
+- **The `_bytes` functions do not copy their input**, as `verify_bytes` does
+  not: the bytes are read during the call only, and must stay alive and
+  unchanged until it returns.
+- **Calls may overlap.** The view entry points keep no shared state, so any
+  thread may make any number at once, and a view handle does not change once
+  made, so its result may be read from any thread until the close. The close
+  is called once, and not while another call on the handle runs.
+- **How large a result is.** Every output that grows with the workbook is
+  bounded: the JSON of a view is some 15 MB at most without its diagnostics,
+  and some 25 MB with the diagnostics of the default policy.
+
 ## Running the CLI
 
 An SDK that runs the engine's CLI (PHP, Go) treats a run the way the others

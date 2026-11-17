@@ -19,6 +19,7 @@ mod header;
 mod layout;
 mod verify;
 mod version;
+mod view;
 // The unit tests' workbooks, the same file: this binary links the library
 // without its `cfg(test)` code.
 #[allow(dead_code, reason = "each binary uses only some of the builders")]

@@ -16,6 +16,7 @@ use napi::bindgen_prelude::Buffer;
 use napi_derive::napi;
 
 pub mod verify;
+pub mod view;
 
 /// One call's result, as the JS SDK receives it.
 #[napi(object)]
@@ -24,8 +25,8 @@ pub struct JsOutcome {
     pub status: i32,
     /// The call's value, present only when `status` is `XLSX_GRAFT_OK`.
     pub value: Option<String>,
-    /// Why the host failed, present only when `status` is
-    /// `XLSX_GRAFT_ERR_IO`.
+    /// Why the call failed, present only when `status` is
+    /// `XLSX_GRAFT_ERR_IO` or `XLSX_GRAFT_ERR_REQUEST_INVALID`.
     pub message: Option<String>,
 }
 

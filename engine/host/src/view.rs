@@ -23,9 +23,13 @@
 //! notice does not change it. A [`Report`](crate::Report)'s `ok` is decided
 //! by its `failOn`.
 
+mod options;
+
 use crate::report::Failure;
 use serde::Serialize;
 use xlsx_graft_diagnostics::{Diagnostics, Record};
+
+pub use options::{ViewOptionsError, sheet_options, tree_options};
 
 /// The result of a view of a workbook: `{ok, error, diagnostics}` and then
 /// the keys of `content`, which has no key named `ok`, `error` or

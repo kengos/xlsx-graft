@@ -9,12 +9,15 @@ mod book;
 mod handle;
 mod rows;
 mod verify;
+mod view;
 
 pub use book::{Book, Sheet, Sheets};
 pub use rows::{Cell, Next, Row, Rows};
 pub use verify::{check_policy, verify_bytes, verify_path};
+pub use view::{describe_sheet_bytes, describe_sheet_path, tree_bytes, tree_path};
 use xlsx_graft_capi::{
-    XLSX_GRAFT_ERR_IO, XLSX_GRAFT_OK, xlsx_graft_error_message, xlsx_graft_version,
+    XLSX_GRAFT_ERR_IO, XLSX_GRAFT_ERR_REQUEST_INVALID, XLSX_GRAFT_OK, xlsx_graft_error_message,
+    xlsx_graft_version,
 };
 
 /// What one call produced, owned.
@@ -25,8 +28,8 @@ pub struct Outcome {
     pub status: i32,
     /// The call's value, present only when `status` is `XLSX_GRAFT_OK`.
     pub value: Option<String>,
-    /// Why the host failed, present only when `status` is
-    /// `XLSX_GRAFT_ERR_IO`.
+    /// Why the call failed, present only when `status` is
+    /// `XLSX_GRAFT_ERR_IO` or `XLSX_GRAFT_ERR_REQUEST_INVALID`.
     pub message: Option<String>,
 }
 
@@ -74,11 +77,11 @@ unsafe fn read(status: i32, ptr: *const u8, len: usize) -> Outcome {
     }
 }
 
-/// Why the host failed, when `status` is `XLSX_GRAFT_ERR_IO`: the C ABI's
-/// message for the call just made on this thread, which is the thread
-/// JavaScript runs on.
+/// Why the call failed, when `status` is `XLSX_GRAFT_ERR_IO` or
+/// `XLSX_GRAFT_ERR_REQUEST_INVALID`: the C ABI's message for the call just
+/// made on this thread, which is the thread JavaScript runs on.
 fn message(status: i32) -> Option<String> {
-    if status != XLSX_GRAFT_ERR_IO {
+    if status != XLSX_GRAFT_ERR_IO && status != XLSX_GRAFT_ERR_REQUEST_INVALID {
         return None;
     }
     let mut ptr = std::ptr::null();
