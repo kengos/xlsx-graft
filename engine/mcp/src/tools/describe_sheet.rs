@@ -6,9 +6,9 @@ mod schema;
 use super::{Tool, arguments, view_result};
 use crate::Context;
 use crate::rpc::{INVALID_PARAMS, RpcError};
-use serde_json::{Map, Value};
+use serde_json::Value;
 use std::path::Path;
-use xlsx_graft_host::{GridText, SheetChoice, SheetRequest, describe_sheet_path};
+use xlsx_graft_host::{GridText, SheetRequest, describe_sheet_path};
 
 /// The `describe_sheet` row of [`super::TOOLS`].
 pub(super) const TOOL: Tool = Tool {
@@ -49,36 +49,11 @@ const NOTICE: &str = "The sheet's name, its dimension and the text of its cells 
 /// read. A workbook whose diagnostics include an error is `ok: false` and not
 /// an error.
 fn run(arguments: &Value, context: &Context) -> Result<Value, RpcError> {
-    let arguments = arguments::read(
-        arguments,
-        "describe_sheet",
-        &[
-            "path",
-            "sheet",
-            "sheetIndex",
-            "range",
-            "maxRows",
-            "maxColumns",
-        ],
-    )?;
-    let map = arguments.map;
-    let name = text(map, "sheet", "describe_sheet's sheet must be a string")?;
-    let index = sheet_index(map)?;
-    let choice = match (name, index) {
-        (Some(_), Some(_)) => {
-            return Err(invalid(
-                "describe_sheet takes sheet or sheetIndex, not both",
-            ));
-        }
-        (Some(name), None) => Some(SheetChoice::Name(name)),
-        (None, Some(index)) => Some(SheetChoice::Index(index)),
-        (None, None) => None,
-    };
-    let range = text(map, "range", "describe_sheet's range must be a string")?;
-    let max_rows = count(map, "maxRows", SheetRequest::HARD_MAX_ROWS.into())?;
-    let max_columns = count(map, "maxColumns", SheetRequest::HARD_MAX_COLUMNS.into())?;
-    let request = SheetRequest::new(choice, range, max_rows, max_columns)
-        .map_err(|error| invalid(error.to_string()))?;
+    let mut keys = vec!["path"];
+    keys.extend(SheetRequest::ARGUMENTS);
+    let arguments = arguments::read(arguments, "describe_sheet", &keys)?;
+    let request =
+        SheetRequest::from_arguments(arguments.map).map_err(|error| invalid(error.to_string()))?;
     let view = describe_sheet_path(
         Path::new(arguments.path),
         &request,
@@ -91,46 +66,4 @@ fn run(arguments: &Value, context: &Context) -> Result<Value, RpcError> {
 /// type, out of its bounds, or given with another that it excludes.
 fn invalid(message: impl Into<String>) -> RpcError {
     RpcError::new(INVALID_PARAMS, message)
-}
-
-/// The string `key` holds, or `None` when the call has no such key. Any other
-/// type, `null` included, is the protocol error `message`.
-fn text<'a>(
-    map: &'a Map<String, Value>,
-    key: &str,
-    message: &str,
-) -> Result<Option<&'a str>, RpcError> {
-    match map.get(key) {
-        None => Ok(None),
-        Some(value) => value.as_str().map(Some).ok_or_else(|| invalid(message)),
-    }
-}
-
-/// The `sheetIndex` of the call: an integer from 0, or `None` when the call
-/// has none.
-fn sheet_index(map: &Map<String, Value>) -> Result<Option<usize>, RpcError> {
-    match map.get("sheetIndex") {
-        None => Ok(None),
-        Some(value) => value
-            .as_u64()
-            .and_then(|index| usize::try_from(index).ok())
-            .map(Some)
-            .ok_or_else(|| invalid("describe_sheet's sheetIndex must be an integer from 0")),
-    }
-}
-
-/// The non-negative integer `key` (`maxRows` or `maxColumns`) holds, or
-/// `None` when the call has no such key. Only the type is checked here: any
-/// other type, `null` included, is a protocol error. `SheetRequest::new`
-/// checks that the value is from 1 to `max`; `max` is used only in the
-/// message.
-fn count(map: &Map<String, Value>, key: &str, max: u64) -> Result<Option<u64>, RpcError> {
-    match map.get(key) {
-        None => Ok(None),
-        Some(value) => value.as_u64().map(Some).ok_or_else(|| {
-            invalid(format!(
-                "describe_sheet's {key} must be an integer from 1 to {max}"
-            ))
-        }),
-    }
 }

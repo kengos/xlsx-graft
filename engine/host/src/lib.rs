@@ -66,8 +66,8 @@ pub use prepare::{
 };
 pub use report::{Counts, FailOn, Failure, Report};
 pub use sheet::{
-    Grid, GridCell, GridRow, GridSheet, GridText, SheetRequest, SheetRequestError, Truncated,
-    describe_sheet, describe_sheet_bytes, describe_sheet_path,
+    Grid, GridCell, GridRow, GridSheet, GridText, SheetArgumentsError, SheetRequest,
+    SheetRequestError, Truncated, describe_sheet, describe_sheet_bytes, describe_sheet_path,
 };
 pub use text::{DiagnosticsText, ReportText};
 pub use tree::{
