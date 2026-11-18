@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -78,6 +77,18 @@ class VerifierTest {
   }
 
   @Test
+  void verifyReadsAFileWhosePathIsNotUnicodeAndVerifiesItsBytes() {
+    Result<Void> table = verifier.verify(NonUnicodePath.standingFor(TABLE));
+    Result<Void> macro = verifier.verify(NonUnicodePath.standingFor(MACRO));
+    Result<Void> missing =
+        verifier.verify(NonUnicodePath.standingFor(Paths.get("/nowhere/a.xlsx")));
+
+    assertTrue(table.success());
+    assertEquals(Arrays.asList("part_denied", "part_denied"), codes(macro));
+    assertEquals("io", missing.error().code());
+  }
+
+  @Test
   void aFaultOfTheRulesIsDiagnosticsAndTheWorkbookIsNotOpened() {
     VerifyRules rules =
         VerifyRules.none()
@@ -105,22 +116,6 @@ class VerifierTest {
     assertFalse(strict.success());
     assertNull(strict.error());
     assertFalse(severities(strict).contains("error"));
-  }
-
-  @Test
-  void readVerifiesTheBytesOfAFileAndFailsWithAnIoErrorForOneThatCannotBeRead() {
-    byte[] options = "{\"policy\":null,\"rules\":{}}".getBytes(StandardCharsets.UTF_8);
-
-    Result<Void> read = verifier.read(TABLE, options);
-    Result<Void> missing = verifier.read(Paths.get("/nowhere/é.xlsx"), options);
-
-    assertTrue(read.success());
-    assertFalse(missing.success());
-    assertTrue(missing.diagnostics().isEmpty());
-    assertEquals("io", missing.error().code());
-    assertTrue(
-        missing.error().message().startsWith("the file could not be read: "),
-        missing.error().message());
   }
 
   @Test
@@ -300,12 +295,6 @@ class VerifierTest {
 
     assertEquals("panic", result.error().code());
     assertEquals(Collections.singletonList(fake.handle), fake.closed);
-  }
-
-  @Test
-  void anIoFailureSaysItsMessageOrElseItsClassName() {
-    assertEquals("gone", Verifier.reason(new IOException("gone")));
-    assertEquals("java.io.IOException", Verifier.reason(new IOException()));
   }
 
   @Test

@@ -18,4 +18,20 @@ public enum SheetKind {
     SheetKind[] kinds = values();
     return kind >= 0 && kind < kinds.length ? kinds[kind] : UNKNOWN;
   }
+
+  /** The kind the engine's JSON names ({@code "worksheet"}), or UNKNOWN for any other text. */
+  static SheetKind named(String kind) {
+    switch (kind) {
+      case "worksheet":
+        return WORKSHEET;
+      case "chartsheet":
+        return CHARTSHEET;
+      case "dialogsheet":
+        return DIALOGSHEET;
+      case "macrosheet":
+        return MACROSHEET;
+      default:
+        return UNKNOWN;
+    }
+  }
 }

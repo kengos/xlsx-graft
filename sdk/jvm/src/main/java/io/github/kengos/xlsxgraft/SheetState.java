@@ -16,4 +16,18 @@ public enum SheetState {
     // UNKNOWN is the package's, not the header's.
     return state >= 0 && state < UNKNOWN.ordinal() ? values()[state] : UNKNOWN;
   }
+
+  /** The state the engine's JSON names ({@code "veryHidden"}), or UNKNOWN for any other text. */
+  static SheetState named(String state) {
+    switch (state) {
+      case "visible":
+        return VISIBLE;
+      case "hidden":
+        return HIDDEN;
+      case "veryHidden":
+        return VERY_HIDDEN;
+      default:
+        return UNKNOWN;
+    }
+  }
 }

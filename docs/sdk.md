@@ -939,8 +939,9 @@ and Go SDKs take the same shape in each language's idiom.
 How an SDK offers the `tree` and `describe_sheet` views, whichever way it
 reaches the engine ([the C ABI](#viewing-through-the-c-abi), the addon, or the
 CLI's [`tree`](#listing-parts-tree) and
-[`describe-sheet`](#describing-a-sheet-describe-sheet)). The Ruby, Python and
-.NET SDKs have them so far; the others take the same shape in their idiom.
+[`describe-sheet`](#describing-a-sheet-describe-sheet)). The Ruby, Python,
+.NET, Java and JavaScript SDKs have them so far (PHP and Go do not yet); the
+others take the same shape in their idiom.
 
 - **A viewer, then calls.** The constructor takes only the engine library;
   a view takes no policy (the limits are the CLI's defaults) and gives no text
@@ -951,6 +952,8 @@ CLI's [`tree`](#listing-parts-tree) and
   | Ruby | `Viewer.new(library:)` | `tree(path)`, `tree_bytes(data)`, `describe_sheet(path, sheet:, range:, max_rows:, max_columns:)`, `describe_sheet_bytes(data, ...)` with the same keywords |
   | Python | `Viewer(library=None)`; `library` is keyword-only | `tree(path)`, `tree_bytes(data)`, `describe_sheet(path, *, sheet=None, range=None, max_rows=None, max_columns=None)`, `describe_sheet_bytes(data, *, ...)` with the same keywords |
   | .NET | `new Viewer(string? library = null)` | `Tree(path)`, `TreeBytes(data)`, `DescribeSheet(path, sheet, sheetIndex, range, maxRows, maxColumns)`, `DescribeSheetBytes(data, ...)` with the same arguments |
+  | Java | `new Viewer()`, `new Viewer(String library)` | `tree(path)`, `treeBytes(data)`, `describeSheet(path, request)`, `describeSheetBytes(data, request)`, where `request` is a `SheetRequest` (`SheetRequest.first().sheet(...).range(...)`; each method returns a new `SheetRequest`); `describeSheet(path)` and `describeSheetBytes(data)` take no request |
+  | JavaScript | `new Viewer({ addon })` | `tree(path)`, `treeBytes(data)`, `describeSheet(path, { sheet, range, maxRows, maxColumns })`, `describeSheetBytes(data, { ... })` with the same keys; each key is optional, and so is the object |
 
 - **The keywords are the options' keys.** In Ruby, `sheet:` is the sheet's
   index when it is an Integer (`sheetIndex`) and its name otherwise (`sheet`; a
@@ -962,13 +965,24 @@ CLI's [`tree`](#listing-parts-tree) and
   `sheetIndex` (an `int`) is `sheetIndex`, and passing both is
   `REQUEST_INVALID` from the engine. The SDK writes the key of each keyword
   whose value is not the language's null (Ruby nil, Python `None`, .NET
-  `null`) and leaves out the others. Leaving a keyword out and passing null
+  `null`) and leaves out the others. Java's `SheetRequest` has a method for
+  each key: `sheet(String)` is `sheet`, `sheetIndex(Integer)` is `sheetIndex`
+  (so a name and an index can both be given, which the engine refuses with
+  `REQUEST_INVALID`, as in .NET), `range(String)`, `maxRows(Integer)` and
+  `maxColumns(Integer)`; the SDK writes the keys that have a value, in the
+  order `sheet`, `sheetIndex`, `range`, `maxRows`, `maxColumns`. In JavaScript
+  `sheet` is the index when it is a number (`sheetIndex`) and its name
+  otherwise (`sheet`), so a name and an index cannot be given at once;
+  `range`, `maxRows` and `maxColumns` are the keys of the same names, and a key
+  whose value is `null` or `undefined` is left out. Leaving a keyword out and passing null
   are the same, because the engine takes a key whose value is `null` as
   `XLSX_GRAFT_ERR_REQUEST_INVALID`. A `tree` takes no options.
 - **The types follow one rule.** Each JSON object is a type and each key is an
   attribute of it, named in the language's style (Ruby and Python, snake_case:
   `relationshipsKnown` is `relationships_known`; .NET, PascalCase:
-  `RelationshipsKnown`) and otherwise as the key is (`row`, `ref`, `type`).
+  `RelationshipsKnown`; Java and JavaScript, camelCase as the key is:
+  `relationshipsKnown`, an accessor `relationshipsKnown()` in Java and an
+  attribute in JavaScript) and otherwise as the key is (`row`, `ref`, `type`).
   The types are `Tree`, `TreePart`, `TreeRelationship`, `TreeTarget` (the
   JSON's `{"part": name}` or `{"external": target}`: the other attribute is
   null), `Grid`, `GridTruncated`, `GridRow` and `GridCell`;
@@ -980,11 +994,20 @@ CLI's [`tree`](#listing-parts-tree) and
   `object` that is a `string`, a `bool`, a `long` for a JSON number written as
   an integer (an elapsed time's milliseconds) or a `double` for any other
   number, as Python and Ruby read the same JSON (`2.0` is a float, `90000` an
-  integer). A .NET `SheetInfo` has `kind` and `state` as enums, and a string
-  newer than the SDK is `Unknown`. A .NET `size` and `compressedSize` are
-  `ulong`, and its lists are `IReadOnlyList`, which a record compares by
-  reference, so compare their items; Ruby and Python use frozen arrays and
-  tuples, which compare by their items. The names, ids and values are made
+  integer). In Java the value is an `Object` that is a `String`, a
+  `Boolean`, a `Long` for a JSON number written as an integer or a `Double` for
+  any other number, read as .NET reads it; in JavaScript it is a `string`, a
+  `boolean` or a `number`, and `2.0` and `2` are the same number, as JSON.parse
+  reads them. A .NET `SheetInfo` has `kind` and `state` as enums, and a string
+  newer than the SDK is `Unknown`; a Java `SheetInfo` has them as enums too
+  (`SheetKind`, `SheetState`), and a string newer than the SDK is `UNKNOWN`, and
+  a JavaScript one is the string `'unknown'`. A .NET `size` and
+  `compressedSize` are `ulong`, and its lists are `IReadOnlyList`, which a
+  record compares by reference, so compare their items; Java's `size()` and
+  `compressedSize()` are `long`, its lists are unmodifiable `List`s, and its
+  types have no `equals`, so compare their items too. Ruby and Python use
+  frozen arrays and tuples, which compare by their items; JavaScript's types
+  and arrays are frozen. The names, ids and values are made
   for display (control characters removed, a long one cut), so they are not
   exact; to read exact values an SDK reads the rows
   ([Reading rows in an SDK](#reading-rows-in-an-sdk)). A key the SDK does not
@@ -1000,7 +1023,8 @@ CLI's [`tree`](#listing-parts-tree) and
   a file that does not exist gives a `Tree` with no parts. The value is null
   only when the SDK failed to get one: `panic`, `null_arg`, `unknown_status`
   (from the status), `diagnostics_unreadable` (JSON it cannot read) and the
-  `io` of a path that is not UTF-8 whose file it cannot read.
+  `io` of a path that is not UTF-8 (in JavaScript, not well-formed UTF-16)
+  whose file it cannot read.
 - **What raises**, per language:
 
   | SDK | `XLSX_GRAFT_ERR_REQUEST_INVALID` | Before the call: an integer beyond a double's range, a value JSON cannot write, a string that is not Unicode, options of more than 2 MiB | `INVALID_ARG` (a bug of the SDK) |
@@ -1008,11 +1032,14 @@ CLI's [`tree`](#listing-parts-tree) and
   | Ruby | `ArgumentError`, with the engine's message as it is | `ArgumentError` (`10**400`; a String whose bytes are not valid in its encoding, NaN or Infinity, nesting too deep; 2 MiB) | `Error` |
   | Python | `ValueError`, with the engine's message as it is | `ValueError` (`10**400`; NaN or an infinity, a string holding a lone surrogate, a cyclic value; 2 MiB), `TypeError` (a value JSON cannot write), `RecursionError` (dicts and lists nested too deep) | `xlsx_graft.Error` |
   | .NET | `ArgumentException`, with the engine's message as it is | `ArgumentException` (a `sheet` or `range` holding a lone surrogate; 2 MiB; the numeric arguments are `int?`, so none is beyond a double's range) | `XlsxGraftException` |
+  | Java | `IllegalArgumentException`, with the engine's message as it is | `IllegalArgumentException` (a `sheet` or `range` holding an unpaired surrogate; 2 MiB; the numeric methods take an `Integer`, so none is beyond a double's range); `NullPointerException` for a null `path`, `data` or `request` | `XlsxGraftException` |
+  | JavaScript | `RangeError`, with the engine's message as it is | `RangeError` (a `sheet` or `range` holding a lone surrogate, which would name another sheet or range if it were written as U+FFFD; 2 MiB), `TypeError` (a BigInt, a cycle, a URL that is not a `file:` URL); `Infinity` and `NaN` are written as JSON `null`, which the engine refuses with `REQUEST_INVALID` | `XlsxGraftError` |
 
   The SDK checks no other type or value of the options: `sheet: 1.5`,
   `range: 3`, `max_rows: 0` and `max_rows: "2"` (in Python `sheet=1.5`,
   `range=3`, `max_rows=0`; in .NET `maxRows: 0`, or `sheet` with
-  `sheetIndex`) are `REQUEST_INVALID` and raise the argument error with the
+  `sheetIndex`; in Java `maxRows(0)`, or `sheet` with `sheetIndex`; in
+  JavaScript `maxRows: 0` or `sheet: 1.5`) are `REQUEST_INVALID` and raise the argument error with the
   engine's message. The SDK reads the message right after the call that
   returned the status, on the same thread (in Ruby, also within the same guard
   against interrupts as the call). Under Ruby's M:N threads a Ruby thread may
@@ -1021,13 +1048,21 @@ CLI's [`tree`](#listing-parts-tree) and
   it is, or empty, for which the SDK gives a fixed message of its own (as it
   does when `xlsx_graft_error_message` does not return `OK`). A Python or .NET
   thread is an operating system thread, so the message read right after the
-  call is that call's; the fixed message is for one that cannot be read.
+  call is that call's; the fixed message is for one that cannot be read. So it
+  is in Java, which reads it on the same operating system thread right after
+  the call with nothing between that could block (a virtual thread that blocks
+  may move to another operating system thread). In JavaScript the addon
+  returns the message with the status, so it is always that call's.
 - **A path that is not UTF-8, the input of the `_bytes` calls and threads**
   are as for [verify](#verifying-in-an-sdk): the SDK reads the file and sends
   its bytes (an unreadable file is an `io` failure with no value), the bytes
   are copied for the call (in .NET, the `*Bytes` calls do not copy them: they
-  pin the data for the call, as verify does), and a viewer does not change
-  after it is made, so threads share one and call it at once.
+  pin the data for the call, as verify does; Java does not copy them either,
+  JNA passes the array through JNI, which may copy or pin it, so the array must
+  not change until the call returns; JavaScript reads the `Uint8Array` in
+  place), and a viewer does not change after it is made, so threads share one
+  and call it at once (in Java; a JavaScript worker makes its own viewer, as
+  it does a verifier).
 - **How large a result is**: the JSON of a view is some 15 MB at most without
   its diagnostics and some 25 MB with the diagnostics of the default policy,
   and the SDK holds the parsed value too.

@@ -36,6 +36,15 @@ final class EngineDiagnostics {
         diagnostics);
   }
 
+  /** The diagnostics of the result {@code report}, which VerifyReport and ViewReport read too. */
+  static List<Diagnostic> diagnostics(Map<String, Object> report) throws Json.UnreadableException {
+    List<Diagnostic> diagnostics = new ArrayList<>();
+    for (Object record : of(List.class, member(report, "diagnostics"), "diagnostics")) {
+      diagnostics.add(diagnostic(object(record, "a diagnostic")));
+    }
+    return diagnostics;
+  }
+
   /** The diagnostic the JSON object {@code record} holds, which VerifyReport reads too. */
   static Diagnostic diagnostic(Map<String, Object> record) throws Json.UnreadableException {
     Object decidedBy = member(record, "decidedBy");
@@ -47,6 +56,15 @@ final class EngineDiagnostics {
         object(member(record, "location"), "location"),
         decidedBy == null ? null : object(decidedBy, "decidedBy"),
         member(record, "fix"));
+  }
+
+  /** The result's {@code error} (io) that {@code error} holds, or null when it has none. */
+  static Diagnostic failure(Object error) throws Json.UnreadableException {
+    if (error == null) {
+      return null;
+    }
+    Map<String, Object> failure = object(error, "error");
+    return StatusDiagnostic.error(text(failure, "code"), text(failure, "message"));
   }
 
   // A member that is there, null or not.

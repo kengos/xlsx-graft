@@ -8,8 +8,10 @@
  * ({@link ClosedError}), and a call this package built wrongly, which the
  * engine refuses (an {@link XlsxGraftError}: a bug of the package). A call
  * made wrongly by the caller throws JavaScript's own errors: a RangeError for
- * a policy and rules of more than 2 MiB of JSON, and a TypeError for a value
- * JSON cannot write or a URL that is not a `file:` URL.
+ * a policy and rules of more than 2 MiB of JSON, a RangeError too for a value
+ * of a sheet request that the engine refuses (`maxRows: 0`), a sheet or range
+ * with a lone surrogate or sheet request options of more than 2 MiB, and a TypeError for a value JSON cannot write or a URL
+ * that is not a `file:` URL.
  */
 
 import type { Diagnostic } from './diagnostic.js';

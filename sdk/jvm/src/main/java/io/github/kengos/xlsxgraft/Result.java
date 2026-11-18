@@ -6,7 +6,8 @@ import java.util.List;
 /**
  * What every call into the engine returns: whether it worked, the value when it did, why it did not
  * when it stopped, and the diagnostics either way. {@link Book#result()} is a {@code Result<Void>}:
- * a try-with-resources block has no value to give.
+ * a try-with-resources block has no value to give. A failed {@link Viewer} call keeps its value
+ * (see {@link #value()}).
  *
  * <p>{@link #error()} says why the call stopped short: the workbook or a sheet asked for was
  * refused, or the host or the engine failed. A call can fail with no error too: a read that a
@@ -42,7 +43,11 @@ public final class Result<T> {
   }
 
   static <T> Result<T> failure(List<Diagnostic> diagnostics, Diagnostic error) {
-    return new Result<>(false, null, diagnostics, error);
+    return failure(diagnostics, error, null);
+  }
+
+  static <T> Result<T> failure(List<Diagnostic> diagnostics, Diagnostic error, T value) {
+    return new Result<>(false, value, diagnostics, error);
   }
 
   /**
@@ -66,7 +71,12 @@ public final class Result<T> {
   /**
    * What the call produced.
    *
-   * @return the value on a success, null on a failure
+   * <p>A failed {@link Viewer} call has a value too: the {@link Tree} or {@link Grid} of what could
+   * be read (a sheet that is not found gives a {@code Grid} whose {@code sheet()} is null). It is
+   * null only when the package got none.
+   *
+   * @return the value on a success, null on a failure except a Viewer's failure that has its Tree
+   *     or Grid
    */
   public T value() {
     return value;

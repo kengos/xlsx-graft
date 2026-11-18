@@ -6,7 +6,8 @@
  * reimplements it. Calls return a {@link Result} rather than throwing. What
  * throws is a setup with no engine addon in it ({@link LibraryNotFoundError})
  * and a mistake in the caller's code, such as a book used after its callback
- * ({@link ClosedError}).
+ * ({@link ClosedError}). A value the engine refuses in a sheet request throws
+ * a RangeError.
  *
  * @example
  * ```ts
@@ -35,7 +36,9 @@ export {
   PolicyInvalidError,
   XlsxGraftError,
 } from './errors.js';
+export { Grid, GridCell, GridRow, GridTruncated } from './grid.js';
 export { Result } from './result.js';
+export { Tree, TreePart, TreeRelationship, TreeTarget } from './tree.js';
 export {
   CalendarDate,
   CellError,
@@ -47,6 +50,7 @@ export {
   type Value,
 } from './values.js';
 export { Verifier, type VerifierOptions, type VerifyRules } from './verifier.js';
+export { type SheetRequest, Viewer, type ViewerOptions } from './viewer.js';
 export { type Read, type ReaderOptions, XlsxReader } from './xlsxReader.js';
 
 export interface VersionOptions {

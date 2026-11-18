@@ -113,6 +113,56 @@ if (result.error) console.error(`${result.error.code}: ${result.error.message}`)
   `policy_invalid`, `target_invalid` or `rules_invalid` diagnostic).
 - A verifier does not change once it is made. A worker thread makes its own.
 
+## Viewing a workbook
+
+```js
+import { Viewer } from 'xlsx-graft';
+
+const viewer = new Viewer();
+for (const part of viewer.tree('book.xlsx').value?.parts ?? []) {
+  console.log(part.name, part.contentType);
+}
+
+const result = viewer.describeSheet('book.xlsx', { sheet: 'Data', range: 'A1:H50', maxRows: 20 });
+const grid = result.value;
+if (grid?.sheet) console.log(`${grid.sheet.name}: ${grid.shown}`);
+for (const row of grid?.rows ?? []) {
+  console.log(row.cells.map((cell) => [cell.ref, cell.value]));
+}
+if (result.error) console.error(`${result.error.code}: ${result.error.message}`);
+```
+
+- `tree(path)` lists the parts of a workbook and the relationships between
+  them (the engine's `tree`); `describeSheet(path, request)` shows the cells
+  of one sheet (`describe-sheet`). `treeBytes(uint8Array)` and
+  `describeSheetBytes(uint8Array, request)` take the workbook's bytes, read in
+  place for the call, not copied. The paths are as for `verify`.
+- `request` is an object, each key optional: `sheet` (a name, or a number for
+  an index from 0; the first sheet without it), `range` (an A1 range such as
+  `'A1:H50'`), `maxRows` (1 to 10000, 100 without it) and `maxColumns` (1 to
+  1000, 30 without it). A view takes no policy: the limits are the CLI's
+  defaults.
+- The value is a `Tree` or a `Grid`, frozen objects with one attribute for
+  each key of the engine's JSON (see `Tree`, `TreePart`, `TreeRelationship`,
+  `TreeTarget`, `Grid`, `GridTruncated`, `GridRow` and `GridCell`). Their lists
+  are frozen arrays. A cell's `value` is the JSON's value: a `string`, a
+  `number` (an elapsed time's milliseconds too; `2.0` and `2` are the same
+  number), a `boolean`, and a `string` for a date, a time, a date-time and an
+  error. Names and text are made for display (control characters removed, long
+  text cut), so they are not exact; read the rows with `XlsxReader` for exact
+  values.
+- The result is successful when the engine's `ok` is true, and its `value` is
+  set also when it is not: a workbook with errors gives what could be read, a
+  sheet that is not found (`error.code` `sheet_not_found`) gives a `Grid`
+  whose `sheet` is `null`. `value` is `null` only when the call itself failed
+  (`panic`, `null_arg`, `unknown_status`, `diagnostics_unreadable`, or `io`
+  for a path with a lone surrogate whose file the package cannot read).
+- A value the engine refuses (`range: 'nope'`, `maxRows: 0`, `sheet: 1.5`)
+  throws a `RangeError` with the engine's message. So do a `sheet` or `range`
+  with a lone surrogate and options of more than 2 MiB, before the engine is
+  called; a value JSON cannot write (a BigInt) throws a `TypeError`.
+- A viewer does not change once it is made. A worker thread makes its own.
+
 ## The engine's version
 
 ```js
@@ -134,8 +184,9 @@ engine addon (`LibraryNotFoundError`), a book used after its callback
 call this package built wrongly, which the engine refuses (`XlsxGraftError`: a
 bug of the package), and a call made wrongly (a `TypeError` or a `RangeError`:
 no callback, a zone `Intl` does not take, a sheet that is neither a name
-nor an index, a policy and rules of more than 2 MiB of JSON, a value JSON
-cannot write, a URL that is not a `file:` URL).
+nor an index, a policy and rules of more than 2 MiB of JSON, a value of a sheet
+request the engine refuses or options of more than 2 MiB, a sheet or range with
+a lone surrogate, a value JSON cannot write, a URL that is not a `file:` URL).
 
 The package is ESM; `require('xlsx-graft')` loads it as well, through
 Node.js's `require()` of ES modules.

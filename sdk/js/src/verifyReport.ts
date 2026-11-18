@@ -5,7 +5,6 @@
  */
 
 import type { Outcome } from './addon.js';
-import type { Diagnostic } from './diagnostic.js';
 import * as engineDiagnostics from './engineDiagnostics.js';
 import { XlsxGraftError } from './errors.js';
 import { Result } from './result.js';
@@ -34,19 +33,6 @@ export function call(outcome: Outcome): Result<null> {
   return Result.failure([], statusDiagnostic.call(outcome.status));
 }
 
-// The `error` of a result that is not ok: null, or an object with a code and a
-// message.
-function failure(error: unknown): Diagnostic | null {
-  if (error === null) {
-    return null;
-  }
-  const record = engineDiagnostics.object(error);
-  return statusDiagnostic.of(
-    engineDiagnostics.text(record, 'code'),
-    engineDiagnostics.text(record, 'message'),
-  );
-}
-
 function parsed(json: string): Result<null> {
   try {
     // Every object and array of the result is frozen, as a diagnostic's args or fix may nest.
@@ -62,7 +48,10 @@ function parsed(json: string): Result<null> {
     if (ok) {
       return Result.ok(null, diagnostics);
     }
-    return Result.failure(diagnostics, failure(engineDiagnostics.field(report, 'error')));
+    return Result.failure(
+      diagnostics,
+      engineDiagnostics.failure(engineDiagnostics.field(report, 'error')),
+    );
   } catch (error) {
     return Result.failure(
       [],

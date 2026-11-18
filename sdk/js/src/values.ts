@@ -118,6 +118,20 @@ export class SheetInfo {
   }
 }
 
+// What an addon newer than the package may name otherwise is `unknown`.
+const KINDS: readonly SheetKind[] = ['worksheet', 'chartsheet', 'dialogsheet', 'macrosheet'];
+const STATES: readonly SheetState[] = ['visible', 'hidden', 'veryHidden'];
+
+/** The {@link SheetKind} the engine names with `name`; `unknown` for a name this package lacks. */
+export function sheetKind(name: string): SheetKind {
+  return KINDS.find((kind) => kind === name) ?? 'unknown';
+}
+
+/** The {@link SheetState} the engine names with `name`; `unknown` for a name this package lacks. */
+export function sheetState(name: string): SheetState {
+  return STATES.find((state) => state === name) ?? 'unknown';
+}
+
 function pad(n: number, width: number): string {
   return String(n).padStart(width, '0');
 }

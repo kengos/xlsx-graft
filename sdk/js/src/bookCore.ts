@@ -16,12 +16,9 @@ import * as engineDiagnostics from './engineDiagnostics.js';
 import { ClosedError } from './errors.js';
 import { Result } from './result.js';
 import * as statusDiagnostic from './statusDiagnostic.js';
-import { Row, SheetInfo, type SheetKind, type SheetState } from './values.js';
+import { Row, SheetInfo, sheetKind, sheetState } from './values.js';
 import type { Zone } from './zone.js';
 
-// What an addon newer than the package may name otherwise is `unknown`.
-const KINDS: readonly SheetKind[] = ['worksheet', 'chartsheet', 'dialogsheet', 'macrosheet'];
-const STATES: readonly SheetState[] = ['visible', 'hidden', 'veryHidden'];
 const CLOSED = "the book is closed: use it inside XlsxReader.open's callback";
 
 export class BookCore {
@@ -52,7 +49,7 @@ export class BookCore {
     this.#ok(status);
     return sheets.map(
       ({ name, kind, state }, index) =>
-        new SheetInfo(index, name, known(KINDS, kind), known(STATES, state)),
+        new SheetInfo(index, name, sheetKind(kind), sheetState(state)),
     );
   }
 
@@ -167,8 +164,4 @@ export class BookCore {
       return null;
     }
   }
-}
-
-function known<T extends string>(names: readonly T[], name: string): T | 'unknown' {
-  return names.includes(name as T) ? (name as T) : 'unknown';
 }
