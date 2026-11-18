@@ -74,6 +74,17 @@ type SheetInfo struct {
 	State SheetState
 }
 
+// sheetInfoOf is the sheet o describes, as `sheets` and `describe-sheet` write
+// it. A kind or a state this package does not know is "unknown".
+func sheetInfoOf(f *fields, o object) SheetInfo {
+	return SheetInfo{
+		Index: get[int](f, o, "index"),
+		Name:  get[string](f, o, "name"),
+		Kind:  known(SheetKind(get[string](f, o, "kind")), Worksheet, Chartsheet, Dialogsheet, Macrosheet),
+		State: known(SheetState(get[string](f, o, "state")), Visible, Hidden, VeryHidden),
+	}
+}
+
 // SheetKind is which part a sheet is.
 type SheetKind string
 
@@ -129,12 +140,7 @@ func (b *Book) list(ran run) []SheetInfo {
 		r = reportOf(f, o)
 		listing, _ := objects(f, o, "sheets")
 		for _, sheet := range listing {
-			sheets = append(sheets, SheetInfo{
-				Index: get[int](f, sheet, "index"),
-				Name:  get[string](f, sheet, "name"),
-				Kind:  known(SheetKind(get[string](f, sheet, "kind")), Worksheet, Chartsheet, Dialogsheet, Macrosheet),
-				State: known(SheetState(get[string](f, sheet, "state")), Visible, Hidden, VeryHidden),
-			})
+			sheets = append(sheets, sheetInfoOf(f, sheet))
 		}
 	}
 	b.mu.Lock()
