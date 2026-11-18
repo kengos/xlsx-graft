@@ -100,6 +100,52 @@ warn "#{result.error.code}: #{result.error.message}" if result.error
 - A verifier does not change once it is made: share one between threads, and
   call it from them at once.
 
+## Viewing a workbook
+
+```ruby
+require "xlsx_graft"
+
+viewer = XlsxGraft::Viewer.new
+tree = viewer.tree("book.xlsx").value
+tree.parts.each { |part| puts "#{part.name} #{part.content_type}" }
+
+result = viewer.describe_sheet("book.xlsx", sheet: "Data", range: "A1:H50", max_rows: 20)
+grid = result.value
+puts "#{grid.sheet.name}: #{grid.shown}" if grid&.sheet
+grid&.rows&.each { |row| p row.cells.map { |cell| [cell.ref, cell.value] } }
+warn "#{result.error.code}: #{result.error.message}" if result.error
+```
+
+- `tree(path)` lists the parts of a workbook and the relationships between
+  them (the engine's `tree`); `describe_sheet(path, ...)` shows the cells of
+  one sheet (`describe-sheet`). `tree_bytes(data)` and
+  `describe_sheet_bytes(data, ...)` take the workbook's bytes.
+- `describe_sheet` takes `sheet:` (a name, or an Integer index; the first
+  sheet without it), `range:` (an A1 range such as `"A1:H50"`), `max_rows:`
+  (1 to 10000, 100 without it) and `max_columns:` (1 to 1000, 30 without it),
+  each optional. A view takes no policy: the limits are the CLI's defaults.
+- The value is a `XlsxGraft::Tree` or `XlsxGraft::Grid`, plain `Data` objects
+  with one attribute for each key of the engine's JSON (`relationships_known`
+  for `relationshipsKnown`; see `Tree`, `TreePart`, `TreeRelationship`,
+  `TreeTarget`, `Grid`, `GridTruncated`, `GridRow` and `GridCell`). A cell's
+  `value` is the JSON's value: a String, a Float, an Integer of milliseconds
+  for an elapsed time, a boolean, and a String for a date, a time or a
+  date-time. Names and text are made for display (control characters removed,
+  long text cut), so they are not exact; read the rows with `XlsxReader` for
+  exact values.
+- The result is successful when the engine's `ok` is true, and its `value` is
+  set also when it is not: a workbook with errors gives what could be read, a
+  sheet that is not found (`error.code` `sheet_not_found`) gives a `Grid` whose
+  `sheet` is `nil`. `value` is `nil` only when the call itself failed
+  (`panic`, `null_arg`, `unknown_status`, `diagnostics_unreadable`, or `io`
+  for a path that is not UTF-8 whose file the gem cannot read).
+- A value the engine refuses (`range: "nope"`, `max_rows: 0`, `sheet: 1.5`)
+  raises `ArgumentError` with the engine's message. So do an Integer beyond
+  what a double holds, a value JSON cannot write, and options of more than
+  2 MiB, before the engine is called.
+- A viewer does not change once it is made: share one between threads, and
+  call it from them at once.
+
 ## The engine's version
 
 ```ruby

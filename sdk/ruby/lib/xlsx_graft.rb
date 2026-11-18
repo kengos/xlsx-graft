@@ -22,6 +22,20 @@ require_relative "xlsx_graft/path_input"
 require_relative "xlsx_graft/verify_call"
 require_relative "xlsx_graft/verify_report"
 require_relative "xlsx_graft/verifier"
+require_relative "xlsx_graft/tree"
+require_relative "xlsx_graft/tree_part"
+require_relative "xlsx_graft/tree_relationship"
+require_relative "xlsx_graft/tree_target"
+require_relative "xlsx_graft/grid"
+require_relative "xlsx_graft/grid_truncated"
+require_relative "xlsx_graft/grid_row"
+require_relative "xlsx_graft/grid_cell"
+require_relative "xlsx_graft/tree_content"
+require_relative "xlsx_graft/grid_content"
+require_relative "xlsx_graft/view_options"
+require_relative "xlsx_graft/view_call"
+require_relative "xlsx_graft/view_report"
+require_relative "xlsx_graft/viewer"
 
 # Ruby bindings for xlsx-graft, an engine that reads, verifies, creates and
 # edits xlsx workbooks.
@@ -43,6 +57,12 @@ require_relative "xlsx_graft/verifier"
 #   verifier = XlsxGraft::Verifier.new(policy: { max_entries: 20_000 })
 #   result = verifier.verify("book.xlsx", targets: ["excel >= 2016"])
 #   result.diagnostics.each { |d| warn "#{d.severity} #{d.code}: #{d.message}" }
+#
+# @example Viewing a workbook ({Viewer})
+#   viewer = XlsxGraft::Viewer.new
+#   viewer.tree("book.xlsx").value.parts.each { |part| puts part.name }
+#   grid = viewer.describe_sheet("book.xlsx", sheet: "Data", range: "A1:H50").value
+#   grid.rows.each { |row| p row.cells.map(&:value) }
 module XlsxGraft
   class << self
     # The engine's version.
