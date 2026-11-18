@@ -29,10 +29,12 @@ Every workbook went through `make fixtures:scrub` before it was added
 `error: null`; "no dialog" that it also gave `dialogs: []`.
 
 `make fixtures:generate` writes workbooks too large to commit into
-`generated/`, which git ignores: `rows-100000.xlsx` and
-`rows-1000000.xlsx`, written by rust_xlsxwriter
-([`engine/fixtures-gen/src/book.rs`](../engine/fixtures-gen/src/book.rs)
-says what each holds), not by Excel.
+`generated/`, which git ignores: `rows-100000.xlsx`, `rows-1000000.xlsx`,
+`shared-100000.xlsx` and `shared-1000000.xlsx`, written by rust_xlsxwriter
+([`book.rs`](../engine/fixtures-gen/src/book.rs) says what a `rows-*`
+workbook holds and [`shared.rs`](../engine/fixtures-gen/src/shared.rs)
+what a `shared-*` one does: strings all different, in the shared strings
+table), not by Excel.
 
 ## Adding a workbook
 

@@ -38,8 +38,13 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   The fix-applying targets (`engine:format` / `lock` / `update` /
   `licenses-write`,
   `sdk:lock:ruby` / `sdk:lock:python` / `sdk:lock:dotnet` / `sdk:lock:jvm` /
-  `sdk:lock:js` / `sdk:lock:php` / `sdk:lock:go`, `sdk:format:jvm` /
+  `sdk:lock:js` / `sdk:lock:php` / `sdk:lock:go`, `bench:lock`, `sdk:format:jvm` /
   `sdk:format:js` / `sdk:format:php` / `sdk:format:go`) print their raw output.
+- `make bench:compare` and `make bench:cli` are not gates and not members of
+  `make verify` (the result changes with the machine and the day): they read
+  the four workbooks `make fixtures:generate` writes with the Ruby xlsx gems and the CLI
+  (bench/ruby, in Docker, 8 GiB) and write the peak memory and time to
+  `dist/bench/compare.{json,md}` / `dist/bench/cli.{json,md}`.
 - **Never wrap a gate** in a pipe (`| tail`), in `; echo $?`, or in `make -n`.
   The first two report the wrong exit code; the Makefile refuses the third.
 - GNU Make 4 or newer. The Makefile refuses 3.81 (macOS's) and names the fix.

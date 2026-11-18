@@ -21,7 +21,10 @@
 #               and those a bump left behind, and the SDK gate images
 #               (xlsx-graft-sdk-<lang>:<version>-<hash>, built from
 #               sdk/<lang>/Dockerfile and never published, so the next gate
-#               builds them again).
+#               builds them again), and the benchmark image
+#               (xlsx-graft-bench-ruby:<version>-<hash>, built from
+#               bench/ruby/Dockerfile, likewise built again by the next
+#               benchmark).
 #               Tagged rust:* images are listed, not removed: other
 #               repositories may use them, and the gates used one before the
 #               toolchain image.
@@ -97,12 +100,14 @@ clean_images() {
             say_kept "image $refs" "$err"
         fi
     done
-    for ref in $(docker images --format '{{.Repository}}:{{.Tag}}' --filter 'reference=xlsx-graft-sdk-*' | grep -v ':<none>$'); do
-        if err=$(docker rmi "$ref" 2>&1); then
-            say_removed "image $ref"
-        else
-            say_kept "image $ref" "$err"
-        fi
+    for pattern in 'xlsx-graft-sdk-*' 'xlsx-graft-bench-*'; do
+        for ref in $(docker images --format '{{.Repository}}:{{.Tag}}' --filter "reference=$pattern" | grep -v ':<none>$'); do
+            if err=$(docker rmi "$ref" 2>&1); then
+                say_removed "image $ref"
+            else
+                say_kept "image $ref" "$err"
+            fi
+        done
     done
     for other in $(docker images --format '{{.Repository}}:{{.Tag}}' rust | grep -v ':<none>$'); do
         say_kept "image $other" "not this repository's image; other repositories may use it (docker rmi $other)"

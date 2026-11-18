@@ -156,6 +156,8 @@
 #     make sdk:lock:go          re-resolve sdk/go's go.mod files and
 #                               tools/go.sum after a go.mod edit (then: git
 #                               add sdk/go)
+#     make bench:lock           re-resolve bench/ruby/Gemfile.lock after a
+#                               Gemfile edit (then: git add it)
 #
 #   Open in Excel for Mac (on the host, not in Docker; not a gate, not in
 #   verify, never in CI)
@@ -171,9 +173,21 @@
 #                               it goes into fixtures/ (scripts/fixtures-scrub)
 #
 #   Generate workbooks (in Docker; not a gate, not in verify)
-#     make fixtures:generate    write rows-100000.xlsx and rows-1000000.xlsx
+#     make fixtures:generate    write rows-100000.xlsx, rows-1000000.xlsx,
+#                               shared-100000.xlsx and shared-1000000.xlsx
 #                               into fixtures/generated/ (gitignored) with
 #                               rust_xlsxwriter (engine/fixtures-gen)
+#
+#   Benchmarks (in Docker; not a gate, not in verify: the result changes with
+#   the machine and the day)
+#     make bench:compare        the four workbooks fixtures:generate writes,
+#                               read by rubyXL, Roo, Creek, Xsv, simple_xlsx_reader,
+#                               the Ruby SDK and the CLI (and verified by the
+#                               last two), three runs each in a container of 8
+#                               GiB: peak memory and time, written to
+#                               dist/bench/compare.json and .md (bench/ruby)
+#     make bench:cli            the same for the CLI alone, into
+#                               dist/bench/cli.json and .md
 #
 #   Housekeeping (removes things, proves nothing)
 #     make clean:all            this tree's engine/target, lcov.info, dist/,
@@ -182,10 +196,12 @@
 #     make docker:clean:all     stopped gate containers, the cargo download
 #                               cache volume (and the per-Rust-version volumes
 #                               of the layout before the toolchain image), every
-#                               pin of the toolchain image, the SDK gate images.
+#                               pin of the toolchain image, the SDK gate images
+#                               and the benchmark image.
 #                               Safe at any time: the next gate pulls the image,
 #                               downloads the crates again, and builds nothing
-#                               but the engine and the SDK gate images
+#                               but the engine, the SDK gate images and the
+#                               benchmark image
 #
 #   Where did it break?
 #     cat .make-logs/last-error.log    always the last failed gate (not under
@@ -397,6 +413,7 @@ include mk/sdk/php.mk
 include mk/sdk/go.mk
 include mk/docker.mk
 include mk/excel.mk
+include mk/bench.mk
 include mk/release.mk
 include mk/release/dry-run.mk
 

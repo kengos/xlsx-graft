@@ -122,9 +122,14 @@ napi-build = "2"
 # fixtures/generated/ (engine/fixtures-gen, which is not published): a
 # writer other than xlsx-graft, so that the reader can be checked against
 # workbooks the xlsx-graft writer did not write. No default features;
-# `constant_memory` writes each row to a temporary file as it is written,
-# so a million rows take no more memory than ten, and brings tempfile with
-# its default features (getrandom, which seeds the temporary file names).
+# `constant_memory` is the feature that enables both modes that write each row
+# to a temporary file as it is written (constant memory and low memory), and brings tempfile with its default
+# features (getrandom, which seeds the temporary file names). In constant
+# memory mode (the rows workbook) the strings are written in their cells too,
+# so the memory does not grow with the number of rows. In low memory mode
+# (the shared strings workbook) the rows go to a temporary file, but the
+# shared strings table stays in the workbook's memory and grows with the
+# number of different strings.
 # rust_xlsxwriter also brings zip, and every other crate this adds to the
 # lockfile comes from zip: its `deflate` feature brings flate2 over zlib-rs
 # and zopfli (with bumpalo, log and simd-adler32); zip itself always brings

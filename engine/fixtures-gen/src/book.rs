@@ -1,5 +1,5 @@
-//! One generated workbook: a worksheet `Data` with a header row and the
-//! data rows, written a row at a time.
+//! The rows workbook: a worksheet `Data` with a header row and the data
+//! rows, with their strings in their cells, written a row at a time.
 
 use rust_xlsxwriter::{Format, Workbook, XlsxError};
 use std::path::Path;
