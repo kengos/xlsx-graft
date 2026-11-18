@@ -15,6 +15,7 @@ internal static class StatusDiagnostic
     internal const int Panic = 2;
     internal const int IO = 3;
     internal const int InvalidArg = 4;
+    internal const int RequestInvalid = 11;
 
     private static readonly Dictionary<int, (string Code, string Message)> Codes = new()
     {

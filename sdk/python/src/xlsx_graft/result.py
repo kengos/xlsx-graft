@@ -14,7 +14,10 @@ T = TypeVar("T")
 class Result(Generic[T]):
     """Whether the call worked, the value when it did, why it did not when it
     stopped, and the diagnostics either way. ``value`` is ``None`` on a
-    failure.
+    failure, except for a call of :class:`Viewer <xlsx_graft.Viewer>`: its
+    value is a :class:`Tree <xlsx_graft.Tree>` or a :class:`Grid
+    <xlsx_graft.Grid>` also on a failure, and ``None`` only when the package
+    itself failed to get one.
 
     ``error`` is a :class:`Diagnostic` saying why the call stopped short: the
     workbook or a sheet asked for was refused, or the host or the engine
@@ -34,9 +37,12 @@ class Result(Generic[T]):
 
     @classmethod
     def failure(
-        cls, diagnostics: tuple[Diagnostic, ...], error: Diagnostic | None = None
+        cls,
+        diagnostics: tuple[Diagnostic, ...],
+        error: Diagnostic | None = None,
+        value: T | None = None,
     ) -> Result[T]:
-        return cls(success=False, value=None, diagnostics=diagnostics, error=error)
+        return cls(success=False, value=value, diagnostics=diagnostics, error=error)
 
     @property
     def failed(self) -> bool:

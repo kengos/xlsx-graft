@@ -109,6 +109,60 @@ if result.error:
 - A verifier does not change once it is made: share one between threads, and
   call it from them at once.
 
+## Viewing a workbook
+
+```python
+import sys
+import xlsx_graft
+
+viewer = xlsx_graft.Viewer()
+tree = viewer.tree("book.xlsx").value
+if tree:
+    for part in tree.parts:
+        print(f"{part.name} {part.content_type}")
+
+result = viewer.describe_sheet("book.xlsx", sheet="Data", range="A1:H50", max_rows=20)
+grid = result.value
+if grid and grid.sheet:
+    print(f"{grid.sheet.name}: {grid.shown}")
+if grid:
+    for row in grid.rows:
+        print([(cell.ref, cell.value) for cell in row.cells])
+if result.error:
+    print(f"{result.error.code}: {result.error.message}", file=sys.stderr)
+```
+
+- `tree(path)` lists the parts of a workbook and the relationships between
+  them (the engine's `tree`); `describe_sheet(path, ...)` shows the cells of
+  one sheet (`describe-sheet`). `tree_bytes(data)` and
+  `describe_sheet_bytes(data, ...)` take the workbook's bytes.
+- `describe_sheet` takes `sheet=` (a name, or an `int` index; the first sheet
+  without it), `range=` (an A1 range such as `"A1:H50"`), `max_rows=` (1 to
+  10000, 100 without it) and `max_columns=` (1 to 1000, 30 without it), each
+  optional. A view takes no policy: the limits are the CLI's defaults.
+- The value is a `xlsx_graft.Tree` or `xlsx_graft.Grid`, frozen dataclasses
+  with one attribute for each key of the engine's JSON (`relationships_known`
+  for `relationshipsKnown`; see `Tree`, `TreePart`, `TreeRelationship`,
+  `TreeTarget`, `Grid`, `GridTruncated`, `GridRow` and `GridCell`). Their
+  lists are tuples. A cell's `value` is the JSON's value: a `str`, a `float`,
+  an `int` of milliseconds for an elapsed time, a `bool`, and a `str` for a
+  date, a time or a date-time. Names and text are made for display (control
+  characters removed, long text cut), so they are not exact; read the rows
+  with `XlsxReader` for exact values.
+- The result is successful when the engine's `ok` is true, and its `value` is
+  set also when it is not: a workbook with errors gives what could be read, a
+  sheet that is not found (`error.code` `sheet_not_found`) gives a `Grid`
+  whose `sheet` is `None`. `value` is `None` only when the call itself failed
+  (`panic`, `null_arg`, `unknown_status`, `diagnostics_unreadable`, or `io`
+  for a path that is not UTF-8 whose file the package cannot read).
+- A value the engine refuses (`range="nope"`, `max_rows=0`, `sheet=1.5`)
+  raises `ValueError` with the engine's message. So do an `int` beyond what a
+  double holds, a NaN, an infinity, a string holding a lone surrogate and
+  options of more than 2 MiB, before the engine is called; a value JSON cannot
+  write raises `TypeError`.
+- A viewer does not change once it is made: share one between threads, and
+  call it from them at once.
+
 ## The engine's version
 
 ```python

@@ -16,6 +16,7 @@ OK = 0
 PANIC = 2
 IO = 3
 INVALID_ARG = 4
+REQUEST_INVALID = 11
 
 CODES = {
     1: ("null_arg", "the engine was passed a null pointer"),
@@ -29,6 +30,8 @@ CODES = {
     9: ("sheet_unreadable", "the sheet cannot be read; the diagnostics say why"),
     10: ("closed", "the rows' book was closed"),
 }
+# REQUEST_INVALID (11) is not in CODES: a view call that gets it raises
+# ValueError and does not make a diagnostic.
 
 
 def call(status: int, message: str | None = None) -> Diagnostic:
