@@ -16,6 +16,10 @@ final class StatusDiagnostic {
   static final int IO = 3;
   static final int INVALID_ARG = 4;
 
+  // The status of a view's options that the engine refuses, a fault of the caller's values. It has
+  // no row in CODES: a caller gets an exception for it, never a diagnostic.
+  static final int REQUEST_INVALID = 11;
+
   // The code and message of each status from 1, in the header's order.
   private static final String[][] CODES = {
     {"null_arg", "the engine was passed a null pointer"},

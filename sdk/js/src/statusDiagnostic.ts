@@ -13,6 +13,11 @@ import { Diagnostic } from './diagnostic.js';
 
 export const OK = 0;
 export const INVALID_ARG = 4;
+/**
+ * A value of a view's options the engine refuses. It is thrown as a RangeError
+ * and never becomes a Result's `error`, so it is not in the table below.
+ */
+export const REQUEST_INVALID = 11;
 
 const CODES: ReadonlyMap<number, readonly [string, string]> = new Map([
   [1, ['null_arg', 'the engine was passed a null pointer']],

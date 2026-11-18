@@ -9,8 +9,8 @@ import * as pathInput from './pathInput.js';
 import type { Result } from './result.js';
 import * as verifyReport from './verifyReport.js';
 
-// The most JSON the engine takes as the policy and the rules together.
-const MAX_OPTIONS_BYTES = 2 << 20;
+// The most JSON the engine takes as the options (the policy and the rules together, or a view's).
+export const MAX_OPTIONS_BYTES = 2 << 20;
 
 export interface VerifierOptions {
   /**

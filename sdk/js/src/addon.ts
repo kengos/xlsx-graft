@@ -69,7 +69,10 @@ export function packagedAddon(
 export interface Outcome {
   status: number;
   value?: string;
-  /** Why the host failed, set only when `status` is `XLSX_GRAFT_ERR_IO`. */
+  /**
+   * Why the host failed or the engine refused a value, set only when `status`
+   * is `XLSX_GRAFT_ERR_IO` or `XLSX_GRAFT_ERR_REQUEST_INVALID`.
+   */
   message?: string;
 }
 
@@ -118,6 +121,18 @@ export interface Addon {
   verifyPath(path: string, options: string): Outcome;
   /** As `verifyPath`, the workbook being `data`, read in place for the call. */
   verifyBytes(data: Buffer, options: string): Outcome;
+  /** Shows the parts of the workbook at `path`; `options` is `{}` or empty text. The outcome's `value` is the view's JSON. */
+  treePath(path: string, options: string): Outcome;
+  /** As `treePath`, the workbook being `data`, read in place for the call. */
+  treeBytes(data: Buffer, options: string): Outcome;
+  /**
+   * Shows the cells of one sheet of the workbook at `path`; `options` is the
+   * JSON `{"sheet", "sheetIndex", "range", "maxRows", "maxColumns"}`, each key
+   * optional. The outcome's `value` is the view's JSON.
+   */
+  describeSheetPath(path: string, options: string): Outcome;
+  /** As `describeSheetPath`, the workbook being `data`, read in place for the call. */
+  describeSheetBytes(data: Buffer, options: string): Outcome;
   /** Checks `policy`, the policy's JSON object alone; the outcome's `value` is the result's JSON. */
   checkPolicy(policy: string): Outcome;
   Book: {

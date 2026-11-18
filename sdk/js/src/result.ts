@@ -4,7 +4,9 @@ import type { Diagnostic } from './diagnostic.js';
 
 /**
  * Whether the call worked, the value when it did, why it did not when it
- * stopped, and the diagnostics either way. `value` is `null` on a failure.
+ * stopped, and the diagnostics either way. `value` is `null` on a failure,
+ * except for a view (`Viewer`): its result holds what could be read also when
+ * it fails, and `value` is `null` only when no value could be got.
  *
  * `error` says why the call stopped short: the workbook or a sheet asked for
  * was refused, or the host or the engine failed. A call can fail with no
@@ -37,8 +39,9 @@ export class Result<T> {
   static failure<T>(
     diagnostics: readonly Diagnostic[],
     error: Diagnostic | null = null,
+    value: T | null = null,
   ): Result<T> {
-    return new Result<T>(false, null, diagnostics, error);
+    return new Result<T>(false, value, diagnostics, error);
   }
 
   get failed(): boolean {

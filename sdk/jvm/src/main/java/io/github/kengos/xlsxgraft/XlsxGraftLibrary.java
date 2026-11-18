@@ -28,6 +28,21 @@
 //     int32_t xlsx_graft_verify_result(const XlsxGraftVerify *verify,
 //                                      const uint8_t **out_ptr, size_t *out_len);
 //     int32_t xlsx_graft_verify_close(XlsxGraftVerify *verify);
+//     int32_t xlsx_graft_tree_path(const uint8_t *path, size_t path_len,
+//                                  const uint8_t *options, size_t options_len,
+//                                  XlsxGraftView **out_view);
+//     int32_t xlsx_graft_tree_bytes(const uint8_t *data, size_t len,
+//                                   const uint8_t *options, size_t options_len,
+//                                   XlsxGraftView **out_view);
+//     int32_t xlsx_graft_describe_sheet_path(const uint8_t *path, size_t path_len,
+//                                            const uint8_t *options, size_t options_len,
+//                                            XlsxGraftView **out_view);
+//     int32_t xlsx_graft_describe_sheet_bytes(const uint8_t *data, size_t len,
+//                                             const uint8_t *options, size_t options_len,
+//                                             XlsxGraftView **out_view);
+//     int32_t xlsx_graft_view_result(const XlsxGraftView *view,
+//                                    const uint8_t **out_ptr, size_t *out_len);
+//     int32_t xlsx_graft_view_close(XlsxGraftView *view);
 //
 // Interface mapping rather than direct mapping (Native.register): direct
 // mapping binds one library to a class when the class is initialized, once
@@ -99,4 +114,38 @@ interface XlsxGraftLibrary extends com.sun.jna.Library {
 
   /** Closes the verify handle. */
   int xlsx_graft_verify_close(Pointer verify);
+
+  /**
+   * Shows the parts of the workbook at the UTF-8 path under the UTF-8 JSON options, writing the
+   * handle.
+   */
+  int xlsx_graft_tree_path(
+      byte[] path, SizeT pathLen, byte[] options, SizeT optionsLen, PointerByReference outView);
+
+  /**
+   * Shows the parts of the workbook of {@code data} under the UTF-8 JSON options, writing the
+   * handle.
+   */
+  int xlsx_graft_tree_bytes(
+      byte[] data, SizeT len, byte[] options, SizeT optionsLen, PointerByReference outView);
+
+  /**
+   * Shows the cells of a sheet of the workbook at the UTF-8 path under the options, writing the
+   * handle.
+   */
+  int xlsx_graft_describe_sheet_path(
+      byte[] path, SizeT pathLen, byte[] options, SizeT optionsLen, PointerByReference outView);
+
+  /**
+   * Shows the cells of a sheet of the workbook of {@code data} under the options, writing the
+   * handle.
+   */
+  int xlsx_graft_describe_sheet_bytes(
+      byte[] data, SizeT len, byte[] options, SizeT optionsLen, PointerByReference outView);
+
+  /** The view handle's result, UTF-8 JSON, and the count of its bytes. */
+  int xlsx_graft_view_result(Pointer view, PointerByReference outPtr, SizeTByReference outLen);
+
+  /** Closes the view handle. */
+  int xlsx_graft_view_close(Pointer view);
 }

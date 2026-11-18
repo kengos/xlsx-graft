@@ -1,10 +1,14 @@
 package io.github.kengos.xlsxgraft;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.function.Function;
@@ -28,6 +32,37 @@ class PathInputTest {
     assertTrue(
         missing.error().message().startsWith("the file could not be read: "),
         missing.error().message());
+  }
+
+  @Test
+  void aPathThatIsUnicodeIsGivenToByPathAsAnAbsolutePathEncodedAsUtf8() {
+    Result<byte[]> result =
+        PathInput.call(
+            Paths.get("fixtures/\u00e9.xlsx"),
+            encoded -> Result.ok(encoded),
+            data -> Result.<byte[]>ok(new byte[0]));
+
+    String absolute = Paths.get("fixtures/\u00e9.xlsx").toAbsolutePath().toString();
+    assertEquals(absolute, new String(result.value(), StandardCharsets.UTF_8));
+  }
+
+  @Test
+  void aPathThatIsNotUnicodeIsReadAndItsBytesGivenToByBytes() throws IOException {
+    Result<byte[]> result =
+        PathInput.call(
+            NonUnicodePath.standingFor(TABLE),
+            encoded -> Result.<byte[]>failure(StatusDiagnostic.error("wrong", "by path")),
+            data -> Result.ok(data));
+    Result<byte[]> missing =
+        PathInput.call(
+            NonUnicodePath.standingFor(Paths.get("/nowhere/book.xlsx")),
+            encoded -> Result.<byte[]>failure(StatusDiagnostic.error("wrong", "by path")),
+            data -> Result.ok(data));
+
+    assertTrue(result.success());
+    assertArrayEquals(Files.readAllBytes(TABLE), result.value());
+    assertEquals("io", missing.error().code());
+    assertNull(missing.value());
   }
 
   @Test

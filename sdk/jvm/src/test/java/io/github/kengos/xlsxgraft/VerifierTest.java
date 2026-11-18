@@ -77,6 +77,18 @@ class VerifierTest {
   }
 
   @Test
+  void verifyReadsAFileWhosePathIsNotUnicodeAndVerifiesItsBytes() {
+    Result<Void> table = verifier.verify(NonUnicodePath.standingFor(TABLE));
+    Result<Void> macro = verifier.verify(NonUnicodePath.standingFor(MACRO));
+    Result<Void> missing =
+        verifier.verify(NonUnicodePath.standingFor(Paths.get("/nowhere/a.xlsx")));
+
+    assertTrue(table.success());
+    assertEquals(Arrays.asList("part_denied", "part_denied"), codes(macro));
+    assertEquals("io", missing.error().code());
+  }
+
+  @Test
   void aFaultOfTheRulesIsDiagnosticsAndTheWorkbookIsNotOpened() {
     VerifyRules rules =
         VerifyRules.none()

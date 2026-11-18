@@ -146,6 +146,86 @@ if (result.error() != null) {
 - A `Verifier` does not change once it is made: share one between threads, and
   call it from them at once.
 
+## Viewing a workbook
+
+```java
+import io.github.kengos.xlsxgraft.Grid;
+import io.github.kengos.xlsxgraft.GridCell;
+import io.github.kengos.xlsxgraft.GridRow;
+import io.github.kengos.xlsxgraft.Result;
+import io.github.kengos.xlsxgraft.SheetRequest;
+import io.github.kengos.xlsxgraft.Tree;
+import io.github.kengos.xlsxgraft.TreePart;
+import io.github.kengos.xlsxgraft.Viewer;
+import java.nio.file.Paths;
+
+Viewer viewer = new Viewer();
+Tree tree = viewer.tree(Paths.get("book.xlsx")).value();
+if (tree != null) {
+  for (TreePart part : tree.parts()) {
+    System.out.println(part.name() + " " + part.contentType());
+  }
+}
+
+Result<Grid> result =
+    viewer.describeSheet(
+        Paths.get("book.xlsx"),
+        SheetRequest.first().sheet("Data").range("A1:H50").maxRows(20));
+Grid grid = result.value();
+if (grid != null && grid.sheet() != null) {
+  System.out.println(grid.sheet().name() + ": " + grid.shown());
+}
+if (grid != null) {
+  for (GridRow row : grid.rows()) {
+    for (GridCell cell : row.cells()) {
+      System.out.println(cell.ref() + " " + cell.value());
+    }
+  }
+}
+if (result.error() != null) {
+  System.err.println(result.error().code() + ": " + result.error().message());
+}
+```
+
+- `tree(path)` lists the parts of a workbook and the relationships between
+  them (the engine's `tree`); `describeSheet(path, request)` shows the cells of
+  one sheet (`describe-sheet`). `treeBytes(data)` and
+  `describeSheetBytes(data, request)` take the workbook's bytes; `describeSheet`
+  and `describeSheetBytes` without a request show the first sheet. The package
+  does not copy `data`: the call reads the array while it runs, so do not
+  change the array until the call returns.
+- A `SheetRequest` takes `sheet(String)` (a name) or `sheetIndex(Integer)`, not
+  both, `range(String)` (an A1 range such as `"A1:H50"`), `maxRows(Integer)` (1
+  to 10000, 100 without it) and `maxColumns(Integer)` (1 to 1000, 30 without
+  it), each optional; a value that is not given, or is null, is not passed to
+  the engine. `SheetRequest.first()` gives none, and a `SheetRequest` does not
+  change: each method returns a new one. A view takes no policy: the limits
+  are the CLI's defaults.
+- The value is a `Tree` or a `Grid`, with one accessor for each key of the
+  engine's JSON (`relationshipsKnown()` for `relationshipsKnown`; see `Tree`,
+  `TreePart`, `TreeRelationship`, `TreeTarget`, `Grid`, `GridTruncated`,
+  `GridRow` and `GridCell`). Their lists cannot be changed, and they have no
+  `equals`. A cell's `value()` is an `Object` as the JSON gives it: a
+  `String`, a `Double`, a `Long` for a number written as an integer (an elapsed
+  time's milliseconds), a `Boolean`, and a `String` for a date, a time or a
+  date-time. A sheet's kind and state are the `SheetKind` and `SheetState` of
+  `XlsxReader`'s `SheetInfo`, `UNKNOWN` for text the package does not know.
+  Names and text are made for display (control characters removed, long text
+  cut), so they are not exact; read the rows with `XlsxReader` for exact
+  values.
+- The result is successful when the engine's `ok` is true, and its `value()` is
+  set also when it is not: a workbook with errors gives what could be read, a
+  sheet that is not found (`error().code()` `sheet_not_found`) gives a `Grid`
+  whose `sheet()` is `null`. `value()` is `null` only when the call itself
+  failed (`panic`, `null_arg`, `unknown_status`, `diagnostics_unreadable`, or
+  `io` for a path that is not UTF-8 whose file the package cannot read).
+- A value the engine refuses (`range("nope")`, `maxRows(0)`, a `sheet` together
+  with a `sheetIndex`) throws `IllegalArgumentException` with the engine's
+  message. So do a name or a range holding an unpaired surrogate and options of
+  more than 2 MiB, before the engine is called.
+- A viewer does not change once it is made: share one between threads, and
+  call it from them at once.
+
 ## The engine's version
 
 ```java

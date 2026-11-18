@@ -36,6 +36,15 @@ final class EngineDiagnostics {
         diagnostics);
   }
 
+  /** The diagnostics of the result {@code report}, which VerifyReport and ViewReport read too. */
+  static List<Diagnostic> diagnostics(Map<String, Object> report) throws Json.UnreadableException {
+    List<Diagnostic> diagnostics = new ArrayList<>();
+    for (Object record : of(List.class, member(report, "diagnostics"), "diagnostics")) {
+      diagnostics.add(diagnostic(object(record, "a diagnostic")));
+    }
+    return diagnostics;
+  }
+
   /** The diagnostic the JSON object {@code record} holds, which VerifyReport reads too. */
   static Diagnostic diagnostic(Map<String, Object> record) throws Json.UnreadableException {
     Object decidedBy = member(record, "decidedBy");

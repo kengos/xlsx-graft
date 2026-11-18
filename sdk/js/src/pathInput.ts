@@ -11,7 +11,7 @@ import * as statusDiagnostic from './statusDiagnostic.js';
 /**
  * Calls `byPath` with the name of `path` (a path or a `file:` URL) when the
  * name is well-formed UTF-16. For a name that is not (a lone surrogate) the
- * addon cannot be given the name, so this reads the file and calls `byBytes`
+ * addon cannot be given the name, so `call` reads the file and calls `byBytes`
  * with its bytes: Node.js opens the name with U+FFFD in place of the lone
  * surrogate. A file that cannot be read is an `io` failure, and neither
  * function is called.

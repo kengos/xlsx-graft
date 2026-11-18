@@ -3,7 +3,6 @@
 
 package io.github.kengos.xlsxgraft;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -36,13 +35,7 @@ final class VerifyReport {
   private static Result<Void> parsed(byte[] json) {
     try {
       Map<String, Object> report = EngineDiagnostics.object(Json.parse(json), "the result");
-      List<Diagnostic> diagnostics = new ArrayList<>();
-      for (Object record :
-          EngineDiagnostics.of(
-              List.class, EngineDiagnostics.member(report, "diagnostics"), "diagnostics")) {
-        diagnostics.add(
-            EngineDiagnostics.diagnostic(EngineDiagnostics.object(record, "a diagnostic")));
-      }
+      List<Diagnostic> diagnostics = EngineDiagnostics.diagnostics(report);
       boolean ok =
           EngineDiagnostics.of(Boolean.class, EngineDiagnostics.member(report, "ok"), "ok");
       if (ok) {

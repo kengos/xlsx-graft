@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 
 /**
  * Verifies workbooks through the C ABI, under the host's policy (given to the constructor, and
@@ -124,9 +123,10 @@ public final class Verifier {
   public Result<Void> verify(Path path, VerifyRules rules) {
     Objects.requireNonNull(path, "path");
     byte[] options = options(rules);
-    Function<byte[], Result<Void>> byPath = encoded -> report(call.path(encoded, options));
-    Function<byte[], Result<Void>> byBytes = data -> report(call.bytes(data, options));
-    return PathInput.call(path, byPath, byBytes);
+    return PathInput.call(
+        path,
+        encoded -> report(call.path(encoded, options)),
+        data -> report(call.bytes(data, options)));
   }
 
   /**
