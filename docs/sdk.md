@@ -934,6 +934,82 @@ and Go SDKs take the same shape in each language's idiom.
   and call it at once; each call writes temporary files of its own. PHP runs
   one thread and needs no such rule.
 
+## Views in an SDK
+
+How an SDK offers the `tree` and `describe_sheet` views, whichever way it
+reaches the engine ([the C ABI](#viewing-through-the-c-abi), the addon, or the
+CLI's [`tree`](#listing-parts-tree) and
+[`describe-sheet`](#describing-a-sheet-describe-sheet)). Only the Ruby SDK has
+them so far; the others take the same shape in their idiom.
+
+- **A viewer, then calls.** The constructor takes only the engine library;
+  a view takes no policy (the limits are the CLI's defaults) and gives no text
+  form (that is for the CLI and MCP):
+
+  | SDK | Constructor | Calls |
+  | --- | --- | --- |
+  | Ruby | `Viewer.new(library:)` | `tree(path)`, `tree_bytes(data)`, `describe_sheet(path, sheet:, range:, max_rows:, max_columns:)`, `describe_sheet_bytes(data, ...)` with the same keywords |
+
+- **The keywords are the options' keys.** `sheet:` is the sheet's index when
+  it is an Integer (`sheetIndex`) and its name otherwise (`sheet`; a Symbol is
+  written as a String); `range:` is `range`, `max_rows:` is `maxRows` and
+  `max_columns:` is `maxColumns`. The SDK writes the key of each keyword whose
+  value is not the language's null (Ruby nil) and leaves out the others.
+  Leaving a keyword out and passing null are the same, because the engine
+  takes a key whose value is `null` as `XLSX_GRAFT_ERR_REQUEST_INVALID`. A
+  `tree` takes no options.
+- **The types follow one rule.** Each JSON object is a type and each key is an
+  attribute of it, named in the language's style (Ruby, snake_case:
+  `relationshipsKnown` is `relationships_known`) and otherwise as the key is
+  (`row`, `ref`, `type`). The types are `Tree`, `TreePart`, `TreeRelationship`,
+  `TreeTarget` (the JSON's `{"part": name}` or `{"external": target}`: the
+  other attribute is nil), `Grid`, `GridTruncated`, `GridRow` and `GridCell`;
+  `Grid`'s `sheet` is the SDK's `SheetInfo`, whose keys it has. A JSON `null`
+  is the language's null. A cell with no `truncated` key has `truncated` false.
+  A cell's `value` is the JSON's value as it is: a string, a number (a float
+  for `number`, an integer of milliseconds for `elapsed`) or a boolean, and a
+  string for a date, a time and a date-time. The names, ids and values are
+  made for display (control characters removed, a long one cut), so they are
+  not exact; to read exact values an SDK reads the rows
+  ([Reading rows in an SDK](#reading-rows-in-an-sdk)). A key the SDK does not
+  know is ignored. The JSON comes from the engine library the SDK
+  loaded, so the SDK reads it by its keys and does not check its shape. JSON
+  that cannot be parsed, or that lacks a key the SDK reads, makes a
+  `diagnostics_unreadable` failure with no value.
+- **The result is a Result with a value, also when it fails.** It is
+  successful when the engine's `ok` is true; its `error` and `diagnostics`
+  are the engine's (`origin` aside). Its value is the `Tree` or `Grid` the
+  engine made even when `ok` is false: a workbook with errors gives what could
+  be read, a sheet that is not found gives a `Grid` whose `sheet` is null, and
+  a file that does not exist gives a `Tree` with no parts. The value is null
+  only when the SDK failed to get one: `panic`, `null_arg`, `unknown_status`
+  (from the status), `diagnostics_unreadable` (JSON it cannot read) and the
+  `io` of a path that is not UTF-8 whose file it cannot read.
+- **What raises**, per language:
+
+  | SDK | `XLSX_GRAFT_ERR_REQUEST_INVALID` | Before the call: an Integer beyond a double's range, a value JSON cannot write, options of more than 2 MiB | `INVALID_ARG` (a bug of the SDK) |
+  | --- | --- | --- | --- |
+  | Ruby | `ArgumentError`, with the engine's message as it is | `ArgumentError` (`10**400`; a String whose bytes are not valid in its encoding, NaN or Infinity, nesting too deep; 2 MiB) | `Error` |
+
+  The SDK checks no other type or value of the options: `sheet: 1.5`,
+  `range: 3`, `max_rows: 0` and `max_rows: "2"` are `REQUEST_INVALID` and
+  raise the argument error with the engine's message. The SDK reads the
+  message right after the call that returned the status, on the same thread
+  and within the same guard against interrupts as the call. Under
+  Ruby's M:N threads a Ruby thread may move between the operating system's
+  threads across calls, so the message may be another call's, which the SDK
+  cannot tell apart and gives as it is, or empty, for which the SDK gives a
+  fixed message of its own (as it does when `xlsx_graft_error_message` does
+  not return `OK`).
+- **A path that is not UTF-8, the input of the `_bytes` calls and threads**
+  are as for [verify](#verifying-in-an-sdk): the SDK reads the file and sends
+  its bytes (an unreadable file is an `io` failure with no value), the bytes
+  are copied for the call, and a viewer does not change after it is made, so
+  threads share one and call it at once.
+- **How large a result is**: the JSON of a view is some 15 MB at most without
+  its diagnostics and some 25 MB with the diagnostics of the default policy,
+  and the SDK holds the parsed value too.
+
 ## Reading rows in an SDK
 
 How an SDK hands a sheet's rows to its caller, whichever way it reaches the

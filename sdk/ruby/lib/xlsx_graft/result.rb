@@ -10,6 +10,10 @@ module XlsxGraft
   # its sheet stopped, whose diagnostics hold an error, as
   # `xlsx-graft read`'s `ok` is false then. So does a verification whose
   # `fail_on` is "warn": it fails on a warning with no error diagnostic.
+  #
+  # A failed result has no value, except one of a view ({Viewer}): its value
+  # is the {Tree} or {Grid} the engine made, whatever it could read, and is
+  # nil only when the gem itself failed to get one.
   class Result
     attr_reader :value, :error, :diagnostics
 
@@ -18,8 +22,8 @@ module XlsxGraft
         new(success: true, value: value, diagnostics: diagnostics)
       end
 
-      def failure(diagnostics, error: nil)
-        new(success: false, value: nil, diagnostics: diagnostics, error: error)
+      def failure(diagnostics, error: nil, value: nil)
+        new(success: false, value: value, diagnostics: diagnostics, error: error)
       end
     end
 

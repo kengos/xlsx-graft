@@ -17,6 +17,10 @@ module XlsxGraft
     WORKBOOK_UNREADABLE = 5
     SHEET_UNREADABLE = 9
 
+    # A fault of an argument the caller gave a view; not one of {CODES}, as it
+    # raises ArgumentError rather than making a diagnostic.
+    REQUEST_INVALID = 11
+
     CODES = {
       1 => ["null_arg", "the engine was passed a null pointer"],
       PANIC => ["panic", "the engine panicked; the call did not complete"],

@@ -61,11 +61,7 @@ module XlsxGraft
     def verify(path, targets: nil, best_effort: nil, allow_functions: nil, allow_parts: nil,
                fail_on: nil)
       options = options(targets:, best_effort:, allow_functions:, allow_parts:, fail_on:)
-      path = File.path(path)
-      utf8 = utf8(path)
-      return run(:path, utf8, options) if utf8
-
-      read(path) { |data| run(:bytes, data, options) }
+      PathInput.call(path) { |how, input| run(how, input, options) }
     end
 
     # Verifies the workbook in the bytes of `data`, which this gem copies for
@@ -107,32 +103,6 @@ module XlsxGraft
 
     def run(how, input, options)
       VerifyReport.call(*@call.public_send(how, input, options))
-    end
-
-    # `path` as UTF-8 text when its bytes are UTF-8, else nil. A path marked
-    # with another encoding is not converted: Ruby opens a file by a path's
-    # bytes, so the engine has to be given those bytes or none.
-    def utf8(path)
-      return unless [Encoding::UTF_8, Encoding::US_ASCII, Encoding::BINARY].include?(path.encoding)
-
-      text = path.dup.force_encoding(Encoding::UTF_8)
-      text if text.valid_encoding?
-    end
-
-    # `string`'s bytes as UTF-8 text, a byte that is no UTF-8 replaced.
-    def text(string)
-      string.b.force_encoding(Encoding::UTF_8).scrub
-    end
-
-    # The engine takes no path that is not UTF-8, so the gem reads the file
-    # and yields its bytes; a file that cannot be read is an `io` failure.
-    def read(path)
-      data = File.binread(path)
-    rescue SystemCallError => e
-      message = "the file could not be read: #{text(e.message)}"
-      Result.failure([], error: StatusDiagnostic.of("io", message))
-    else
-      yield data
     end
   end
 end
