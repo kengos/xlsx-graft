@@ -1,6 +1,6 @@
 //! `describe-sheet`: the cells of one sheet, through `xlsx_graft_host`, the
-//! same view the C ABI and the MCP server give. The long help in `help.rs`
-//! says what each format prints.
+//! same view the C ABI, the SDKs and the MCP server give. The long help in
+//! `help.rs` says what each format prints.
 //!
 //! Like `verify`, `describe-sheet` prints its view whatever happened to the
 //! workbook: a file that cannot be read, and a sheet that cannot be chosen

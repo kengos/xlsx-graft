@@ -5,8 +5,11 @@
 // reimplements it. A call returns a [Result] rather than failing with an
 // error: whether the call worked, the value when it did, and the diagnostics
 // either way. The error beside it is a setup with no runnable CLI in it
-// ([*CLINotFoundError]), and for [Open] the caller's own: the error its
-// function returned, its context done, or a negative sheet index.
+// ([*CLINotFoundError]), a sheet request the CLI refuses
+// ([*InvalidRequestError], from [Viewer.DescribeSheet] and
+// [Viewer.DescribeSheetBytes]), and for [Open] the
+// caller's own: the error its function returned, its context done, or a
+// negative sheet index.
 //
 //	result, err := xlsxgraft.Open(ctx, "book.xlsx", func(book *xlsxgraft.Book) (int, error) {
 //		rows := book.SheetAt(0).Rows()
@@ -36,4 +39,20 @@
 //		log.Fatal(err)
 //	}
 //	fmt.Println(result.Success)
+//
+// A [Viewer] shows the parts of a workbook ([Viewer.Tree]) and the cells of
+// one sheet ([Viewer.DescribeSheet]), by running `xlsx-graft tree` and
+// `xlsx-graft describe-sheet`:
+//
+//	viewer, err := xlsxgraft.NewViewer()
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	grid, err := viewer.DescribeSheet(ctx, "book.xlsx", xlsxgraft.SheetRequest{MaxRows: 20})
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	if grid.Value != nil {
+//		fmt.Println(len(grid.Value.Rows), "rows")
+//	}
 package xlsxgraft

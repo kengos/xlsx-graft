@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace XlsxGraft;
 
 /**
- * Reads the JSON `xlsx-graft sheets`, `xlsx-graft read` and
- * `xlsx-graft verify` print, a line at a time, holding each line to its
- * contract (docs/sdk.md § Listing sheets, § Reading rows and § Verifying
- * (`verify`)): a key missing or of another type throws an
+ * Reads the JSON `xlsx-graft sheets`, `xlsx-graft read`, `xlsx-graft verify`,
+ * `xlsx-graft tree` and `xlsx-graft describe-sheet` print, a line at a time,
+ * holding each line to its contract (docs/sdk.md § Listing sheets, § Reading
+ * rows, § Verifying (`verify`), § Listing parts (`tree`) and § Describing a
+ * sheet (`describe-sheet`)): a key missing or of another type throws an
  * \UnexpectedValueException, which the caller turns into `invalid_output`.
  *
  * @internal
@@ -54,6 +55,47 @@ final class CliJson
         $value = self::field($object, $key);
 
         return is_bool($value) ? $value : throw new \UnexpectedValueException("\"{$key}\" is not a boolean");
+    }
+
+    /** `$object`'s `$key`, a string or null. */
+    public static function nullableString(\stdClass $object, string $key): ?string
+    {
+        return self::field($object, $key) === null ? null : self::string($object, $key);
+    }
+
+    /** `$object`'s `$key`, a boolean or null. */
+    public static function nullableBool(\stdClass $object, string $key): ?bool
+    {
+        return self::field($object, $key) === null ? null : self::bool($object, $key);
+    }
+
+    /** `$object`'s `$key`, a string, an integer, a floating-point number or a boolean. */
+    public static function scalar(\stdClass $object, string $key): string|int|float|bool
+    {
+        $value = self::field($object, $key);
+
+        return is_scalar($value) ? $value : throw new \UnexpectedValueException("\"{$key}\" is not a string, a number or a boolean");
+    }
+
+    /** `$object`'s `$key`, a JSON object. */
+    public static function child(\stdClass $object, string $key): \stdClass
+    {
+        return self::asObject(self::field($object, $key));
+    }
+
+    /** `$object`'s `$key`, a JSON object or null. */
+    public static function nullableChild(\stdClass $object, string $key): ?\stdClass
+    {
+        return self::field($object, $key) === null ? null : self::child($object, $key);
+    }
+
+    /** @return list<string> */
+    public static function strings(\stdClass $object, string $key): array
+    {
+        $value = self::field($object, $key);
+        is_array($value) && array_is_list($value) || throw new \UnexpectedValueException("\"{$key}\" is not an array");
+
+        return array_map(static fn(mixed $item): string => is_string($item) ? $item : throw new \UnexpectedValueException("\"{$key}\" holds a value that is not a string"), $value);
     }
 
     /** @return list<\stdClass> */

@@ -21,3 +21,21 @@ func (e *CLINotFoundError) Error() string {
 func (e *CLINotFoundError) Unwrap() error {
 	return e.Err
 }
+
+// InvalidRequestError is returned by [Viewer.DescribeSheet] and
+// [Viewer.DescribeSheetBytes] when the CLI refused an argument they passed
+// (exit status 2): a sheet request the CLI does not accept, such as a range
+// that is not an A1 range, a count out of its bounds, or both a sheet name and
+// a sheet index.
+//
+// A mistake of the caller's request, not a failed view, so it is returned as
+// the error beside a zero [Result].
+type InvalidRequestError struct {
+	// Message is the CLI's reason, which names the CLI's own options
+	// (`--range`, `--max-rows`), or a fixed sentence when the CLI gave none.
+	Message string
+}
+
+func (e *InvalidRequestError) Error() string {
+	return e.Message
+}

@@ -2,7 +2,7 @@ package xlsxgraft
 
 // Result is what every call into the engine returns: whether the call worked,
 // the value when it did, why it did not when it stopped, and the diagnostics
-// either way. Value is T's zero value on a failure.
+// either way. Value is T's zero value on a failure, except for a view.
 //
 // Error says why a read stopped short: the workbook or a sheet asked for was
 // refused, or the CLI failed. A read can fail with Error nil too: one that a
@@ -13,6 +13,14 @@ package xlsxgraft
 // or written (`io`), a path or a rule holds a NUL (`invalid_arg`), or the CLI
 // gave no result (`exit_status`, `invalid_output`). The faults of the
 // workbook, the policy and the rules are in Diagnostics.
+//
+// A view ([Viewer]) has a Value, a [*Tree] or a [*Grid], also when it fails:
+// a workbook that cannot be read gives a Tree of the parts that were read,
+// perhaps none, and a sheet that is not found a Grid whose Sheet is nil. Value
+// is nil only when this package did not get one: Error is `exit_status`,
+// `invalid_output` or `invalid_arg`, or `io` for a temporary file that could
+// not be written. The zero Result returned beside a non-nil error also has a
+// nil Value. A file the CLI cannot open is an `io` Error with a Value.
 type Result[T any] struct {
 	Success     bool
 	Value       T

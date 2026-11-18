@@ -137,7 +137,8 @@ result bounded.
     1,000 characters, or that still holds a control character other than the
     tab, the line feed and the carriage return, or a bidirectional formatting
     character. A value in the CLI's `--format json` of `tree` and
-    `describe-sheet` that breaks the same bounds is in scope too.
+    `describe-sheet`, or in the view the C ABI, the Node.js addon or an SDK
+    returns, that breaks the same bounds is in scope too.
 
 **Known gaps**: `verify` does not check these yet. They are listed in the
 `# Not yet` section of `engine/verify/src/lib.rs`, so you need not report

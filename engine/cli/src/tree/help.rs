@@ -6,8 +6,8 @@
 pub(crate) const LONG_ABOUT: &str = "\
 List the parts of a workbook (an xlsx package) and the relationships between
 them, as a tree from the package: what the workbook holds and what refers to
-what, without opening it in Excel. The C ABI and the MCP server give the same
-view.";
+what, without opening it in Excel. The C ABI, the SDKs and the MCP server give
+the same view.";
 
 /// `tree --help`'s text after the options.
 pub(crate) const AFTER_LONG_HELP: &str = r##"Text (the default) is for a person and may change; it is not a contract. It is

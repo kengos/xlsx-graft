@@ -198,6 +198,82 @@ if result.Error != nil {
 - A `Verifier` does not change once it is made: share one between goroutines,
   and call it from them at once.
 
+## Viewing a workbook
+
+```go
+viewer, err := xlsxgraft.NewViewer()
+if err != nil {
+	log.Fatal(err)
+}
+tree, err := viewer.Tree(ctx, "book.xlsx")
+if err != nil {
+	log.Fatal(err)
+}
+if tree.Value != nil {
+	for _, part := range tree.Value.Parts {
+		fmt.Println(part.Name)
+	}
+}
+grid, err := viewer.DescribeSheet(ctx, "book.xlsx", xlsxgraft.SheetRequest{
+	Sheet:   "Data",
+	Range:   "A1:H50",
+	MaxRows: 20,
+})
+if err != nil {
+	log.Fatal(err)
+}
+if grid.Value != nil {
+	for _, row := range grid.Value.Rows {
+		for _, cell := range row.Cells {
+			fmt.Println(cell.Ref, cell.Value)
+		}
+	}
+}
+```
+
+- `NewViewer(opts...)` takes no policy: a view reads a workbook under the CLI's
+  default limits, and gives no text form (that is for the CLI and the MCP
+  server). The CLI is found as `Open` finds it; a CLI that cannot be found is a
+  `*CLINotFoundError`. A `Viewer` does not change once it is made: share one
+  between goroutines, and call it from them at once.
+- `Tree(ctx, path)` and `TreeBytes(ctx, data)` list the parts of the package
+  and the relationships between them, a `*Tree` of `Tree`, `TreePart`,
+  `TreeRelationship` and `TreeTarget`. `DescribeSheet(ctx, path, request)` and
+  `DescribeSheetBytes(ctx, data, request)` show the cells of one sheet, a
+  `*Grid` of `Grid`, `GridTruncated`, `GridRow` and `GridCell`; its `Sheet` is
+  a `*SheetInfo`. Each field is a key of the CLI's JSON, in Go's naming (`ID`),
+  a value the JSON may make `null` is a pointer, and a size is a `uint64`.
+  A cell's `Value` is a `string`, a `bool`, an `int64` for a number written as
+  an integer that fits in an `int64` (`90000`, an elapsed time's milliseconds),
+  or a `float64` for any other (`2.0`, and an integer that does not fit). Names and text are made for display (control characters
+  removed, long text cut), so they are not exact: read the rows with `Open` for
+  exact values.
+- A `SheetRequest` has `Sheet` (a name), `SheetIndex` (a `*int`), `Range`,
+  `MaxRows` and `MaxColumns`, each optional. A zero value (an empty string, a
+  `nil` pointer, `0`) is not passed, so `MaxRows: 0` is the CLI's default of
+  100 rows. This package checks a value only for a NUL (`invalid_arg`); the CLI
+  judges the rest. A request the CLI refuses (a range that is
+  not an A1 range, a count out of its bounds, a name and an index together) is
+  an `*InvalidRequestError` beside an empty result, whose `Message` is the
+  CLI's reason, naming the CLI's options (`--range`).
+- The result is a success when the engine's `ok` is true, and its `Value` is
+  there also when it is not: a workbook that cannot be read gives a `*Tree` of
+  the parts that were read, perhaps none, and a sheet that is not found gives
+  a `*Grid` whose `Sheet` is `nil`.
+  `Value` is `nil` only when this package did not get one: `result.Error` is
+  `exit_status`, `invalid_output`, `invalid_arg` (a path, a sheet name or a
+  range holds a NUL, the CLI is not run), or `io` for a temporary file that
+  could not be written. The zero result returned beside a non-nil error also
+  has a `nil` `Value`. A file that cannot be opened is an `io` error with a
+  `Value`.
+- A path that is not UTF-8 is given to the CLI as it is. The `Bytes` calls
+  write the data to a temporary file of the call's own, that only your user
+  may read, and remove it when the call returns.
+- The error beside the result is a `*CLINotFoundError` (the CLI cannot be
+  started), the context's error (the CLI was killed) or an
+  `*InvalidRequestError` (`DescribeSheet` and `DescribeSheetBytes` only); the
+  result is then empty.
+
 Go 1.26 or newer. No dependencies.
 
 ## Development
