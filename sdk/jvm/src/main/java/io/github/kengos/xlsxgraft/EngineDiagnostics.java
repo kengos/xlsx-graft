@@ -49,6 +49,15 @@ final class EngineDiagnostics {
         member(record, "fix"));
   }
 
+  /** The result's {@code error} (io) that {@code error} holds, or null when it has none. */
+  static Diagnostic failure(Object error) throws Json.UnreadableException {
+    if (error == null) {
+      return null;
+    }
+    Map<String, Object> failure = object(error, "error");
+    return StatusDiagnostic.error(text(failure, "code"), text(failure, "message"));
+  }
+
   // A member that is there, null or not.
   static Object member(Map<String, Object> record, String name) throws Json.UnreadableException {
     if (!record.containsKey(name)) {

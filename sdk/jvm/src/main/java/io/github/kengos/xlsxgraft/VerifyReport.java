@@ -49,7 +49,8 @@ final class VerifyReport {
         return Result.ok(null, diagnostics);
       }
       // `error` is read only when `ok` is false: a result that says ok is a success.
-      return Result.failure(diagnostics, failure(EngineDiagnostics.member(report, "error")));
+      return Result.failure(
+          diagnostics, EngineDiagnostics.failure(EngineDiagnostics.member(report, "error")));
     } catch (Json.UnreadableException unreadable) {
       return Result.failure(
           Collections.<Diagnostic>emptyList(),
@@ -57,15 +58,5 @@ final class VerifyReport {
               "diagnostics_unreadable",
               "the engine's result could not be read: " + unreadable.getMessage()));
     }
-  }
-
-  // The result's `error` (io), or null when it has none.
-  private static Diagnostic failure(Object error) throws Json.UnreadableException {
-    if (error == null) {
-      return null;
-    }
-    Map<String, Object> failure = EngineDiagnostics.object(error, "error");
-    return StatusDiagnostic.error(
-        EngineDiagnostics.text(failure, "code"), EngineDiagnostics.text(failure, "message"));
   }
 }

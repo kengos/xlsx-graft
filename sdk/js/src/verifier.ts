@@ -3,12 +3,10 @@
  * rules of the caller.
  */
 
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { type Addon, open as openAddon } from './addon.js';
 import { LibraryNotFoundError, PolicyInvalidError } from './errors.js';
-import { Result } from './result.js';
-import * as statusDiagnostic from './statusDiagnostic.js';
+import * as pathInput from './pathInput.js';
+import type { Result } from './result.js';
 import * as verifyReport from './verifyReport.js';
 
 // The most JSON the engine takes as the policy and the rules together.
@@ -119,17 +117,11 @@ export class Verifier {
    */
   verify(path: string | URL, rules: VerifyRules = {}): Result<null> {
     const options = this.#options(rules);
-    const name = typeof path === 'string' ? path : fileURLToPath(path);
-    if (name.isWellFormed()) {
-      return verifyReport.call(this.#addon.verifyPath(name, options));
-    }
-    let data: Buffer;
-    try {
-      data = readFileSync(name);
-    } catch (error) {
-      return failedToRead(error);
-    }
-    return verifyReport.call(this.#addon.verifyBytes(data, options));
+    return pathInput.call(
+      path,
+      (name) => verifyReport.call(this.#addon.verifyPath(name, options)),
+      (data) => verifyReport.call(this.#addon.verifyBytes(data, options)),
+    );
   }
 
   /**
@@ -209,11 +201,4 @@ function checked(addon: Addon, policy: string): string {
     throw new PolicyInvalidError([...(result.error ? [result.error] : []), ...result.diagnostics]);
   }
   return policy;
-}
-
-function failedToRead(error: unknown): Result<null> {
-  return Result.failure(
-    [],
-    statusDiagnostic.of('io', `the file could not be read: ${(error as Error).message}`),
-  );
 }

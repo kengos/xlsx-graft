@@ -56,6 +56,18 @@ export function diagnostic(value: unknown): Diagnostic {
   });
 }
 
+/**
+ * The `error` of a result that is not ok: null, or an object with a code and a
+ * message. Throws a TypeError for a value that is not one.
+ */
+export function failure(error: unknown): Diagnostic | null {
+  if (error === null) {
+    return null;
+  }
+  const record = object(error);
+  return statusDiagnostic.of(text(record, 'code'), text(record, 'message'));
+}
+
 /** The value of `key`, which `record` must have. Throws a TypeError otherwise. */
 export function field(record: Record<string, unknown>, key: string): unknown {
   if (!Object.hasOwn(record, key)) {

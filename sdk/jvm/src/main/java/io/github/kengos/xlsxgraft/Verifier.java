@@ -1,13 +1,11 @@
 package io.github.kengos.xlsxgraft;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * Verifies workbooks through the C ABI, under the host's policy (given to the constructor, and
@@ -126,8 +124,9 @@ public final class Verifier {
   public Result<Void> verify(Path path, VerifyRules rules) {
     Objects.requireNonNull(path, "path");
     byte[] options = options(rules);
-    byte[] encoded = Capi.utf8(path.toAbsolutePath().toString());
-    return encoded == null ? read(path, options) : report(call.path(encoded, options));
+    Function<byte[], Result<Void>> byPath = encoded -> report(call.path(encoded, options));
+    Function<byte[], Result<Void>> byBytes = data -> report(call.bytes(data, options));
+    return PathInput.call(path, byPath, byBytes);
   }
 
   /**
@@ -200,24 +199,5 @@ public final class Verifier {
 
   private static Result<Void> report(Capi.Lent lent) {
     return VerifyReport.call(lent.status, lent.bytes);
-  }
-
-  // The engine takes no path that cannot be encoded as UTF-8, so the package
-  // reads the file and verifies its bytes; a file that cannot be read is an `io` failure.
-  Result<Void> read(Path path, byte[] options) {
-    byte[] data;
-    try {
-      data = Files.readAllBytes(path);
-    } catch (IOException unreadable) {
-      return Result.failure(
-          Collections.<Diagnostic>emptyList(),
-          StatusDiagnostic.error("io", "the file could not be read: " + reason(unreadable)));
-    }
-    return report(call.bytes(data, options));
-  }
-
-  // The message of `failure`, or its class name when it has none.
-  static String reason(IOException failure) {
-    return failure.getMessage() == null ? failure.getClass().getName() : failure.getMessage();
   }
 }
