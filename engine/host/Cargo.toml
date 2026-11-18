@@ -1,6 +1,6 @@
 [package]
 name = "xlsx-graft-host"
-description = "xlsx-graft host: what the CLI, the C ABI and the MCP server share to verify a workbook, the policy and the rules read from JSON and the result written as JSON and as text"
+description = "xlsx-graft host: what the CLI, the C ABI and the MCP server share to verify and to view a workbook (its tree and the cells of a sheet), the policy, the rules and the options read from JSON and the result written as JSON and as text"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

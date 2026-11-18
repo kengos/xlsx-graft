@@ -1,10 +1,13 @@
-//! Why the host failed: the message behind [`XLSX_GRAFT_ERR_IO`], kept per
-//! thread until the next failure on the same thread replaces it.
+//! Why a call failed: the message behind [`XLSX_GRAFT_ERR_IO`] and
+//! [`XLSX_GRAFT_ERR_REQUEST_INVALID`], kept per thread until the next failure
+//! on the same thread replaces it.
 //!
-//! A failure to open a file has no handle to carry its reason, so the reason
-//! waits here, as `errno` does; `xlsx_graft_error_message` lends it out.
+//! A failure to open a file, or options of describe_sheet whose keys
+//! `SheetRequest::from_arguments` refuses, have no handle that could hold the reason, so the reason is kept
+//! in a per-thread value, as `errno` is; `xlsx_graft_error_message` lends it
+//! out.
 
-use crate::status::XLSX_GRAFT_ERR_IO;
+use crate::status::{XLSX_GRAFT_ERR_IO, XLSX_GRAFT_ERR_REQUEST_INVALID};
 use std::cell::RefCell;
 use std::fmt::Display;
 
@@ -16,9 +19,22 @@ thread_local! {
 /// Keeps `error` as this thread's message, and returns
 /// [`XLSX_GRAFT_ERR_IO`].
 pub(crate) fn failed(error: impl Display) -> i32 {
+    keep(&error);
+    XLSX_GRAFT_ERR_IO
+}
+
+/// Keeps `error` as this thread's message, and returns
+/// [`XLSX_GRAFT_ERR_REQUEST_INVALID`]: `SheetRequest::from_arguments`
+/// refused the keys of the options of describe_sheet, and `error` says why.
+pub(crate) fn refused(error: impl Display) -> i32 {
+    keep(&error);
+    XLSX_GRAFT_ERR_REQUEST_INVALID
+}
+
+/// Replaces this thread's message with `error`.
+fn keep(error: &impl Display) {
     let text = error.to_string();
     MESSAGE.with_borrow_mut(|message| *message = text);
-    XLSX_GRAFT_ERR_IO
 }
 
 /// This thread's message: a pointer to its UTF-8 bytes and their length,

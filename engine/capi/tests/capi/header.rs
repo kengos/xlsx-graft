@@ -40,6 +40,10 @@ fn every_code_in_the_header_has_the_value_the_library_uses() {
             XLSX_GRAFT_ERR_SHEET_UNREADABLE,
         ),
         ("XLSX_GRAFT_ERR_CLOSED", XLSX_GRAFT_ERR_CLOSED),
+        (
+            "XLSX_GRAFT_ERR_REQUEST_INVALID",
+            XLSX_GRAFT_ERR_REQUEST_INVALID,
+        ),
     ];
     let kinds = [
         ("XLSX_GRAFT_VALUE_EMPTY", XLSX_GRAFT_VALUE_EMPTY),

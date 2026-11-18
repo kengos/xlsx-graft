@@ -4,9 +4,11 @@
 //! [`xlsx_graft_version`] and the handles that read a workbook's rows: a
 //! book ([`XlsxGraftBook`]) and the rows of one of its sheets
 //! ([`XlsxGraftRows`]), whose entry points are in `abi/`. A verify handle
-//! ([`XlsxGraftVerify`]) holds the result of one verification as JSON. The
-//! logic of the handles is safe Rust in `book.rs`, `rows.rs` and
-//! `verify.rs`; `abi/` only marshals.
+//! ([`XlsxGraftVerify`]) holds the result of one verification as JSON, and a
+//! view handle ([`XlsxGraftView`]) the result of one view of a workbook (its
+//! tree, or the cells of a sheet) as JSON. The logic of the handles is safe
+//! Rust in `book.rs`, `rows.rs`, `verify.rs` and `view.rs`; `abi/` only
+//! marshals.
 //!
 //! The rules of the surface are the caller's contract as much as ours, so
 //! `include/xlsx_graft.h` states each one again for the C side:
@@ -40,6 +42,7 @@ mod sheet;
 mod status;
 mod value;
 mod verify;
+mod view;
 
 pub use abi::book::{
     xlsx_graft_book_close, xlsx_graft_book_diagnostics, xlsx_graft_book_open_bytes,
@@ -52,6 +55,10 @@ pub use abi::verify::{
     xlsx_graft_policy_check, xlsx_graft_verify_bytes, xlsx_graft_verify_close,
     xlsx_graft_verify_path, xlsx_graft_verify_result,
 };
+pub use abi::view::{
+    xlsx_graft_describe_sheet_bytes, xlsx_graft_describe_sheet_path, xlsx_graft_tree_bytes,
+    xlsx_graft_tree_path, xlsx_graft_view_close, xlsx_graft_view_result,
+};
 pub use abi::xlsx_graft_error_message;
 pub use book::XlsxGraftBook;
 pub use rows::XlsxGraftRows;
@@ -62,9 +69,9 @@ pub use sheet::{
 };
 pub use status::{
     XLSX_GRAFT_ERR_CLOSED, XLSX_GRAFT_ERR_INVALID_ARG, XLSX_GRAFT_ERR_IO, XLSX_GRAFT_ERR_NULL_ARG,
-    XLSX_GRAFT_ERR_PANIC, XLSX_GRAFT_ERR_SHEET_AMBIGUOUS, XLSX_GRAFT_ERR_SHEET_NOT_FOUND,
-    XLSX_GRAFT_ERR_SHEET_NOT_WORKSHEET, XLSX_GRAFT_ERR_SHEET_UNREADABLE,
-    XLSX_GRAFT_ERR_WORKBOOK_UNREADABLE, XLSX_GRAFT_OK,
+    XLSX_GRAFT_ERR_PANIC, XLSX_GRAFT_ERR_REQUEST_INVALID, XLSX_GRAFT_ERR_SHEET_AMBIGUOUS,
+    XLSX_GRAFT_ERR_SHEET_NOT_FOUND, XLSX_GRAFT_ERR_SHEET_NOT_WORKSHEET,
+    XLSX_GRAFT_ERR_SHEET_UNREADABLE, XLSX_GRAFT_ERR_WORKBOOK_UNREADABLE, XLSX_GRAFT_OK,
 };
 pub use value::{
     XLSX_GRAFT_VALUE_BOOLEAN, XLSX_GRAFT_VALUE_DATE, XLSX_GRAFT_VALUE_DATETIME,
@@ -72,6 +79,7 @@ pub use value::{
     XLSX_GRAFT_VALUE_NUMBER, XLSX_GRAFT_VALUE_STRING, XLSX_GRAFT_VALUE_TIME, XlsxGraftValue,
 };
 pub use verify::XlsxGraftVerify;
+pub use view::XlsxGraftView;
 
 /// Writes the engine version: a pointer to its UTF-8 bytes into `*out_ptr`
 /// and their length into `*out_len`.

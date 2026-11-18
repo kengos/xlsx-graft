@@ -118,18 +118,114 @@
  *
  *    After a call that returns XLSX_GRAFT_ERR_PANIC, no handle was written.
  *
+ * VIEWS
+ *
+ *    xlsx_graft_tree_path and xlsx_graft_tree_bytes show the parts of a
+ *    workbook and the relationships between them;
+ *    xlsx_graft_describe_sheet_path and xlsx_graft_describe_sheet_bytes show
+ *    the cells of one sheet. Each writes a view handle (XlsxGraftView) that
+ *    holds the result; xlsx_graft_view_result lends its JSON and
+ *    xlsx_graft_view_close frees the handle.
+ *
+ *    `options` is UTF-8 JSON, an object of at most 2 MiB; NULL with a
+ *    length of 0, empty, only white space, or `null` is read as {} (every
+ *    default). The options of a tree have no key. The options of
+ *    describe_sheet are, each optional:
+ *      "sheet": a sheet name (a string); not together with "sheetIndex",
+ *      "sheetIndex": the sheet's index in the workbook's list (an integer
+ *        from 0); without "sheet" and "sheetIndex" the first sheet is shown,
+ *      "range": an A1 range such as "A1:H50": the cells shown start at its
+ *        top left cell (at A1 without "range"), are at most "maxRows" rows
+ *        and "maxColumns" columns, and never go past the range,
+ *      "maxRows": 1 to 10000 (100 without it),
+ *      "maxColumns": 1 to 1000 (30 without it).
+ *    The limits a workbook is read under are the CLI's defaults; no policy
+ *    is taken.
+ *
+ *    The result is {"ok": B, "error": null | {"code": C, "message": M},
+ *    "diagnostics": [...], ...} and then the keys of what the view shows;
+ *    docs/sdk.md (Listing parts, Describing a sheet) gives them. Its keys
+ *    and types are fixed; a new key may be added, so ignore keys you do not
+ *    know.
+ *
+ *    Which status a fault of the input returns. A call checks, in this
+ *    order, the pointers, the path, the options as a whole, the values of
+ *    the keys the view takes, and then the workbook, and returns the first
+ *    fault it finds; *out_view is written only on XLSX_GRAFT_OK.
+ *    - XLSX_GRAFT_ERR_INVALID_ARG: the path is not UTF-8, or the options are
+ *      not a JSON object the engine reads (at most 2 MiB; empty, only white
+ *      space or `null` is {}; a string with an unpaired surrogate escape
+ *      such as "\ud800" and a number beyond a double's range such as 1e400
+ *      are not JSON to the engine) whose keys are all keys of the view. It
+ *      is a fault of the calling code (an SDK bug), and no message is
+ *      written for xlsx_graft_error_message: one from an earlier call on
+ *      the same thread stays as it was, so do not read it.
+ *    - XLSX_GRAFT_ERR_REQUEST_INVALID (describe_sheet only): a fault of the
+ *      value of a key the view takes. It is the caller's argument error:
+ *      read xlsx_graft_error_message on the same thread right away; it
+ *      gives the first fault, in English for a person.
+ *    - XLSX_GRAFT_OK: otherwise. A file that cannot be opened or read (code
+ *      `io`), a sheet that is not found (code `sheet_not_found`) and a
+ *      workbook with errors are the result's `error` or `ok: false`, not a
+ *      status; no message is written.
+ *    The faults, in the order they are found (describe_sheet; a tree has
+ *    rows 1 to 6 and 14 only, and any key is row 6):
+ *       1. a pointer that must not be null is: NULL_ARG (a NULL path, data
+ *          or options with a length of 0 is read as empty)
+ *       2. the path is not UTF-8 (_path functions): INVALID_ARG
+ *       3. the options are larger than 2 MiB: INVALID_ARG
+ *       4. the options are not JSON the engine reads (not UTF-8, a syntax
+ *          error, an unpaired surrogate escape, a number beyond a double's
+ *          range): INVALID_ARG
+ *       5. the options are neither an object nor `null` (`[]`, `1`, "x"):
+ *          INVALID_ARG
+ *       6. a key the view does not take, "path" included: INVALID_ARG
+ *       7. "sheet" is not a string (`null` too): REQUEST_INVALID
+ *       8. "sheetIndex" is not a JSON integer from 0 to the platform's
+ *          size_t maximum (`null`, 5.0, -1, "1", a larger number):
+ *          REQUEST_INVALID
+ *       9. "sheet" and "sheetIndex" together: REQUEST_INVALID
+ *      10. "range" is not a string: REQUEST_INVALID
+ *      11. "maxRows" or "maxColumns" is not a JSON integer from 0 to
+ *          2^64 - 1, in that order: REQUEST_INVALID
+ *      12. "range" is not an A1 range: REQUEST_INVALID
+ *      13. "maxRows" is outside 1 to 10000, then "maxColumns" outside 1 to
+ *          1000: REQUEST_INVALID
+ *      14. the workbook cannot be opened or read, the sheet is not found or
+ *          cannot be chosen, or the workbook has errors: OK, in the result
+ *    A key whose value is null is therefore not absent but row 7, 8, 10 or
+ *    11. An SDK sends only the keys it was given, and does not call when
+ *    its caller gave it a string that is not well-formed Unicode (for
+ *    example in JS, String.prototype.isWellFormed() is false) or an integer
+ *    beyond a double's range: it raises the language's own argument error.
+ *
+ *    A view handle does not change once it is made. Call, copy the result
+ *    out, close, then parse, all in one function of yours: do not keep the
+ *    handle as an object of yours. The JSON lives until the close, and
+ *    xlsx_graft_view_result returns the same bytes every time.
+ *
+ *    xlsx_graft_tree_bytes and xlsx_graft_describe_sheet_bytes do not copy
+ *    `data`: they read it during the call only, so it must stay alive and
+ *    unchanged until the call returns, and may be freed after.
+ *
+ *    After a call that returns XLSX_GRAFT_ERR_PANIC, no handle was written.
+ *
  * THREADING
  *
  *    The functions that take no handle (xlsx_graft_version,
  *    xlsx_graft_book_open_path, xlsx_graft_book_open_bytes,
  *    xlsx_graft_error_message, xlsx_graft_verify_path,
- *    xlsx_graft_verify_bytes, xlsx_graft_policy_check) may be called from
- *    several threads at once; verifications share no state.
+ *    xlsx_graft_verify_bytes, xlsx_graft_policy_check,
+ *    xlsx_graft_tree_path, xlsx_graft_tree_bytes,
+ *    xlsx_graft_describe_sheet_path, xlsx_graft_describe_sheet_bytes) may
+ *    be called from several threads at once; verifications and views share
+ *    no state.
  *
- *    A verify handle, unlike a book, does not change after it is made, so
- *    xlsx_graft_verify_result may be called on it from any thread at once.
- *    Call xlsx_graft_verify_close once, and not while another call on the
- *    same handle is running.
+ *    A verify handle or a view handle, unlike a book, does not change after
+ *    it is made, so xlsx_graft_verify_result or xlsx_graft_view_result may
+ *    be called on it from any thread at once. Call xlsx_graft_verify_close
+ *    or xlsx_graft_view_close once, and not while another call on the same
+ *    handle is running.
  *
  *    A handle is not thread-safe. A book and every rows handle opened from
  *    it share state the library does not lock, so treat them as one: never
@@ -144,7 +240,8 @@
  *    handle as leaked instead).
  *
  *    xlsx_graft_error_message is per thread: it says why the last call on
- *    the calling thread failed with XLSX_GRAFT_ERR_IO.
+ *    the calling thread failed with XLSX_GRAFT_ERR_IO or
+ *    XLSX_GRAFT_ERR_REQUEST_INVALID.
  *
  *    A caught panic still runs Rust's process-wide panic hook, which by
  *    default prints a message to stderr.
@@ -191,6 +288,11 @@ extern "C" {
 /* The rows handle's book was closed, which closed its rows: the handle
  * reads no more, and only its close is left to call. */
 #define XLSX_GRAFT_ERR_CLOSED 10
+/* A value of a key of the options of a describe_sheet call is a fault (a
+ * wrong type, a "range" that is not an A1 range, a "maxRows" that is 0,
+ * "sheet" and "sheetIndex" together; see VIEWS).
+ * xlsx_graft_error_message says why. *out_view is not written. */
+#define XLSX_GRAFT_ERR_REQUEST_INVALID 11
 
 /* ---- values ---------------------------------------------------------- */
 
@@ -263,6 +365,7 @@ typedef struct XlsxGraftSheet {
 typedef struct XlsxGraftBook XlsxGraftBook;
 typedef struct XlsxGraftRows XlsxGraftRows;
 typedef struct XlsxGraftVerify XlsxGraftVerify;
+typedef struct XlsxGraftView XlsxGraftView;
 
 /* ---- functions ------------------------------------------------------- */
 
@@ -277,11 +380,11 @@ typedef struct XlsxGraftVerify XlsxGraftVerify;
 int32_t xlsx_graft_version(const uint8_t **out_ptr, size_t *out_len);
 
 /*
- * Why the last call on this thread that returned XLSX_GRAFT_ERR_IO failed,
- * in English for a person: *out_ptr points at its UTF-8 bytes, *out_len
- * holds their count (0 before any such call). The bytes are NOT
- * NUL-terminated, belong to the library, and live until the next call on
- * this thread that fails so, or the thread's end.
+ * Why the last call on this thread that returned XLSX_GRAFT_ERR_IO or
+ * XLSX_GRAFT_ERR_REQUEST_INVALID failed, in English for a person: *out_ptr
+ * points at its UTF-8 bytes, *out_len holds their count (0 before any such
+ * call). The bytes are NOT NUL-terminated, belong to the library, and live
+ * until the next call on this thread that fails so, or the thread's end.
  */
 int32_t xlsx_graft_error_message(const uint8_t **out_ptr, size_t *out_len);
 
@@ -440,6 +543,64 @@ int32_t xlsx_graft_verify_result(const XlsxGraftVerify *verify,
  * Always XLSX_GRAFT_OK (or XLSX_GRAFT_ERR_PANIC).
  */
 int32_t xlsx_graft_verify_close(XlsxGraftVerify *verify);
+
+/*
+ * Shows the parts of the workbook at path (path_len bytes of UTF-8, NOT
+ * NUL-terminated) and their relationships, under options (see VIEWS: no
+ * key), and writes a view handle to *out_view; close it with
+ * xlsx_graft_view_close. Statuses: see VIEWS (a tree has faults 1 to 6 and
+ * 14), and XLSX_GRAFT_ERR_PANIC as for every call.
+ */
+int32_t xlsx_graft_tree_path(const uint8_t *path, size_t path_len,
+                             const uint8_t *options, size_t options_len,
+                             XlsxGraftView **out_view);
+
+/*
+ * As xlsx_graft_tree_path, the workbook being the len bytes at data. The
+ * bytes are NOT copied: they must stay alive and unchanged until the call
+ * returns.
+ */
+int32_t xlsx_graft_tree_bytes(const uint8_t *data, size_t len,
+                              const uint8_t *options, size_t options_len,
+                              XlsxGraftView **out_view);
+
+/*
+ * Shows the cells of one sheet of the workbook at path (path_len bytes of
+ * UTF-8, NOT NUL-terminated) under options (see VIEWS), and writes a view
+ * handle to *out_view; close it with xlsx_graft_view_close. Statuses: see
+ * VIEWS, and XLSX_GRAFT_ERR_PANIC as for every call.
+ */
+int32_t xlsx_graft_describe_sheet_path(const uint8_t *path, size_t path_len,
+                                       const uint8_t *options,
+                                       size_t options_len,
+                                       XlsxGraftView **out_view);
+
+/*
+ * As xlsx_graft_describe_sheet_path, the workbook being the len bytes at
+ * data. The bytes are NOT copied: they must stay alive and unchanged until
+ * the call returns.
+ */
+int32_t xlsx_graft_describe_sheet_bytes(const uint8_t *data, size_t len,
+                                        const uint8_t *options,
+                                        size_t options_len,
+                                        XlsxGraftView **out_view);
+
+/*
+ * The result as UTF-8 JSON (NOT NUL-terminated, see VIEWS): *out_ptr points
+ * at it, *out_len holds its length in bytes. The bytes belong to the handle
+ * and live until its close; every call returns the same bytes.
+ * XLSX_GRAFT_OK; XLSX_GRAFT_ERR_NULL_ARG when view, out_ptr or out_len is
+ * NULL (nothing is written); XLSX_GRAFT_ERR_PANIC.
+ */
+int32_t xlsx_graft_view_result(const XlsxGraftView *view,
+                               const uint8_t **out_ptr, size_t *out_len);
+
+/*
+ * Closes the view handle; what it lent is gone. NULL does nothing.
+ * XLSX_GRAFT_OK, or XLSX_GRAFT_ERR_PANIC (the handle is closed all the
+ * same).
+ */
+int32_t xlsx_graft_view_close(XlsxGraftView *view);
 
 #ifdef __cplusplus
 }

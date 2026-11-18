@@ -101,6 +101,7 @@
 //! output written from them, which is held beside them, so the peak is about
 //! twice the output. The time grows with the rows.
 
+mod arguments;
 mod cell;
 mod collect;
 mod describe;
@@ -111,6 +112,7 @@ use serde::{Serialize, Serializer};
 use xlsx_graft_diagnostics::Echo;
 use xlsx_graft_read::{CellRange, Sheet, SheetKind, SheetState};
 
+pub use arguments::SheetArgumentsError;
 pub use cell::GridCell;
 #[cfg(test)]
 pub(crate) use describe::describe;

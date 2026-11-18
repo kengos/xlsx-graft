@@ -11,6 +11,7 @@
 pub mod book;
 pub mod rows;
 pub mod verify;
+pub mod view;
 
 use crate::guard::guard;
 use crate::message::lent;
@@ -98,9 +99,10 @@ unsafe fn text<'a>(ptr: *const u8, len: usize) -> Result<&'a str, i32> {
 }
 
 /// Writes why the last call on this thread that returned
-/// [`XLSX_GRAFT_ERR_IO`](crate::XLSX_GRAFT_ERR_IO) failed: a pointer to its
-/// UTF-8 bytes into `*out_ptr` and their length into `*out_len`, no bytes
-/// before any such call.
+/// [`XLSX_GRAFT_ERR_IO`](crate::XLSX_GRAFT_ERR_IO) or
+/// [`XLSX_GRAFT_ERR_REQUEST_INVALID`](crate::XLSX_GRAFT_ERR_REQUEST_INVALID)
+/// failed: a pointer to its UTF-8 bytes into `*out_ptr` and their length into
+/// `*out_len`, no bytes before any such call.
 ///
 /// The bytes are not NUL-terminated, belong to the library, and stay alive
 /// until the next call on this thread that fails so, or the thread's end.

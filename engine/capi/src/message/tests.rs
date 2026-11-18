@@ -1,7 +1,7 @@
 //! Unit tests for the per-thread message.
 
-use super::{failed, lent};
-use crate::status::XLSX_GRAFT_ERR_IO;
+use super::{failed, lent, refused};
+use crate::status::{XLSX_GRAFT_ERR_IO, XLSX_GRAFT_ERR_REQUEST_INVALID};
 
 /// This thread's message, copied out.
 fn message() -> String {
@@ -18,6 +18,14 @@ fn a_failure_keeps_its_message_and_is_the_io_status() {
     assert_eq!(message(), "disk full");
     failed("gone");
     assert_eq!(message(), "gone");
+}
+
+#[test]
+fn a_refused_request_keeps_its_message_and_is_the_request_invalid_status() {
+    assert_eq!(refused("not a range"), XLSX_GRAFT_ERR_REQUEST_INVALID);
+    assert_eq!(message(), "not a range");
+    failed("disk full");
+    assert_eq!(message(), "disk full");
 }
 
 #[test]

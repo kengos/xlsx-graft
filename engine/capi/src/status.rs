@@ -32,3 +32,10 @@ pub const XLSX_GRAFT_ERR_SHEET_UNREADABLE: i32 = 9;
 /// The rows handle's book was closed, which closed its rows: the handle
 /// reads no more, and only its close is left to call.
 pub const XLSX_GRAFT_ERR_CLOSED: i32 = 10;
+/// The options of `xlsx_graft_describe_sheet_*` are a JSON object of the
+/// keys it takes, but `SheetRequest::from_arguments` refuses their values: a
+/// value of the wrong type
+/// or out of its bounds (a `range` that is not an A1 range, a `maxRows` that
+/// is 0), or `sheet` and `sheetIndex` together. `xlsx_graft_error_message`
+/// says why.
+pub const XLSX_GRAFT_ERR_REQUEST_INVALID: i32 = 11;
