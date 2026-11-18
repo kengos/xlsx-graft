@@ -9,7 +9,7 @@
 //! `rows-100000.xlsx` and `rows-1000000.xlsx` into `<dir>`
 //! (`fixtures/generated/`, which git ignores: the workbooks are too large
 //! to commit). `xlsx-graft-fixtures-gen <dir> <rows>...` writes one
-//! workbook of each row count given instead. [`write_book`] says what a
+//! workbook of each row count given instead. [`write_rows_book`] says what a
 //! workbook holds.
 //!
 //! The binary prints the path of each workbook once it is written, and
@@ -21,7 +21,7 @@
 mod book;
 mod error;
 
-pub use book::{HEADER, write_book};
+pub use book::{ROWS_HEADER, write_rows_book};
 pub use error::FixturesGenError;
 
 use std::ffi::{OsStr, OsString};
@@ -60,7 +60,7 @@ pub fn run(args: &[OsString], out: &mut dyn Write) -> Result<(), FixturesGenErro
     for rows in counts {
         let path = dir.join(file_name(rows));
         let part = dir.join(format!("{}.part", file_name(rows)));
-        write_book(&part, rows).map_err(|source| FixturesGenError::Xlsx {
+        write_rows_book(&part, rows).map_err(|source| FixturesGenError::Xlsx {
             path: part.clone(),
             source,
         })?;

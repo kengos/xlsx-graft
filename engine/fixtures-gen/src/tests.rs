@@ -1,8 +1,8 @@
-//! The workbooks `run` and `write_book` write, read back with
+//! The workbooks `run` and `write_rows_book` write, read back with
 //! `xlsx-graft-read`, and the command lines and failures `run` returns an
 //! error for.
 
-use crate::{DEFAULT_ROWS, FixturesGenError, MAX_ROWS, file_name, parse, run, write_book};
+use crate::{DEFAULT_ROWS, FixturesGenError, MAX_ROWS, file_name, parse, run, write_rows_book};
 use std::ffi::OsString;
 use std::io::{self, Cursor, Write};
 use std::path::{Path, PathBuf};
@@ -67,10 +67,10 @@ fn read_back(path: &Path) -> Vec<String> {
 }
 
 #[test]
-fn write_book_writes_the_header_and_each_data_row_the_reader_reads_back() {
+fn write_rows_book_writes_the_header_and_each_data_row_the_reader_reads_back() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("book.xlsx");
-    write_book(&path, 3).unwrap();
+    write_rows_book(&path, 3).unwrap();
     assert_eq!(
         read_back(&path),
         [
@@ -85,10 +85,10 @@ fn write_book_writes_the_header_and_each_data_row_the_reader_reads_back() {
 }
 
 #[test]
-fn write_book_gives_data_row_367_the_date_of_data_row_1() {
+fn write_rows_book_gives_data_row_367_the_date_of_data_row_1() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("book.xlsx");
-    write_book(&path, 367).unwrap();
+    write_rows_book(&path, 367).unwrap();
     let lines = read_back(&path);
     assert_eq!(lines.len(), 2 + 1 + 367);
     assert!(
@@ -104,10 +104,10 @@ fn write_book_gives_data_row_367_the_date_of_data_row_1() {
 }
 
 #[test]
-fn write_book_returns_an_error_for_a_path_in_a_directory_that_does_not_exist() {
+fn write_rows_book_returns_an_error_for_a_path_in_a_directory_that_does_not_exist() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("missing").join("book.xlsx");
-    assert!(write_book(&path, 1).is_err());
+    assert!(write_rows_book(&path, 1).is_err());
 }
 
 #[test]

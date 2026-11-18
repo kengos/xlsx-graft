@@ -5,14 +5,14 @@ use rust_xlsxwriter::{Format, Workbook, XlsxError};
 use std::path::Path;
 
 /// The header row, one title per column, in column order.
-pub const HEADER: [&str; 5] = ["number", "fraction", "text", "flag", "date"];
+pub const ROWS_HEADER: [&str; 5] = ["number", "fraction", "text", "flag", "date"];
 
 /// 2024-01-01 as a serial date number in the 1900 date system, which
 /// rust_xlsxwriter's workbooks use.
 const FIRST_DATE: f64 = 45_292.0;
 
 /// Writes to `path` a workbook with one worksheet, `Data`, holding the
-/// [`HEADER`] row and then `rows` data rows. Data row `n` (the worksheet's
+/// [`ROWS_HEADER`] row and then `rows` data rows. Data row `n` (the worksheet's
 /// row `n + 1`), for `n` from 1, holds:
 ///
 /// - `number`: `n`;
@@ -31,14 +31,14 @@ const FIRST_DATE: f64 = 45_292.0;
 ///
 /// [`XlsxError`]: `rows` is more than a worksheet holds below the header
 /// row, or the workbook or its temporary files cannot be written.
-pub fn write_book(path: &Path, rows: u32) -> Result<(), XlsxError> {
+pub fn write_rows_book(path: &Path, rows: u32) -> Result<(), XlsxError> {
     let mut workbook = Workbook::new();
     let date = Format::new().set_num_format("yyyy-mm-dd");
     let sheet = workbook.add_worksheet_with_constant_memory()?;
     sheet.set_name("Data")?;
     // Wide enough for Excel to show `yyyy-mm-dd` rather than `########`.
     sheet.set_column_width(4, 11)?;
-    for (column, title) in (0..).zip(HEADER) {
+    for (column, title) in (0..).zip(ROWS_HEADER) {
         sheet.write_string(0, column, title)?;
     }
     for row in 1..=rows {
