@@ -41,14 +41,20 @@ public class Result
 
 /// <summary>
 /// What every call into the engine that produces something returns: whether
-/// it worked, the value when it did, and the diagnostics either way.
+/// it worked, the value it produced when it did (a <see cref="Viewer"/>'s
+/// result has one also when it did not), and the diagnostics either way.
 /// </summary>
+/// <remarks>
+/// A failure has no value, except one of a <see cref="Viewer"/>: its value is
+/// the <see cref="Tree"/> or the <see cref="Grid"/> that could be read, also
+/// when the engine's <c>ok</c> is false.
+/// </remarks>
 /// <typeparam name="T">What the call produces.</typeparam>
 public sealed class Result<T> : Result
     where T : notnull
 {
-    private Result(bool success, T? value, IReadOnlyList<Diagnostic> diagnostics)
-        : base(success, diagnostics, error: null)
+    private Result(bool success, T? value, IReadOnlyList<Diagnostic> diagnostics, Diagnostic? error = null)
+        : base(success, diagnostics, error)
     {
         Value = value;
     }
@@ -56,12 +62,23 @@ public sealed class Result<T> : Result
     /// <summary>What the call produced on a success.</summary>
     /// <remarks>
     /// On a failure it is <see langword="default"/>, which for a value type is
-    /// a value of its own, so read <see cref="Result.Success"/> first.
+    /// a value of its own, so read <see cref="Result.Success"/> first. A
+    /// <see cref="Viewer"/>'s failure has a value too (a <see cref="Tree"/>
+    /// or a <see cref="Grid"/>); it is <see langword="null"/> only when this
+    /// package failed to get one (<c>panic</c>, <c>null_arg</c>,
+    /// <c>unknown_status</c>, <c>diagnostics_unreadable</c>, or <c>io</c> for
+    /// a path that is not Unicode whose file cannot be read).
     /// </remarks>
     public T? Value { get; }
 
     internal static Result<T> Ok(T value) => new(success: true, value, []);
 
+    internal static Result<T> Ok(T value, IReadOnlyList<Diagnostic> diagnostics) =>
+        new(success: true, value, diagnostics);
+
     internal static Result<T> Failure(params Diagnostic[] diagnostics) =>
         new(success: false, default, [.. diagnostics]);
+
+    internal static Result<T> Failure(IReadOnlyList<Diagnostic> diagnostics, Diagnostic? error, T? value) =>
+        new(success: false, value, diagnostics, error);
 }

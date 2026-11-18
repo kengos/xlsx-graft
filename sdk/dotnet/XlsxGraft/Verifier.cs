@@ -106,7 +106,11 @@ public sealed class Verifier
     {
         ArgumentNullException.ThrowIfNull(path);
         var options = VerifyOptions.Build(policy, targets, bestEffort, allowFunctions, allowParts, failOn);
-        return Capi.Utf8(path) is { } encoded ? Report(call.Path(encoded, options)) : Read(path, options);
+        return PathInput.Call(
+            path,
+            encoded => Report(call.Path(encoded, options)),
+            data => Report(call.Bytes(data, options)),
+            error => Result.Failure([], error));
     }
 
     /// <summary>
@@ -156,22 +160,4 @@ public sealed class Verifier
     }
 
     private static Result Report((int Status, byte[]? Json) outcome) => VerifyReport.Call(outcome.Status, outcome.Json);
-
-    // The engine takes no path that is not UTF-8, so this package reads the
-    // file and gives the engine its bytes; a file that cannot be read is an
-    // `io` failure, as for a file the engine cannot read.
-    private Result Read(string path, byte[] options)
-    {
-        byte[] data;
-        try
-        {
-            data = File.ReadAllBytes(path);
-        }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
-        {
-            return Result.Failure([], StatusDiagnostic.Of("io", $"the file could not be read: {error.Message}"));
-        }
-
-        return Report(call.Bytes(data, options));
-    }
 }

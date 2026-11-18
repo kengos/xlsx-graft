@@ -939,8 +939,8 @@ and Go SDKs take the same shape in each language's idiom.
 How an SDK offers the `tree` and `describe_sheet` views, whichever way it
 reaches the engine ([the C ABI](#viewing-through-the-c-abi), the addon, or the
 CLI's [`tree`](#listing-parts-tree) and
-[`describe-sheet`](#describing-a-sheet-describe-sheet)). Only the Ruby SDK has
-them so far; the others take the same shape in their idiom.
+[`describe-sheet`](#describing-a-sheet-describe-sheet)). The Ruby, Python and
+.NET SDKs have them so far; the others take the same shape in their idiom.
 
 - **A viewer, then calls.** The constructor takes only the engine library;
   a view takes no policy (the limits are the CLI's defaults) and gives no text
@@ -949,32 +949,48 @@ them so far; the others take the same shape in their idiom.
   | SDK | Constructor | Calls |
   | --- | --- | --- |
   | Ruby | `Viewer.new(library:)` | `tree(path)`, `tree_bytes(data)`, `describe_sheet(path, sheet:, range:, max_rows:, max_columns:)`, `describe_sheet_bytes(data, ...)` with the same keywords |
+  | Python | `Viewer(library=None)`; `library` is keyword-only | `tree(path)`, `tree_bytes(data)`, `describe_sheet(path, *, sheet=None, range=None, max_rows=None, max_columns=None)`, `describe_sheet_bytes(data, *, ...)` with the same keywords |
+  | .NET | `new Viewer(string? library = null)` | `Tree(path)`, `TreeBytes(data)`, `DescribeSheet(path, sheet, sheetIndex, range, maxRows, maxColumns)`, `DescribeSheetBytes(data, ...)` with the same arguments |
 
-- **The keywords are the options' keys.** `sheet:` is the sheet's index when
-  it is an Integer (`sheetIndex`) and its name otherwise (`sheet`; a Symbol is
-  written as a String); `range:` is `range`, `max_rows:` is `maxRows` and
-  `max_columns:` is `maxColumns`. The SDK writes the key of each keyword whose
-  value is not the language's null (Ruby nil) and leaves out the others.
-  Leaving a keyword out and passing null are the same, because the engine
-  takes a key whose value is `null` as `XLSX_GRAFT_ERR_REQUEST_INVALID`. A
-  `tree` takes no options.
+- **The keywords are the options' keys.** In Ruby, `sheet:` is the sheet's
+  index when it is an Integer (`sheetIndex`) and its name otherwise (`sheet`; a
+  Symbol is written as a String); `range:` is `range`, `max_rows:` is `maxRows`
+  and `max_columns:` is `maxColumns`. Python's keywords are the same, and its
+  `sheet` is the index when it is an `int` that is not a `bool` (a `bool` is
+  written as `sheet`, which the engine refuses with `REQUEST_INVALID`). .NET
+  has two arguments in place of one: `sheet` (a name) is `sheet` and
+  `sheetIndex` (an `int`) is `sheetIndex`, and passing both is
+  `REQUEST_INVALID` from the engine. The SDK writes the key of each keyword
+  whose value is not the language's null (Ruby nil, Python `None`, .NET
+  `null`) and leaves out the others. Leaving a keyword out and passing null
+  are the same, because the engine takes a key whose value is `null` as
+  `XLSX_GRAFT_ERR_REQUEST_INVALID`. A `tree` takes no options.
 - **The types follow one rule.** Each JSON object is a type and each key is an
-  attribute of it, named in the language's style (Ruby, snake_case:
-  `relationshipsKnown` is `relationships_known`) and otherwise as the key is
-  (`row`, `ref`, `type`). The types are `Tree`, `TreePart`, `TreeRelationship`,
-  `TreeTarget` (the JSON's `{"part": name}` or `{"external": target}`: the
-  other attribute is nil), `Grid`, `GridTruncated`, `GridRow` and `GridCell`;
+  attribute of it, named in the language's style (Ruby and Python, snake_case:
+  `relationshipsKnown` is `relationships_known`; .NET, PascalCase:
+  `RelationshipsKnown`) and otherwise as the key is (`row`, `ref`, `type`).
+  The types are `Tree`, `TreePart`, `TreeRelationship`, `TreeTarget` (the
+  JSON's `{"part": name}` or `{"external": target}`: the other attribute is
+  null), `Grid`, `GridTruncated`, `GridRow` and `GridCell`;
   `Grid`'s `sheet` is the SDK's `SheetInfo`, whose keys it has. A JSON `null`
   is the language's null. A cell with no `truncated` key has `truncated` false.
   A cell's `value` is the JSON's value as it is: a string, a number (a float
   for `number`, an integer of milliseconds for `elapsed`) or a boolean, and a
-  string for a date, a time and a date-time. The names, ids and values are
-  made for display (control characters removed, a long one cut), so they are
-  not exact; to read exact values an SDK reads the rows
+  string for a date, a time and a date-time. In .NET the value is an
+  `object` that is a `string`, a `bool`, a `long` for a JSON number written as
+  an integer (an elapsed time's milliseconds) or a `double` for any other
+  number, as Python and Ruby read the same JSON (`2.0` is a float, `90000` an
+  integer). A .NET `SheetInfo` has `kind` and `state` as enums, and a string
+  newer than the SDK is `Unknown`. A .NET `size` and `compressedSize` are
+  `ulong`, and its lists are `IReadOnlyList`, which a record compares by
+  reference, so compare their items; Ruby and Python use frozen arrays and
+  tuples, which compare by their items. The names, ids and values are made
+  for display (control characters removed, a long one cut), so they are not
+  exact; to read exact values an SDK reads the rows
   ([Reading rows in an SDK](#reading-rows-in-an-sdk)). A key the SDK does not
-  know is ignored. The JSON comes from the engine library the SDK
-  loaded, so the SDK reads it by its keys and does not check its shape. JSON
-  that cannot be parsed, or that lacks a key the SDK reads, makes a
+  know is ignored. The JSON comes from the engine library the SDK loaded, so
+  the SDK reads it by its keys and does not check its shape. JSON that cannot
+  be parsed, or that lacks a key the SDK reads, makes a
   `diagnostics_unreadable` failure with no value.
 - **The result is a Result with a value, also when it fails.** It is
   successful when the engine's `ok` is true; its `error` and `diagnostics`
@@ -987,25 +1003,31 @@ them so far; the others take the same shape in their idiom.
   `io` of a path that is not UTF-8 whose file it cannot read.
 - **What raises**, per language:
 
-  | SDK | `XLSX_GRAFT_ERR_REQUEST_INVALID` | Before the call: an Integer beyond a double's range, a value JSON cannot write, options of more than 2 MiB | `INVALID_ARG` (a bug of the SDK) |
+  | SDK | `XLSX_GRAFT_ERR_REQUEST_INVALID` | Before the call: an integer beyond a double's range, a value JSON cannot write, a string that is not Unicode, options of more than 2 MiB | `INVALID_ARG` (a bug of the SDK) |
   | --- | --- | --- | --- |
   | Ruby | `ArgumentError`, with the engine's message as it is | `ArgumentError` (`10**400`; a String whose bytes are not valid in its encoding, NaN or Infinity, nesting too deep; 2 MiB) | `Error` |
+  | Python | `ValueError`, with the engine's message as it is | `ValueError` (`10**400`; NaN or an infinity, a string holding a lone surrogate, a cyclic value; 2 MiB), `TypeError` (a value JSON cannot write), `RecursionError` (dicts and lists nested too deep) | `xlsx_graft.Error` |
+  | .NET | `ArgumentException`, with the engine's message as it is | `ArgumentException` (a `sheet` or `range` holding a lone surrogate; 2 MiB; the numeric arguments are `int?`, so none is beyond a double's range) | `XlsxGraftException` |
 
   The SDK checks no other type or value of the options: `sheet: 1.5`,
-  `range: 3`, `max_rows: 0` and `max_rows: "2"` are `REQUEST_INVALID` and
-  raise the argument error with the engine's message. The SDK reads the
-  message right after the call that returned the status, on the same thread
-  and within the same guard against interrupts as the call. Under
-  Ruby's M:N threads a Ruby thread may move between the operating system's
-  threads across calls, so the message may be another call's, which the SDK
-  cannot tell apart and gives as it is, or empty, for which the SDK gives a
-  fixed message of its own (as it does when `xlsx_graft_error_message` does
-  not return `OK`).
+  `range: 3`, `max_rows: 0` and `max_rows: "2"` (in Python `sheet=1.5`,
+  `range=3`, `max_rows=0`; in .NET `maxRows: 0`, or `sheet` with
+  `sheetIndex`) are `REQUEST_INVALID` and raise the argument error with the
+  engine's message. The SDK reads the message right after the call that
+  returned the status, on the same thread (in Ruby, also within the same guard
+  against interrupts as the call). Under Ruby's M:N threads a Ruby thread may
+  move between the operating system's threads across calls, so in Ruby the
+  message may be another call's, which the SDK cannot tell apart and gives as
+  it is, or empty, for which the SDK gives a fixed message of its own (as it
+  does when `xlsx_graft_error_message` does not return `OK`). A Python or .NET
+  thread is an operating system thread, so the message read right after the
+  call is that call's; the fixed message is for one that cannot be read.
 - **A path that is not UTF-8, the input of the `_bytes` calls and threads**
   are as for [verify](#verifying-in-an-sdk): the SDK reads the file and sends
   its bytes (an unreadable file is an `io` failure with no value), the bytes
-  are copied for the call, and a viewer does not change after it is made, so
-  threads share one and call it at once.
+  are copied for the call (in .NET, the `*Bytes` calls do not copy them: they
+  pin the data for the call, as verify does), and a viewer does not change
+  after it is made, so threads share one and call it at once.
 - **How large a result is**: the JSON of a view is some 15 MB at most without
   its diagnostics and some 25 MB with the diagnostics of the default policy,
   and the SDK holds the parsed value too.

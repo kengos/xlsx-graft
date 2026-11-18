@@ -6,10 +6,9 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping, Sequence
-from pathlib import Path
 from typing import Any
 
-from xlsx_graft import status_diagnostic, verify_report
+from xlsx_graft import path_input, verify_report
 from xlsx_graft.errors import PolicyInvalidError
 from xlsx_graft.library import Library
 from xlsx_graft.policy import policy_json, rules_json
@@ -102,12 +101,7 @@ class Verifier:
         limit raises ``RecursionError``.
         """
         options = self._options(targets, best_effort, allow_functions, allow_parts, fail_on)
-        encoded = os.fsencode(path)
-        try:
-            encoded.decode("utf-8")
-        except UnicodeDecodeError:
-            return self._verify_file(encoded, options)
-        return verify_report.call(*self._call.verify_path(encoded, options))
+        return path_input.call(path, lambda how, data: self._run(how, data, options))
 
     def verify_bytes(
         self,
@@ -165,13 +159,8 @@ class Verifier:
             raise ValueError(message)
         return options
 
-    # The engine takes no path that is not UTF-8, so this package reads the
-    # file and verifies its bytes; a file that cannot be read is an ``io``
-    # failure.
-    def _verify_file(self, path: bytes, options: bytes) -> Result[None]:
-        try:
-            data = Path(os.fsdecode(path)).read_bytes()
-        except OSError as error:
-            message = f"the file could not be read: {error}"
-            return Result.failure((), status_diagnostic.of("io", message))
-        return verify_report.call(*self._call.verify_bytes(data, options))
+    # Verifies ``data``, the path's UTF-8 bytes (how is "path") or the
+    # workbook's bytes (how is "bytes").
+    def _run(self, how: str, data: bytes, options: bytes) -> Result[None]:
+        verify = self._call.verify_path if how == "path" else self._call.verify_bytes
+        return verify_report.call(*verify(data, options))

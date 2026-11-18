@@ -125,6 +125,67 @@ if (result.Error is { } error)
 - A verifier does not change once it is made: share one between threads, and
   call it from them at once.
 
+## Viewing a workbook
+
+```csharp
+using XlsxGraft;
+
+var viewer = new Viewer();
+var tree = viewer.Tree("book.xlsx").Value;
+foreach (var part in tree?.Parts ?? [])
+{
+    Console.WriteLine($"{part.Name} {part.ContentType}");
+}
+
+var result = viewer.DescribeSheet("book.xlsx", sheet: "Data", range: "A1:H50", maxRows: 20);
+if (result.Value is { } grid)
+{
+    Console.WriteLine($"{grid.Sheet?.Name}: {grid.Shown}");
+    foreach (var row in grid.Rows)
+    {
+        Console.WriteLine(string.Join(", ", row.Cells.Select(cell => $"{cell.Ref}={cell.Value}")));
+    }
+}
+
+if (result.Error is { } error)
+{
+    Console.Error.WriteLine($"{error.Code}: {error.Message}");
+}
+```
+
+- `Tree(path)` lists the parts of a workbook and the relationships between
+  them (the engine's `tree`); `DescribeSheet(path, ...)` shows the cells of one
+  sheet (`describe-sheet`). `TreeBytes(data)` and `DescribeSheetBytes(data, ...)`
+  take the workbook's bytes, pin them for the call and do not copy them, so
+  they must not change meanwhile.
+- `DescribeSheet` takes `sheet` (a name) or `sheetIndex` (from 0), the first
+  sheet without either; `range` (an A1 range such as `"A1:H50"`); `maxRows`
+  (1 to 10000, 100 without it) and `maxColumns` (1 to 1000, 30 without it), each
+  optional. A view takes no policy: the limits are the CLI's defaults.
+- The value is a `Tree` or a `Grid`, immutable records with one property for
+  each key of the engine's JSON (see `Tree`, `TreePart`, `TreeRelationship`,
+  `TreeTarget`, `Grid`, `GridTruncated`, `GridRow` and `GridCell`). A cell's
+  `Value` is the JSON's value: a `string` (also for a date, a time, a date-time
+  and an error), a `bool`, a `long` for a number written as an integer (an
+  elapsed time's milliseconds) and a `double` for any other number. A grid's
+  `Sheet` is a `SheetInfo`, as `Book.Sheets()` gives. Names and text are made
+  for display (control characters removed, long text cut), so they are not
+  exact; read the rows with `Book` for exact values. The lists are compared by
+  reference, so compare the records' contents, not the records.
+- The result is successful when the engine's `ok` is true, and its `Value` is
+  set also when it is not: a workbook with errors gives what could be read, a
+  sheet that is not found (`Error.Code` `sheet_not_found`) gives a `Grid` whose
+  `Sheet` is `null`. `Value` is `null` only when the call itself failed (`panic`,
+  `null_arg`, `unknown_status`, `diagnostics_unreadable`, or `io` for a path
+  that is not Unicode whose file the package cannot read).
+- A value the engine refuses (`range: "nope"`, `maxRows: 0`, a `sheet` together
+  with a `sheetIndex`) throws `ArgumentException` with the engine's message.
+  So do a `sheet` or a `range` that holds a lone surrogate, and options of
+  more than 2 MiB, before the engine is called; a `null` path throws
+  `ArgumentNullException`.
+- A viewer does not change once it is made: share one between threads, and
+  call it from them at once.
+
 ## The engine's version
 
 ```csharp
