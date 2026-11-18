@@ -148,6 +148,70 @@ foreach ($result->diagnostics as $d) {
   each directory takes the access list of PHP's temporary directory
   (`sys_get_temp_dir()`, the user's `%TEMP%` by default).
 
+## Viewing a workbook
+
+```php
+use XlsxGraft\Viewer;
+
+$viewer = new Viewer();
+$tree = $viewer->tree('book.xlsx')->value;
+foreach ($tree?->parts ?? [] as $part) {
+    echo "{$part->name} {$part->contentType}\n";
+}
+
+$result = $viewer->describeSheet('book.xlsx', sheet: 'Data', range: 'A1:H50', maxRows: 20);
+if ($result->value?->sheet !== null) {
+    echo "{$result->value->sheet->name}: {$result->value->shown}\n";
+}
+foreach ($result->value?->rows ?? [] as $row) {
+    foreach ($row->cells as $cell) {
+        echo "{$cell->ref} ", var_export($cell->value, true), "\n";
+    }
+}
+if ($result->error !== null) {
+    fwrite(STDERR, "{$result->error->code}: {$result->error->message}\n");
+}
+```
+
+- `new Viewer(cli: ...)` finds the CLI when it is made (`CliNotFoundException`),
+  as [below](#where-the-engine-cli-comes-from). A viewer takes no policy: the
+  limits are the CLI's defaults. It does not change once it is made.
+- `tree($path)` lists the parts of a workbook and the relationships between
+  them (the engine's `tree`); `describeSheet($path, ...)` shows the cells of
+  one sheet (`describe-sheet`). `treeBytes($data)` and
+  `describeSheetBytes($data, ...)` take the workbook's bytes.
+- `describeSheet` takes four values, each left out when not needed: `sheet`
+  (a name, or an index from 0 when it is an int; the first sheet without it),
+  `range` (an A1 range such as `'A1:H50'`), `maxRows` (1 to 10000, 100
+  without it) and `maxColumns` (1 to 1000, 30 without it). A value that is
+  not given is not passed to the CLI. This package checks a value only for a
+  NUL (`invalid_arg`); the CLI judges the rest: a value it refuses
+  (`range: 'nope'`, `maxRows: 0`, a negative `sheet`) throws an
+  `InvalidArgumentException` with the CLI's message, which names the CLI's
+  option (`--range`, `--max-rows`).
+- The value is a `Tree` or a `Grid`, with one attribute for each key of the
+  engine's JSON, named as the key is (`relationshipsKnown`; see `Tree`,
+  `TreePart`, `TreeRelationship`, `TreeTarget`, `Grid`, `GridTruncated`,
+  `GridRow` and `GridCell`). A cell's `value` is a `string` (also for a
+  date, a time, a date-time and an error), a `bool`, an `int` for a number
+  written as an integer that fits in PHP's `int`, or a `float` for any other
+  number. A sheet's kind and state are the `SheetKind` and `SheetState` of `SheetInfo`, `Unknown`
+  for text the package does not know. Names and text are made for display
+  (control characters removed, long text cut), so they are not exact; read
+  the rows with `XlsxReader` for exact values.
+- The result is successful when the engine's `ok` is true, and its `value` is
+  set also when it is not: a workbook with errors gives what could be read,
+  a sheet that is not found (`error->code` `sheet_not_found`) gives a `Grid`
+  whose `sheet` is `null`. `value` is `null` only when no result was got:
+  `error` is `exit_status` or `invalid_output` (the CLI failed), `invalid_arg`
+  (a path, a sheet name or a range holds a NUL; the CLI is not run), or `io`
+  for a temporary file that cannot be written. A file that cannot be opened
+  is an `io` `error` with a value.
+- The CLI reads a path, so `treeBytes()` and `describeSheetBytes()` write the
+  bytes to a temporary file in a new directory made for the call, which only the user that runs PHP
+  may enter, removed when the call ends, however it ends (as `verifyBytes()`
+  does). A path that is not UTF-8 is passed to the CLI as it is.
+
 ## The engine's version
 
 ```php

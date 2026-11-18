@@ -539,7 +539,8 @@ and absent on every other status of these four functions.
 
 An SDK that runs the engine's CLI (PHP, Go) treats a run the way the others
 treat a call into the C ABI: it returns a result, and *raises* only for a
-setup mistake. Here and in
+setup mistake, or for a sheet request the CLI refuses (`describe-sheet`'s
+exit 2, [Views in an SDK](#views-in-an-sdk)). Here and in
 [Finding the engine library](#finding-the-engine-library), *raises* means the
 language's own way of reporting one: an exception where the language has them
 (Ruby, Python, PHP, …), an `error` returned beside the result where it does
@@ -566,7 +567,7 @@ not (Go). It is never a result.
   | The run | The result |
   | --- | --- |
   | exit 0, stdout a JSON object with what the call reads (`version` a string) | successful, with the value |
-  | exit other than 0, or killed by a signal (but [`sheets`](#listing-sheets-sheets)' exit 1 with its object, [`read`](#reading-rows-read)'s with its end line and [`verify`](#verifying-verify)'s 1 or 2 with its object, and [`tree`](#listing-parts-tree)'s and [`describe-sheet`](#describing-a-sheet-describe-sheet)'s 1 with its object) | failed, diagnostic `exit_status`: the status or the signal, and the start of stderr |
+  | exit other than 0, or killed by a signal (but [`sheets`](#listing-sheets-sheets)' exit 1 with its object, [`read`](#reading-rows-read)'s with its end line and [`verify`](#verifying-verify)'s 1 or 2 with its object, and [`tree`](#listing-parts-tree)'s and [`describe-sheet`](#describing-a-sheet-describe-sheet)'s 1 with its object; `describe-sheet`'s 2 is an argument error, which PHP throws and Go returns) | failed, diagnostic `exit_status`: the status or the signal, and the start of stderr |
   | exit 0, stdout not JSON, not an object, or without what the call reads | failed, diagnostic `invalid_output`: the start of stdout, if any |
 
   A diagnostic's message quotes at most 200 characters of the output, cut
@@ -579,6 +580,10 @@ not (Go). It is never a result.
   | --- | --- |
   | no CLI found, or the one found cannot be started | why, then the three ways of [Finding the engine library](#finding-the-engine-library) |
   | the language cannot start a process at all (PHP: `proc_open` disabled, or no temporary file for stderr) | what is missing, and not the three ways: another CLI would not start either |
+
+  A run that started raises only when `describe-sheet` exits with 2, a sheet
+  request the CLI refuses (the message is the CLI's stderr without its
+  `xlsx-graft: ` prefix), and, in Go, when the caller's `ctx` ends it (below).
 
 - **A signal is not a status.** A CLI killed by one is reported by the
   signal's number, never as if it had exited with it (PHP's `proc_close`
@@ -724,8 +729,8 @@ verifies with it, as an SDK over the C ABI calls `xlsx_graft_verify_path`.
 
 `xlsx-graft tree <path> --format json` prints one JSON object, the parts of
 the workbook's package and the relationships between them; the CLI's
-`tree --help` gives the whole contract, which the C ABI and the MCP server
-return too.
+`tree --help` gives the whole contract, which the C ABI, the SDKs and the MCP
+server return too.
 
 - **The arguments** are the path alone, written after `--`.
 - **The object** is `{"ok", "error", "diagnostics", "complete",
@@ -753,7 +758,7 @@ return too.
 
 `xlsx-graft describe-sheet <path> --format json` prints one JSON object, the
 cells of one sheet within a window; the CLI's `describe-sheet --help` gives
-the whole contract, which the C ABI and the MCP server return too.
+the whole contract, which the C ABI, the SDKs and the MCP server return too.
 
 - **The arguments** are `[--sheet NAME | --sheet-index N] [--range RANGE]
   [--max-rows N] [--max-columns N]`, and the path. Without a sheet, the first
@@ -782,8 +787,10 @@ the whole contract, which the C ABI and the MCP server return too.
   `--range` is not an A1 range or `--max-rows` or `--max-columns` is out of
   its bounds (or the command line is not one clap takes). **The object is on
   stdout with exit 0 and 1 alike** (and stderr is empty). Exit 2 has no object
-  (stdout empty, the reason on stderr): a command line the SDK built wrong,
-  `exit_status`.
+  (stdout empty, the reason on stderr): a value the SDK's caller gave that the
+  CLI refuses, which PHP throws as an `\InvalidArgumentException` and Go
+  returns as an `*InvalidRequestError`, with the reason (see
+  [Views in an SDK](#views-in-an-sdk)), not a result.
 - **What is a result**: exit 0 or 1 with the object, a result (successful
   when `ok`). Exit 0 with no object, or one without `ok`, is
   `invalid_output`.
@@ -939,11 +946,11 @@ and Go SDKs take the same shape in each language's idiom.
 How an SDK offers the `tree` and `describe_sheet` views, whichever way it
 reaches the engine ([the C ABI](#viewing-through-the-c-abi), the addon, or the
 CLI's [`tree`](#listing-parts-tree) and
-[`describe-sheet`](#describing-a-sheet-describe-sheet)). The Ruby, Python,
-.NET, Java and JavaScript SDKs have them so far (PHP and Go do not yet); the
-others take the same shape in their idiom.
+[`describe-sheet`](#describing-a-sheet-describe-sheet)). Every SDK has them,
+in the same shape, in its idiom.
 
-- **A viewer, then calls.** The constructor takes only the engine library;
+- **A viewer, then calls.** The constructor takes only the engine library
+  (in PHP and Go, the CLI, found when the viewer is made, as a verifier's is);
   a view takes no policy (the limits are the CLI's defaults) and gives no text
   form (that is for the CLI and MCP):
 
@@ -954,6 +961,8 @@ others take the same shape in their idiom.
   | .NET | `new Viewer(string? library = null)` | `Tree(path)`, `TreeBytes(data)`, `DescribeSheet(path, sheet, sheetIndex, range, maxRows, maxColumns)`, `DescribeSheetBytes(data, ...)` with the same arguments |
   | Java | `new Viewer()`, `new Viewer(String library)` | `tree(path)`, `treeBytes(data)`, `describeSheet(path, request)`, `describeSheetBytes(data, request)`, where `request` is a `SheetRequest` (`SheetRequest.first().sheet(...).range(...)`; each method returns a new `SheetRequest`); `describeSheet(path)` and `describeSheetBytes(data)` take no request |
   | JavaScript | `new Viewer({ addon })` | `tree(path)`, `treeBytes(data)`, `describeSheet(path, { sheet, range, maxRows, maxColumns })`, `describeSheetBytes(data, { ... })` with the same keys; each key is optional, and so is the object |
+  | PHP | `new Viewer(?string $cli = null)` | `tree($path)`, `treeBytes($data)`, `describeSheet($path, sheet:, range:, maxRows:, maxColumns:)`, `describeSheetBytes($data, ...)` with the same arguments, each optional |
+  | Go | `NewViewer(opts ...Option)` | `Tree(ctx, path)`, `TreeBytes(ctx, data)`, `DescribeSheet(ctx, path, request)`, `DescribeSheetBytes(ctx, data, request)`, where `request` is a `SheetRequest` |
 
 - **The keywords are the options' keys.** In Ruby, `sheet:` is the sheet's
   index when it is an Integer (`sheetIndex`) and its name otherwise (`sheet`; a
@@ -976,7 +985,19 @@ others take the same shape in their idiom.
   `range`, `maxRows` and `maxColumns` are the keys of the same names, and a key
   whose value is `null` or `undefined` is left out. Leaving a keyword out and passing null
   are the same, because the engine takes a key whose value is `null` as
-  `XLSX_GRAFT_ERR_REQUEST_INVALID`. A `tree` takes no options.
+  `XLSX_GRAFT_ERR_REQUEST_INVALID`. PHP and Go pass the options to the CLI as
+  its arguments (`--sheet=NAME`, `--sheet-index=N`, `--range=RANGE`,
+  `--max-rows=N`, `--max-columns=N`). In PHP `sheet` is `--sheet-index` when
+  it is an `int` and `--sheet` when it is a `string`; `range`, `maxRows` and
+  `maxColumns` are `--range`, `--max-rows` and `--max-columns`; a null
+  argument is left out. Go's `SheetRequest` has a field for each: `Sheet`
+  (`--sheet`), `SheetIndex` (an `*int`, `--sheet-index`), `Range`, `MaxRows`
+  and `MaxColumns`; a field of its zero value (`""`, nil, 0) is left out, as in
+  `VerifyRules`, so `MaxRows: 0` is the CLI's default rather than an error. A
+  name and an index given together are refused by the CLI (PHP's one `sheet`
+  argument cannot hold both), and Go returns that as an `*InvalidRequestError`
+  (below). A `tree` takes no
+  options.
 - **The types follow one rule.** Each JSON object is a type and each key is an
   attribute of it, named in the language's style (Ruby and Python, snake_case:
   `relationshipsKnown` is `relationships_known`; .NET, PascalCase:
@@ -1007,14 +1028,30 @@ others take the same shape in their idiom.
   `compressedSize()` are `long`, its lists are unmodifiable `List`s, and its
   types have no `equals`, so compare their items too. Ruby and Python use
   frozen arrays and tuples, which compare by their items; JavaScript's types
-  and arrays are frozen. The names, ids and values are made
+  and arrays are frozen. In PHP the attributes are named as the keys are
+  (`$tree->relationshipsKnown`), a cell's value is a `string`, a `bool`, an
+  `int` for a JSON number written as an integer that fits in an `int` or a
+  `float` for any other number, as `json_decode` reads them, `SheetInfo`'s `kind` and `state` are
+  the enums `SheetKind` and `SheetState` (a string newer than the SDK is
+  `Unknown`), and the lists are `list`s. In Go the fields are PascalCase
+  (`RelationshipsKnown`, and `ID` for a relationship's `id`), a key that may
+  be null is a pointer (`ContentType`, `Referenced`, `Sheet`, `Dimension`,
+  `Used`, `Shown`, and a target's `Part` and `External`), `Size` and
+  `CompressedSize` are `uint64`, a cell's `Value` is an `any` that is a
+  `string`, a `bool`, an `int64` for a JSON number written as an integer that
+  fits in an `int64` or a `float64` for any other number, and a `SheetInfo`'s `Kind` and `State` are
+  `SheetKindUnknown` and `SheetStateUnknown` for a string newer than the
+  SDK. The names, ids and values are made
   for display (control characters removed, a long one cut), so they are not
   exact; to read exact values an SDK reads the rows
   ([Reading rows in an SDK](#reading-rows-in-an-sdk)). A key the SDK does not
   know is ignored. The JSON comes from the engine library the SDK loaded, so
   the SDK reads it by its keys and does not check its shape. JSON that cannot
   be parsed, or that lacks a key the SDK reads, makes a
-  `diagnostics_unreadable` failure with no value.
+  `diagnostics_unreadable` failure with no value. PHP and Go read the CLI's
+  output, each key as the type the contract gives it: output whose keys are
+  missing or of another type is `invalid_output` (exit 0) or `exit_status`
+  (exit 1), with no value, as for verify.
 - **The result is a Result with a value, also when it fails.** It is
   successful when the engine's `ok` is true; its `error` and `diagnostics`
   are the engine's (`origin` aside). Its value is the `Tree` or `Grid` the
@@ -1024,7 +1061,12 @@ others take the same shape in their idiom.
   only when the SDK failed to get one: `panic`, `null_arg`, `unknown_status`
   (from the status), `diagnostics_unreadable` (JSON it cannot read) and the
   `io` of a path that is not UTF-8 (in JavaScript, not well-formed UTF-16)
-  whose file it cannot read.
+  whose file it cannot read. In PHP and Go the value is null (in Go, whose
+  value is a `*Tree` or a `*Grid`, a nil pointer) only when the CLI gave no
+  view (`exit_status`, `invalid_output`), when the path, `sheet` or `range`
+  holds a NUL, which no argument of a process can hold (`invalid_arg`, and the
+  CLI is not run), and when the data of a `Bytes` call cannot be written to a
+  temporary file (`io`).
 - **What raises**, per language:
 
   | SDK | `XLSX_GRAFT_ERR_REQUEST_INVALID` | Before the call: an integer beyond a double's range, a value JSON cannot write, a string that is not Unicode, options of more than 2 MiB | `INVALID_ARG` (a bug of the SDK) |
@@ -1034,6 +1076,18 @@ others take the same shape in their idiom.
   | .NET | `ArgumentException`, with the engine's message as it is | `ArgumentException` (a `sheet` or `range` holding a lone surrogate; 2 MiB; the numeric arguments are `int?`, so none is beyond a double's range) | `XlsxGraftException` |
   | Java | `IllegalArgumentException`, with the engine's message as it is | `IllegalArgumentException` (a `sheet` or `range` holding an unpaired surrogate; 2 MiB; the numeric methods take an `Integer`, so none is beyond a double's range); `NullPointerException` for a null `path`, `data` or `request` | `XlsxGraftException` |
   | JavaScript | `RangeError`, with the engine's message as it is | `RangeError` (a `sheet` or `range` holding a lone surrogate, which would name another sheet or range if it were written as U+FFFD; 2 MiB), `TypeError` (a BigInt, a cycle, a URL that is not a `file:` URL); `Infinity` and `NaN` are written as JSON `null`, which the engine refuses with `REQUEST_INVALID` | `XlsxGraftError` |
+  | PHP | `describe-sheet`'s exit 2: `\InvalidArgumentException`, with the CLI's message | none: the arguments are typed, a NUL is an `invalid_arg` result, and a `sheet` or `range` that is not UTF-8 is refused by the CLI with exit 2 | — (no C ABI) |
+  | Go | `describe-sheet`'s exit 2: the error `*InvalidRequestError`, its `Message` the CLI's | none: as PHP | — (no C ABI) |
+
+  In PHP and Go the message is the CLI's stderr with its `xlsx-graft: `
+  prefix removed (a fixed message of the SDK's when it is empty), so it names
+  the CLI's options (`--range "A0" is not a range of cells …`, `--max-rows 0 is not between 1
+  and 10000`) rather than the SDK's arguments, and it is always that call's.
+  A `tree`'s exit 2 can only be a command line the SDK built wrong, so it is
+  an `exit_status` failure. As for verify, PHP also raises
+  `CliNotFoundException` and Go returns a `*CLINotFoundError` when the CLI
+  cannot be started, and Go returns ctx's error when ctx ended the run; the
+  result is then Go's zero `Result`.
 
   The SDK checks no other type or value of the options: `sheet: 1.5`,
   `range: 3`, `max_rows: 0` and `max_rows: "2"` (in Python `sheet=1.5`,
@@ -1055,14 +1109,20 @@ others take the same shape in their idiom.
   returns the message with the status, so it is always that call's.
 - **A path that is not UTF-8, the input of the `_bytes` calls and threads**
   are as for [verify](#verifying-in-an-sdk): the SDK reads the file and sends
-  its bytes (an unreadable file is an `io` failure with no value), the bytes
+  its bytes (an unreadable file is an `io` failure with no value; in PHP and
+  Go the CLI opens the path, and a file it cannot open is an `io` failure with
+  a `Tree` or `Grid`), the bytes
   are copied for the call (in .NET, the `*Bytes` calls do not copy them: they
   pin the data for the call, as verify does; Java does not copy them either,
   JNA passes the array through JNI, which may copy or pin it, so the array must
   not change until the call returns; JavaScript reads the `Uint8Array` in
   place), and a viewer does not change after it is made, so threads share one
   and call it at once (in Java; a JavaScript worker makes its own viewer, as
-  it does a verifier).
+  it does a verifier). PHP and Go, which run the CLI, pass a path to it as it
+  is (the CLI opens it as the system's path), and write the data of a
+  `Bytes` call to a temporary file only the user can read, removed after the
+  run, as verify does (changing the data once it is written has no effect); a
+  Go viewer may be used by any number of goroutines at once.
 - **How large a result is**: the JSON of a view is some 15 MB at most without
   its diagnostics and some 25 MB with the diagnostics of the default policy,
   and the SDK holds the parsed value too.

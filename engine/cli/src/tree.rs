@@ -1,6 +1,6 @@
 //! `tree`: the parts of a workbook and the relationships between them,
-//! through `xlsx_graft_host`, the same view the C ABI and the MCP server
-//! give. The long help in `help.rs` says what each format prints.
+//! through `xlsx_graft_host`, the same view the C ABI, the SDKs and the MCP
+//! server give. The long help in `help.rs` says what each format prints.
 //!
 //! Like `verify`, `tree` prints its view whatever happened: a file that
 //! cannot be read is the view's `error`. Only a command line clap refuses,
