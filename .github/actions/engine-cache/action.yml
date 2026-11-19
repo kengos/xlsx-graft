@@ -25,8 +25,9 @@ runs:
     # Makefile, the file the gates read it from. Each target builds a part of
     # its own (engine:verify the debug and coverage builds, an SDK the release
     # library, for JS the release Node.js addon, or for PHP and Go the release
-    # CLI), so each keeps entries of its own; the lines of one SDK share
-    # theirs, as `args` is not in the key.
+    # CLI, bench:memory the release CLI and fixtures-gen), so each keeps
+    # entries of its own; the lines of one SDK share theirs, as `args` is not
+    # in the key.
     - name: Compute the cache key
       id: key
       shell: bash

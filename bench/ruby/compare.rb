@@ -17,7 +17,7 @@
 # library too, so a reading's memory can be shown net of it. One line per run
 # goes to stderr as it finishes, so that a run of many minutes prints progress.
 #
-# Options for a quick try, which `make` does not pass: `--books a,b` and
+# Options that narrow or move a run: `--books a,b` (bench:memory passes it) and
 # `--readers x,y` narrow what runs (the loading-alone runs follow the readers),
 # `--book-dir DIR` reads the books from DIR, `--runs N` and `--timeout SECONDS`
 # replace the constants below.

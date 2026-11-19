@@ -1,5 +1,15 @@
 # xlsx-graft
 
+## Memory
+
+Reading a sheet or verifying a workbook holds one row at a time. The
+shared strings table moves to a temporary file once it passes 32 MiB, so
+peak memory does not grow with the row count: the CLI reads 1,000,000
+rows of strings all different in about 35 MiB, and `make bench:memory`, a member of `make verify`,
+fails a change that passes 64 MiB or grows more than 32 MiB from 100,000
+to 1,000,000 rows. The figures, the Ruby gems they are compared with and
+how to reproduce them: [docs/benchmarks.md](docs/benchmarks.md).
+
 ## Specifications
 
 The engine is built against the editions below, and the code and the

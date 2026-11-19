@@ -29,7 +29,7 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   missing, add a target rather than typing a one-off.
 - Each gate target (`verify`, `engine:verify` / `lint` / `budget` /
   `fmt` / `clippy` / `test` / `coverage` / `capi-abi` / `capi-lib` / `napi` /
-  `cli-bin` / `deny` / `licenses` / `advisories` / `mutants`, `release:dry-run` / `release:dry-run:<registry>` and `version:check`, and `sdk:verify` / `test` /
+  `cli-bin` / `deny` / `licenses` / `advisories` / `mutants`, `release:dry-run` / `release:dry-run:<registry>` and `version:check`, `bench:memory`, and `sdk:verify` / `test` /
   `lint`, each also `:ruby`, `:python`, `:dotnet`, `:jvm`, `:js`, `:php` and `:go`) prints ONE PASS/FAIL line, exits
   0 on PASS and non-zero on FAIL (the gate's own code is in the FAIL line and
   the `# exit` header of `last-error.log`), and keeps the full log in
@@ -45,6 +45,14 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   the four workbooks `make fixtures:generate` writes with the Ruby xlsx gems and the CLI
   (bench/ruby, in Docker, 8 GiB) and write the peak memory and time to
   `dist/bench/compare.{json,md}` / `dist/bench/cli.{json,md}`.
+- `make bench:memory` is the one bench target that is a gate and a member of
+  `make verify`: it runs the CLI's `read` and `verify` on
+  `shared-100000.xlsx` and `shared-1000000.xlsx` (bench/ruby/compare.rb,
+  then bench/ruby/memory.rb) and fails when the peak RSS on 1,000,000 rows
+  passes `BENCH_MEMORY_PEAK_MIB` (64) or the one on 100,000 rows plus
+  `BENCH_MEMORY_GROWTH_MIB` (32). It checks no time. The limits and how they
+  were chosen are in [docs/benchmarks.md](docs/benchmarks.md); change them
+  only with that page's table measured again.
 - **Never wrap a gate** in a pipe (`| tail`), in `; echo $?`, or in `make -n`.
   The first two report the wrong exit code; the Makefile refuses the third.
 - GNU Make 4 or newer. The Makefile refuses 3.81 (macOS's) and names the fix.
@@ -53,12 +61,12 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   commit `THIRD-PARTY-LICENSES` (`engine:licenses` is a member of
   `engine:verify`).
 - `make verify` is the whole bar: every scope's `<scope>:verify` (today
-  `engine:verify` and `sdk:verify`), `release:dry-run`, **every SDK on every
+  `engine:verify` and `sdk:verify`), `release:dry-run`, `bench:memory`, **every SDK on every
   supported line**,
   the floor included. `LATEST=1` narrows each SDK to its latest stable line
   for a faster local run; it is not the bar. CI runs the same members as
   parallel jobs with `V=1`, listed by `make ci:matrix` (one for the engine,
-  one for `release:dry-run`, one per SDK line), and its required `make verify` job passes only when all
+  one for `release:dry-run`, one for `bench:memory`, one per SDK line), and its required `make verify` job passes only when all
   of them do (`.github/workflows/ci.yml`); a check CI needs is a make target,
   never a workflow step. `engine:advisories` and `engine:mutants` are gates
   but not members of `verify`: what they check is not fixed by the commit
