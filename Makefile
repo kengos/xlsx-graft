@@ -84,11 +84,22 @@
 #     make <any>:<job> V=1      the same run, verbose, for debugging a failure
 #     make quiet T=<target>     the PASS/FAIL treatment for anything else
 #
-#   Not in verify: the result changes with the day, not with the commit
+#   Not in verify: what they check is not fixed by the commit alone
+#   (advisories changes with the day, mutants with BASE and the working tree)
 #     make engine:advisories    the RustSec security advisories against
 #                               engine/Cargo.lock; downloads the database.
 #                               .github/workflows/advisories.yml runs it on a
 #                               change of the lockfile and weekly (not required)
+#     make engine:mutants [BASE=<rev>]
+#                               cargo-mutants over the engine/ .rs change since
+#                               BASE (default origin/main; git fetch it first),
+#                               the working tree included (git add -N a new
+#                               file); run it by hand before a commit. The
+#                               `Error N` in the log says why it failed (1: a
+#                               check of the recipe; 2, 3, 4: cargo-mutants'
+#                               missed, timeout, baseline; see
+#                               mk/engine/mutants.mk). Surviving mutants:
+#                               engine/target/mutants/mutants.out/missed.txt
 #
 #   Build for the SDKs (capi-lib proves only what its symbol check says,
 #   napi only that the addon builds, cli-bin only that the CLI prints the
@@ -277,8 +288,8 @@ CARGO_DENY_SHA256_aarch64 := 995c82be0defc7a025cae49a2aa2644ce8245c9a3318fc41039
 # cargo-mutants runs mutation tests. Its releases have no linux aarch64
 # binary, so the image builds it with `cargo install --locked`.
 CARGO_MUTANTS_VERSION := 27.1.0
-TOOLCHAIN_HOLDS  := rust 1.99.0, cargo-llvm-cov 0.9.1, cargo-about 0.9.3, cargo-deny 0.20.2
-TOOLCHAIN_DIGEST := sha256:0d4bfdc9bff8989fb414d1532c35fcfc650c610e8270dc9004e06c622358495b
+TOOLCHAIN_HOLDS  := rust 1.99.0, cargo-llvm-cov 0.9.1, cargo-about 0.9.3, cargo-deny 0.20.2, cargo-mutants 27.1.0
+TOOLCHAIN_DIGEST := sha256:fd52521f082ccae58c1d502ef0b2b602bb03a31cb3ad483ec721a4d03b4fd2df
 RUST_IMAGE       := ghcr.io/kengos/xlsx-graft-toolchain@$(TOOLCHAIN_DIGEST)
 
 # One gate at a time per working tree (scripts/gate-lock.sh explains why).
@@ -375,6 +386,7 @@ CARGO_IN_DOCKER = $(GATE_LOCK) docker run --rm --init \
 # `help`/`quiet`/`clean`.
 include mk/engine.mk
 include mk/engine/licenses.mk
+include mk/engine/mutants.mk
 include mk/sdk.mk
 include mk/sdk/ruby.mk
 include mk/sdk/python.mk
