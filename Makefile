@@ -9,13 +9,18 @@
 #
 #   Is it correct?            one PASS/FAIL line, non-zero exit on FAIL, log kept
 #     make verify               the whole bar: every scope's verify (today
-#                               engine:verify and sdk:verify) and
-#                               release:dry-run, every SDK on every line it
-#                               supports
+#                               engine:verify and sdk:verify),
+#                               release:dry-run and bench:memory, every SDK on
+#                               every line it supports
 #     make verify LATEST=1      the same, each SDK on its latest line only
 #     make version:check        the crates' path dependencies and the SDK
 #                               manifests carry the workspace's version (no
 #                               Docker)
+#     make bench:memory         the CLI's read and verify on the generated
+#                               shared-100000.xlsx and shared-1000000.xlsx, in
+#                               Docker: the peak memory on 1,000,000 rows is at
+#                               most 64 MiB and at most the peak on 100,000
+#                               rows plus 32 MiB (docs/benchmarks.md)
 #     make release:dry-run      version:check and each registry's dry run (the
 #                               registry's own package checks and the license
 #                               files in each package); nothing is published;
@@ -179,7 +184,8 @@
 #                               rust_xlsxwriter (engine/fixtures-gen)
 #
 #   Benchmarks (in Docker; not a gate, not in verify: the result changes with
-#   the machine and the day)
+#   the machine and the day; the one exception is bench:memory, a gate in
+#   verify, under "Is it correct?" and in mk/bench/memory.mk)
 #     make bench:compare        the four workbooks fixtures:generate writes,
 #                               read by rubyXL, Roo, Creek, Xsv, simple_xlsx_reader,
 #                               the Ruby SDK and the CLI (and verified by the
@@ -414,6 +420,7 @@ include mk/sdk/go.mk
 include mk/docker.mk
 include mk/excel.mk
 include mk/bench.mk
+include mk/bench/memory.mk
 include mk/release.mk
 include mk/release/dry-run.mk
 
@@ -472,23 +479,25 @@ quiet: ## Run ANY target this way: make quiet T=engine:test (same PASS/FAIL line
 #
 # One target over every scope, so CI and a contributor run the same thing.
 # Each scope's `<scope>:verify` joins it as a member of `_verify`, every SDK on
-# every line it supports. LATEST=1 narrows each SDK to its latest line, for a
+# every line it supports; so do the members that are not a scope's verify:
+# release:dry-run and bench:memory. LATEST=1 narrows each SDK to its latest line, for a
 # faster run while iterating; CI never sets it.
 #
 # CI runs the same members as parallel jobs rather than one `make verify`:
-# `ci:matrix` prints them, one for the engine and one per SDK line, and
+# `ci:matrix` prints them, one for the engine, one for release:dry-run, one for
+# bench:memory and one per SDK line, and
 # .github/workflows/ci.yml's required `make verify` job passes only when all of
 # them do. A scope that joins `_verify` joins CI_MATRIX too.
 
-verify: ## The whole bar: every scope's verify, release:dry-run, every SDK on every supported line (LATEST=1: the latest line only)
+verify: ## The whole bar: every scope's verify, release:dry-run, bench:memory, every SDK on every supported line (LATEST=1: the latest line only)
 	@$(call gate,_verify,verify)
 
-_verify: _engine-verify _sdk-verify _release-dry-run
+_verify: _engine-verify _sdk-verify _release-dry-run _bench-memory
 
-CI_MATRIX = {"include":[{"target":"engine:verify","args":""},{"target":"release:dry-run","args":""}$(SDK_CI_JOBS)]}
+CI_MATRIX = {"include":[{"target":"engine:verify","args":""},{"target":"release:dry-run","args":""},{"target":"bench:memory","args":""}$(SDK_CI_JOBS)]}
 
 # Not a gate: it checks nothing and prints one line of JSON, which CI reads.
-ci\:matrix: ## Print verify's members as CI's job matrix (JSON, one job for the engine, one for release:dry-run and one per SDK line)
+ci\:matrix: ## Print verify's members as CI's job matrix (JSON, one job for the engine, one for release:dry-run, one for bench:memory and one per SDK line)
 	@echo '$(CI_MATRIX)'
 
 ## ---- housekeeping ------------------------------------------------------

@@ -2,7 +2,9 @@
 #
 # Not a gate: the result changes with the machine and the day, not with the
 # commit. None of these targets prints PASS/FAIL, none is a member of `verify`
-# or of `ci:matrix`, and each prints the raw output of what it ran.
+# or of `ci:matrix`, and each prints the raw output of what it ran. The one gate
+# that uses this image and compare.rb is bench:memory (mk/bench/memory.mk),
+# which checks peak memory (never time) and is a member of `verify`.
 #
 # The scripts run in an image built from bench/ruby/Dockerfile, never
 # published, on the latest Ruby line the SDK gates (RUBY_LINES). The container

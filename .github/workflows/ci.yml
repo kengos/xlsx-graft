@@ -1,7 +1,8 @@
 name: CI
 
 # CI runs what `make verify` runs locally, in the same pinned toolchain image:
-# the engine and every SDK on every line it supports. It runs `make verify`'s
+# the engine, release:dry-run, bench:memory and every SDK on every line it
+# supports. It runs `make verify`'s
 # members as parallel jobs, which `make ci:matrix` lists, so a new SDK line
 # needs no edit here. CI keeps no copy of the cargo flags, the coverage
 # threshold, the image pin or the supported lines: a gate changes in the
