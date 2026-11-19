@@ -12,12 +12,13 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum FixturesGenError {
     /// The command line gives no directory.
-    #[error("usage: xlsx-graft-fixtures-gen <dir> [<rows>...]")]
+    #[error("usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...]")]
     Usage,
-    /// A row count on the command line is not a decimal number from 1 to
-    /// [`MAX_ROWS`]; the field is the argument as given.
-    #[error("{0:?} is not a row count from 1 to {MAX_ROWS}")]
-    RowCount(String),
+    /// A book on the command line is not `rows-<n>` or `shared-<n>` with
+    /// `<n>` a decimal number from 1 to [`MAX_ROWS`]; the field is the
+    /// argument as given.
+    #[error("{0:?} is not rows-<n> or shared-<n> with <n> from 1 to {MAX_ROWS}")]
+    Book(String),
     /// The directory could not be created, or a workbook written could not
     /// be renamed to its file name; `path` is the directory or the
     /// workbook's path.
@@ -44,12 +45,12 @@ pub enum FixturesGenError {
 
 impl FixturesGenError {
     /// The binary's exit status for this error: 2 for a command line it
-    /// cannot read ([`Usage`](Self::Usage), [`RowCount`](Self::RowCount)),
+    /// cannot read ([`Usage`](Self::Usage), [`Book`](Self::Book)),
     /// 1 for a workbook it could not write or report.
     #[must_use]
     pub fn exit_status(&self) -> u8 {
         match self {
-            Self::Usage | Self::RowCount(_) => 2,
+            Self::Usage | Self::Book(_) => 2,
             Self::Io { .. } | Self::Xlsx { .. } | Self::Output(_) => 1,
         }
     }

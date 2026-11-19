@@ -28,7 +28,7 @@ fn text(bytes: &[u8]) -> &str {
 fn the_binary_prints_the_path_of_each_workbook_written_and_exits_0() {
     let dir = tempfile::tempdir().unwrap();
     let out_dir = dir.path().join("generated");
-    let output = fixtures_gen(&[out_dir.to_str().unwrap(), "3"]);
+    let output = fixtures_gen(&[out_dir.to_str().unwrap(), "rows-3"]);
     let path = out_dir.join("rows-3.xlsx");
     assert_eq!(output.status.code(), Some(0));
     assert_eq!(text(&output.stdout), format!("{}\n", path.display()));
@@ -43,7 +43,7 @@ fn the_binary_exits_2_with_the_usage_for_a_command_line_without_a_directory() {
     assert_eq!(text(&output.stdout), "");
     assert_eq!(
         text(&output.stderr),
-        "xlsx-graft-fixtures-gen: usage: xlsx-graft-fixtures-gen <dir> [<rows>...]\n"
+        "xlsx-graft-fixtures-gen: usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...]\n"
     );
 }
 
@@ -52,7 +52,7 @@ fn the_binary_exits_1_when_the_directory_is_a_file() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("file");
     std::fs::write(&file, b"").unwrap();
-    let output = fixtures_gen(&[file.to_str().unwrap(), "1"]);
+    let output = fixtures_gen(&[file.to_str().unwrap(), "rows-1"]);
     assert_eq!(output.status.code(), Some(1));
     assert_eq!(text(&output.stdout), "");
     assert!(
