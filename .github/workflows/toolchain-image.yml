@@ -59,10 +59,10 @@ jobs:
         run: scripts/check-toolchain-pins.sh --github
 
       # Both architectures from this one amd64 runner, arm64 under QEMU. The
-      # image only installs the toolchain, so emulation costs one
-      # `cargo install` of cargo-llvm-cov (cargo-about and cargo-deny are
-      # release binaries), and a single build pushes a single multi-arch
-      # manifest with no per-architecture digests to stitch.
+      # image only installs the toolchain, so emulation costs two
+      # `cargo install` builds, of cargo-llvm-cov and cargo-mutants (cargo-about
+      # and cargo-deny are release binaries), and a single build pushes a
+      # single multi-arch manifest with no per-architecture digests to stitch.
       - uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
@@ -77,7 +77,8 @@ jobs:
 
       # The pins tag names the rust and cargo-llvm-cov the image holds; the
       # sha tag says which commit built it, since a rebuild under the same
-      # pins, or a bump of cargo-about or cargo-deny alone, moves the pins tag.
+      # pins, or a bump of cargo-about, cargo-deny or cargo-mutants alone,
+      # moves the pins tag.
       - uses: docker/metadata-action@v6
         id: meta
         with:

@@ -1,8 +1,8 @@
 # The toolchain image the gates run in: rust with the components and the cargo
-# subcommands the gates need, the license tools (cargo-about, cargo-deny) and
-# git, installed once here instead of into a cache volume on each machine.
-# .github/workflows/toolchain-image.yml publishes it as
-# ghcr.io/<owner>/xlsx-graft-toolchain.
+# subcommands the gates need, the license tools (cargo-about, cargo-deny), the
+# mutation testing tool (cargo-mutants) and git, installed once here instead of
+# into a cache volume on each machine. .github/workflows/toolchain-image.yml
+# publishes it as ghcr.io/<owner>/xlsx-graft-toolchain.
 #
 # Every ARG default below MUST equal the Makefile variable of the same name,
 # which is what the workflow builds with (the gates run the digest the
@@ -79,8 +79,27 @@ RUN set -eu; \
 # would need a bump for every Debian security update. ca-certificates is
 # installed by name because `--no-install-recommends` leaves out what git only
 # recommends, and so that this layer does not depend on the layer above (which
-# installs and removes curl). This is the last layer, so a change here keeps
-# the layers above in the build cache.
+# installs and removes curl). A change here keeps the layers above in the build
+# cache, but rebuilds the cargo-mutants layer below it.
 RUN apt-get update -qq \
     && apt-get install -y -qq --no-install-recommends git ca-certificates >/dev/null \
     && rm -rf /var/lib/apt/lists/*
+
+ARG CARGO_MUTANTS_VERSION=27.1.0
+
+# cargo-mutants (mutation testing) by `cargo install`, not as a release
+# tarball like cargo-about and cargo-deny: its releases carry no linux aarch64
+# binary (as of 27.1.0 the assets are x86_64 darwin, windows and linux-gnu
+# only), and using a release binary on one architecture and a build on the
+# other would mean the image installs it two different ways, and each way would
+# need its own check.
+# Integrity: cargo checks the cargo-mutants crate itself against the checksum
+# in the crates.io index, and its dependencies against the checksums in the
+# crate's Cargo.lock (`--locked`). Unlike cargo-about and cargo-deny, no
+# checksum is pinned in this repository, so the crates.io index is trusted for
+# the crate itself. This layer comes last, so bumping CARGO_MUTANTS_VERSION
+# rebuilds only this layer; bumping any pin above also rebuilds this layer and
+# compiles cargo-mutants again. The registry and git checkouts are deleted in
+# this same RUN, so they never reach the image.
+RUN cargo install cargo-mutants --locked --version "${CARGO_MUTANTS_VERSION}" \
+    && rm -rf "${CARGO_HOME}/registry" "${CARGO_HOME}/git"
