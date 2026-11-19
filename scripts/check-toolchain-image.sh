@@ -6,9 +6,19 @@
 #
 # Runs the image once and compares what each tool reports. Without --holds the
 # versions are compared with RUST_VERSION, LLVM_COV_VERSION,
-# CARGO_ABOUT_VERSION and CARGO_DENY_VERSION in the Makefile. With --holds they
-# are compared with the given text, in the form this script prints after
-# `holds:` (rust X, cargo-llvm-cov X, cargo-about X, cargo-deny X).
+# CARGO_ABOUT_VERSION, CARGO_DENY_VERSION and CARGO_MUTANTS_VERSION in the
+# Makefile. With --holds they are compared with the given text, in the form
+# this script prints after `holds:` (rust X, cargo-llvm-cov X, cargo-about X,
+# cargo-deny X, cargo-mutants X).
+# The `holds:` text lists only the tools that reported a version, in the order
+# of the list above (rust, cargo-llvm-cov, cargo-about, cargo-deny,
+# cargo-mutants), so an image built before a tool was added prints the shorter
+# text it always printed and still matches a TOOLCHAIN_HOLDS written for it.
+# With --holds, a tool the image lacks fails only when TOOLCHAIN_HOLDS names
+# that tool, so an image built before cargo-mutants was added matches a
+# TOOLCHAIN_HOLDS without cargo-mutants. When the text does not match, one more
+# line per tool that reported no version names it. Without --holds, a missing
+# tool fails by name.
 # engine:verify passes TOOLCHAIN_HOLDS as this text when it checks the image
 # at TOOLCHAIN_DIGEST.
 # engine:verify does not compare with the pins, because a bump changes the
@@ -17,8 +27,8 @@
 # <platform> (linux/amd64, linux/arm64) picks one architecture of a multi-arch
 # image; without it docker runs the host's architecture.
 #
-# With or without --holds, the image must also have the git command (cargo-deny runs it to
-# fetch the advisory database); its version is not compared.
+# With or without --holds, the image must also have the git command (cargo-deny
+# runs it to fetch the advisory database); its version is not compared.
 #
 # .github/workflows/toolchain-image.yml runs it over each architecture of
 # the image it has just pushed, so an image missing a tool fails that run before
@@ -55,21 +65,34 @@ platform=${2:-}
 makefile=$(dirname "$0")/../Makefile
 make_pin() { sed -n "s/^$1[[:blank:]]*:=[[:blank:]]*\([^[:blank:]#]*\).*/\1/p" "$makefile" | head -1; }
 
-# A tool that is missing or fails prints an empty version, which then fails
-# the comparison below by name rather than aborting with no word of which.
+# A tool that is missing or fails prints an empty version. Without --holds that
+# fails the comparison below by name rather than aborting with no word of
+# which. With --holds the tool is left out of the `holds:` text, which then
+# differs from TOOLCHAIN_HOLDS if that names the tool.
 have=$(docker run --rm ${platform:+--platform "$platform"} "$image" sh -c '
     v() { "$@" 2>/dev/null | head -1; }
     echo "RUST_VERSION=$(v rustc --version | cut -d" " -f2)"
     echo "LLVM_COV_VERSION=$(v cargo llvm-cov --version | cut -d" " -f2)"
     echo "CARGO_ABOUT_VERSION=$(v cargo about --version | cut -d" " -f2)"
     echo "CARGO_DENY_VERSION=$(v cargo deny --version | cut -d" " -f2)"
+    echo "CARGO_MUTANTS_VERSION=$(v cargo mutants --version | cut -d" " -f2)"
     echo "GIT_VERSION=$(v git --version | cut -d" " -f3)"')
 
 field() { printf '%s\n' "$have" | sed -n "s/^$1=//p"; }
 
 where="$image${platform:+ ($platform)}"
 status=0
-text="rust $(field RUST_VERSION), cargo-llvm-cov $(field LLVM_COV_VERSION), cargo-about $(field CARGO_ABOUT_VERSION), cargo-deny $(field CARGO_DENY_VERSION)"
+text=
+missing=
+for pair in rust:RUST_VERSION cargo-llvm-cov:LLVM_COV_VERSION cargo-about:CARGO_ABOUT_VERSION \
+    cargo-deny:CARGO_DENY_VERSION cargo-mutants:CARGO_MUTANTS_VERSION; do
+    got=$(field "${pair#*:}")
+    if [ -z "$got" ]; then
+        missing="$missing ${pair%%:*}"
+    else
+        text="${text:+$text, }${pair%%:*} $got"
+    fi
+done
 if [ -z "$(field GIT_VERSION)" ]; then
     echo "toolchain-image: git is missing from $where" >&2
     status=1
@@ -77,10 +100,13 @@ fi
 if [ "$mode" = holds ]; then
     if [ "$text" != "$holds" ]; then
         echo "toolchain-image: $where holds '$text', but TOOLCHAIN_HOLDS says '$holds'" >&2
+        for tool in $missing; do
+            echo "toolchain-image: no version from $tool in $where" >&2
+        done
         status=1
     fi
 else
-    for name in RUST_VERSION LLVM_COV_VERSION CARGO_ABOUT_VERSION CARGO_DENY_VERSION; do
+    for name in RUST_VERSION LLVM_COV_VERSION CARGO_ABOUT_VERSION CARGO_DENY_VERSION CARGO_MUTANTS_VERSION; do
         want=$(make_pin "$name")
         got=$(field "$name")
         if [ -z "$want" ]; then

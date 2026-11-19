@@ -42,7 +42,8 @@ docker_pin() { sed -n "s/^ARG[[:blank:]][[:blank:]]*$1=\([^[:blank:]#]*\).*/\1/p
 
 PINS="RUST_VERSION LLVM_COV_VERSION
 CARGO_ABOUT_VERSION CARGO_ABOUT_SHA256_x86_64 CARGO_ABOUT_SHA256_aarch64
-CARGO_DENY_VERSION CARGO_DENY_SHA256_x86_64 CARGO_DENY_SHA256_aarch64"
+CARGO_DENY_VERSION CARGO_DENY_SHA256_x86_64 CARGO_DENY_SHA256_aarch64
+CARGO_MUTANTS_VERSION"
 
 status=0
 for name in $PINS; do
@@ -68,4 +69,4 @@ if [ "${1:-}" = --github ]; then
         echo 'EOF'
     } >>"$GITHUB_OUTPUT"
 fi
-echo "toolchain-pins: OK (rust $rust, cargo-llvm-cov $llvm_cov, cargo-about $(make_pin CARGO_ABOUT_VERSION), cargo-deny $(make_pin CARGO_DENY_VERSION))"
+echo "toolchain-pins: OK (rust $rust, cargo-llvm-cov $llvm_cov, cargo-about $(make_pin CARGO_ABOUT_VERSION), cargo-deny $(make_pin CARGO_DENY_VERSION), cargo-mutants $(make_pin CARGO_MUTANTS_VERSION))"
