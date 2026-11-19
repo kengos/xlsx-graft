@@ -57,6 +57,22 @@ is not a reason to hold back an unrelated change. GitHub sends the failure of a
 scheduled run to the person who last edited the schedule, and stops scheduled
 runs of a repository with no activity for 60 days.
 
+`make engine:mutants` runs cargo-mutants over the lines of the `.rs` files under
+`engine/` that changed between the merge base of `BASE` and `HEAD` and the
+working tree (`BASE` defaults to `origin/main`, so `git fetch` first; set
+another with `make engine:mutants BASE=<rev>`). Run it by
+hand before a commit: what it checks changes with `BASE` and the working tree,
+and its time with the size of the change, so it is in neither `make verify` nor
+CI. A new `.rs` file fails it until `git add -N <file>`, so that the diff
+includes it. Surviving mutants are in
+`engine/target/mutants/mutants.out/missed.txt`; add a test that fails on each
+one, or explain in the pull request why it cannot (an equivalent mutant, dead
+code). The `Error N` in `.make-logs/last-error.log`, not the FAIL line,
+says why it failed: 2 a mutant was missed, 3 a mutant timed out, 4 the
+baseline of the crates cargo-mutants mutates failed, 1 one of the recipe's own
+checks failed (`BASE` is not a commit, an untracked `.rs` file, or the tests of
+the whole workspace on an unmutated copy). See `mk/engine/mutants.mk`.
+
 `make sdk:verify:ruby` is the Ruby SDK's, on every supported Ruby (`RUBY_LINES`
 in `mk/sdk/ruby.mk`): rubocop, the specs at 100% line coverage, and the gem built,
 installed and loaded against the engine library. `LATEST=1` runs it on the
@@ -119,9 +135,9 @@ it only adds `V=1` for the raw output.
 `sdk:lock:php`, `sdk:lock:go`).
 
 The first run pulls the toolchain image (about 1 GB), which already holds
-Rust, rustfmt, clippy, `cargo-llvm-cov`, `cargo-about` and `cargo-deny`, and
-downloads the crates into the Docker volume `xlsx-graft-cargo-cache`; later
-runs reuse both. The SDK gates also pull their language's base image (`ruby:<version>-slim-bookworm`,
+Rust, rustfmt, clippy, `cargo-llvm-cov`, `cargo-about`, `cargo-deny` and
+`cargo-mutants`, and downloads the crates into the Docker volume
+`xlsx-graft-cargo-cache`; later runs reuse both. The SDK gates also pull their language's base image (`ruby:<version>-slim-bookworm`,
 `python:<version>-slim-bookworm`,
 `mcr.microsoft.com/dotnet/sdk:<version>-noble`,
 `node:<version>-bookworm-slim`, `php:<version>-cli-bookworm`,

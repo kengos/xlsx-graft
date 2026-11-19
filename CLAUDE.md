@@ -29,7 +29,7 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   missing, add a target rather than typing a one-off.
 - Each gate target (`verify`, `engine:verify` / `lint` / `budget` /
   `fmt` / `clippy` / `test` / `coverage` / `capi-abi` / `capi-lib` / `napi` /
-  `cli-bin` / `deny` / `licenses` / `advisories`, `release:dry-run` / `release:dry-run:<registry>` and `version:check`, and `sdk:verify` / `test` /
+  `cli-bin` / `deny` / `licenses` / `advisories` / `mutants`, `release:dry-run` / `release:dry-run:<registry>` and `version:check`, and `sdk:verify` / `test` /
   `lint`, each also `:ruby`, `:python`, `:dotnet`, `:jvm`, `:js`, `:php` and `:go`) prints ONE PASS/FAIL line, exits
   0 on PASS and non-zero on FAIL (the gate's own code is in the FAIL line and
   the `# exit` header of `last-error.log`), and keeps the full log in
@@ -55,7 +55,10 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   parallel jobs with `V=1`, listed by `make ci:matrix` (one for the engine,
   one for `release:dry-run`, one per SDK line), and its required `make verify` job passes only when all
   of them do (`.github/workflows/ci.yml`); a check CI needs is a make target,
-  never a workflow step.
+  never a workflow step. `engine:advisories` and `engine:mutants` are gates
+  but not members of `verify`: what they check is not fixed by the commit
+  alone (advisories changes with the day, mutants with `BASE` and the working
+  tree).
 - `make engine:verify` is the engine's bar: line budget + `//!` headers + every
   crate's `[lints] workspace = true` + the toolchain pins (the Makefile's
   versions equal `docker/toolchain.Dockerfile`'s, and the pinned image holds
