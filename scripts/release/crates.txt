@@ -10,6 +10,7 @@ xlsx-graft-xml
 xlsx-graft-formula
 xlsx-graft-package
 xlsx-graft-spool
+xlsx-graft-write
 xlsx-graft-read
 xlsx-graft-reference
 xlsx-graft-compat

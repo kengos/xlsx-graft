@@ -6,7 +6,7 @@ use super::EntryStream;
 use crate::zip::Entry;
 use miniz_oxide::inflate::stream::{InflateState, inflate};
 use miniz_oxide::{MZError, MZFlush, MZStatus};
-use std::io::{self, Read, Seek, SeekFrom};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use xlsx_graft_diagnostics::InflateReason;
 
 /// How many stored bytes a deflated entry reads from the file at a time.
@@ -15,12 +15,14 @@ pub(super) const INPUT_BUFFER: usize = 32 * 1024;
 impl EntryStream {
     /// Fills `buf` with the stored bytes of `entry` from where the stream
     /// is in them, seeking `reader` there first unless it is there already:
-    /// a seek may drop what a buffered reader holds.
+    /// a seek may drop what a buffered reader holds. The bytes are written
+    /// to `tap` as they are read, when there is one.
     fn fill<R: Read + Seek>(
         &mut self,
         reader: &mut R,
         entry: &Entry,
         buf: &mut [u8],
+        tap: Option<&mut (dyn Write + '_)>,
     ) -> io::Result<()> {
         let read = entry.compressed_size.saturating_sub(self.remaining);
         let at = entry.data_offset.saturating_add(read);
@@ -29,6 +31,29 @@ impl EntryStream {
         }
         reader.read_exact(buf)?;
         self.remaining -= buf.len() as u64;
+        if let Some(tap) = tap {
+            tap.write_all(buf)?;
+        }
+        Ok(())
+    }
+
+    /// Writes to `out` the stored bytes of `entry` that no read has taken
+    /// from the file yet: the bytes within the entry's compressed size that
+    /// follow the end of the deflate stream.
+    pub(in crate::zip) fn copy_rest<R: Read + Seek>(
+        &mut self,
+        reader: &mut R,
+        entry: &Entry,
+        out: &mut dyn Write,
+    ) -> io::Result<()> {
+        let len = usize::try_from(self.remaining).map_or(INPUT_BUFFER, |n| n.min(INPUT_BUFFER));
+        let mut buf = vec![0; len];
+        while self.remaining > 0 {
+            let len = usize::try_from(self.remaining).map_or(buf.len(), |n| n.min(buf.len()));
+            let (chunk, _) = buf.split_at_mut(len);
+            self.fill(reader, entry, chunk, None)?;
+            out.write_all(chunk)?;
+        }
         Ok(())
     }
 
@@ -38,13 +63,14 @@ impl EntryStream {
         reader: &mut R,
         entry: &Entry,
         out: &mut [u8],
+        tap: Option<&mut (dyn Write + '_)>,
     ) -> io::Result<Result<usize, InflateReason>> {
         let len = out
             .len()
             .min(usize::try_from(self.remaining).unwrap_or(usize::MAX));
         let (out, _) = out.split_at_mut(len);
         if len > 0 {
-            self.fill(reader, entry, out)?;
+            self.fill(reader, entry, out, tap)?;
         }
         Ok(Ok(len))
     }
@@ -57,6 +83,7 @@ impl EntryStream {
         reader: &mut R,
         entry: &Entry,
         out: &mut [u8],
+        mut tap: Option<&mut (dyn Write + '_)>,
     ) -> io::Result<Result<usize, InflateReason>> {
         loop {
             if self.stream_ended {
@@ -69,7 +96,7 @@ impl EntryStream {
                     .min(usize::try_from(self.remaining).unwrap_or(usize::MAX));
                 let mut input = std::mem::take(&mut self.input);
                 let (buf, _) = input.split_at_mut(len);
-                let filled = self.fill(reader, entry, buf);
+                let filled = self.fill(reader, entry, buf, tap.as_deref_mut());
                 self.input = input;
                 filled?;
                 (self.start, self.end) = (0, len);

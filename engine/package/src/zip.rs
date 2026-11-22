@@ -13,6 +13,7 @@ mod directory;
 mod end;
 mod layout;
 mod local;
+mod raw;
 mod reader;
 mod source;
 mod stream;

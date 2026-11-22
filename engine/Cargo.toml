@@ -16,6 +16,7 @@ members = [
     "reference",
     "spool",
     "verify",
+    "write",
     "xml",
 ]
 
@@ -45,6 +46,8 @@ xlsx-graft-formula = { path = "formula", version = "0.0.0" }
 xlsx-graft-package = { path = "package", version = "0.0.0" }
 # Scratch storage that spills to a temporary file (engine/spool).
 xlsx-graft-spool = { path = "spool", version = "0.0.0" }
+# A zip written deterministically, copying entries as they are (engine/write).
+xlsx-graft-write = { path = "write", version = "0.0.0" }
 # A workbook's shared strings, read on the package (engine/read).
 xlsx-graft-read = { path = "read", version = "0.0.0" }
 # The reference pages compiled into the binary (engine/reference).

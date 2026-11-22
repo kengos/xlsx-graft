@@ -943,6 +943,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "xlsx-graft-write"
+version = "0.0.0"
+dependencies = [
+ "crc32fast",
+ "miniz_oxide",
+ "thiserror",
+ "xlsx-graft-diagnostics",
+ "xlsx-graft-package",
+ "xlsx-graft-spool",
+]
+
+[[package]]
 name = "xlsx-graft-xml"
 version = "0.0.0"
 dependencies = [

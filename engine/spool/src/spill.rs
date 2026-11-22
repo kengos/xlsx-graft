@@ -3,15 +3,16 @@
 
 use crate::SpoolError;
 use crate::spool::{Spool, SpoolFactory};
-use std::{fmt, io};
+use std::fmt;
+use std::io;
 
 /// An append-only run of bytes, in memory until [`spill`](Self::spill)
 /// moves it to a spool, and in the spool from then on, behind a write
 /// buffer. The crate root says why the caller decides when.
 ///
 /// Every byte appended can be read back with
-/// [`read_exact_at`](Self::read_exact_at), before or after the spill, and
-/// whether it reached the spool yet or not.
+/// [`read_exact_at`](Self::read_exact_at) or [`read_at`](Self::read_at),
+/// before or after the spill, and whether it reached the spool yet or not.
 pub struct SpillBuffer {
     /// The bytes not in the spool: all of them before the spill, the
     /// write buffer after it.
@@ -151,6 +152,35 @@ impl SpillBuffer {
         if stop.is_none_or(|stop| stop > self.len()) {
             return Ok(Fill::OutOfRange);
         }
+        self.read_within(offset, buf)?;
+        Ok(Fill::Filled)
+    }
+
+    /// Fills `buf` with as many of the bytes appended from `offset` on as
+    /// there are, and returns how many: all of `buf`, or fewer when the
+    /// bytes end first, and 0 when `offset` is at or past the end or `buf`
+    /// is empty. For a range that passes the end, where
+    /// [`read_exact_at`](Self::read_exact_at) returns `Fill::OutOfRange`,
+    /// `read_at` fills `buf` with the bytes from `offset` to the end, so a
+    /// caller can read every byte of this `SpillBuffer`, from offset 0 to
+    /// [`len`](Self::len), in chunks of `buf`'s length, until a read returns
+    /// 0.
+    ///
+    /// # Errors
+    ///
+    /// When the spool fails. `buf` may hold some of the bytes then.
+    pub fn read_at(&mut self, offset: u64, buf: &mut [u8]) -> Result<usize, SpoolError> {
+        let left = self.len().saturating_sub(offset);
+        let len = usize::try_from(left).map_or(buf.len(), |left| left.min(buf.len()));
+        let (head, _) = buf.split_at_mut(len);
+        self.read_within(offset, head)?;
+        Ok(len)
+    }
+
+    /// Fills `buf` with the bytes appended from `offset` on.
+    /// `offset + buf.len()` is at most [`len`](Self::len): the caller checks
+    /// it.
+    fn read_within(&mut self, offset: u64, buf: &mut [u8]) -> Result<(), SpoolError> {
         // The part of the range in the spool, then the part in memory.
         let in_spool = usize::try_from(self.spooled.saturating_sub(offset))
             .map_or(buf.len(), |n| n.min(buf.len()));
@@ -167,7 +197,7 @@ impl SpillBuffer {
         if let Some(src) = src {
             tail.copy_from_slice(src);
         }
-        Ok(Fill::Filled)
+        Ok(())
     }
 }
 

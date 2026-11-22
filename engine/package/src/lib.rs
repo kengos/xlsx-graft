@@ -133,6 +133,15 @@
 //! [`Package::stream_part`]): the same reading, handed the archive and the
 //! diagnostics at each read, and seeking to where it is in the data first.
 //!
+//! [`ZipArchive::copy_raw`] writes an entry's stored (compressed) bytes, all
+//! of its data range, to a writer as they are, for a caller that puts the
+//! entry in another zip without inflating and deflating it again. It
+//! inflates the same bytes meanwhile, so the size and CRC-32 the entry
+//! declares are checked as in a read; an entry found not to be as declared
+//! pushes the diagnostic that a read of the entry pushes, is not readable
+//! from then on, and gives `Ok(false)` with whatever was written so far for
+//! the caller to drop.
+//!
 //! ```
 //! use std::io::{Cursor, Read};
 //! use xlsx_graft_diagnostics::Diagnostics;
