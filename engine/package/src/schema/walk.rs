@@ -110,12 +110,12 @@ impl Walk<'_> {
         let mut values = vec![None; allowed.len()];
         let mut refused = false;
         for (name, value) in attributes(start) {
-            match allowed.iter().position(|&a| a == name) {
-                Some(index) => {
-                    if let Some(slot) = values.get_mut(index) {
-                        *slot = Some(value);
-                    }
-                }
+            match allowed
+                .iter()
+                .zip(values.iter_mut())
+                .find(|(a, _)| **a == name)
+            {
+                Some((_, slot)) => *slot = Some(value),
                 None => {
                     refused = true;
                     let reason = SchemaReason::UnexpectedAttribute;

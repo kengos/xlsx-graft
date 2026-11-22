@@ -100,9 +100,9 @@ impl Names {
             });
         let scoped = *group.scoped.entry(sheet).or_insert_with(&mut bucket);
         for Bucket(at) in [group.all, scoped] {
-            if let Some(members) = self.buckets.get_mut(at) {
+            self.buckets.get_mut(at).into_iter().for_each(|members| {
                 members.push(index);
-            }
+            });
         }
         self.defined.push(DefinedName {
             name: name.to_owned(),

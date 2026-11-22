@@ -310,8 +310,8 @@ CARGO_DENY_SHA256_aarch64 := 995c82be0defc7a025cae49a2aa2644ce8245c9a3318fc41039
 # cargo-mutants runs mutation tests. Its releases have no linux aarch64
 # binary, so the image builds it with `cargo install --locked`.
 CARGO_MUTANTS_VERSION := 27.1.0
-TOOLCHAIN_HOLDS  := rust 1.99.0, cargo-llvm-cov 0.9.1, cargo-about 0.9.3, cargo-deny 0.20.2, cargo-mutants 27.1.0
-TOOLCHAIN_DIGEST := sha256:fd52521f082ccae58c1d502ef0b2b602bb03a31cb3ad483ec721a4d03b4fd2df
+TOOLCHAIN_HOLDS  := rust 1.100.0, cargo-llvm-cov 0.9.1, cargo-about 0.9.3, cargo-deny 0.20.2, cargo-mutants 27.1.0
+TOOLCHAIN_DIGEST := sha256:dc2e850545753ccbe8becf9e2cc50800eb3552a0b961c0ba5c6b468697db1ebf
 RUST_IMAGE       := ghcr.io/kengos/xlsx-graft-toolchain@$(TOOLCHAIN_DIGEST)
 
 # One gate at a time per working tree (scripts/gate-lock.sh explains why).

@@ -56,9 +56,9 @@ impl Marks {
             while node >= 1 {
                 let below = self.latest_of(2 * node).max(self.latest_of(2 * node + 1));
                 let latest = self.whole_of(node).max(below);
-                if let Some(slot) = self.latest.get_mut(node) {
+                self.latest.get_mut(node).into_iter().for_each(|slot| {
                     *slot = latest;
-                }
+                });
                 node >>= 1;
             }
         }
@@ -100,9 +100,9 @@ impl Marks {
     /// Sets `mark` over every column of `node`.
     fn put(&mut self, node: usize, mark: Mark) {
         for marks in [&mut self.whole, &mut self.latest] {
-            if let Some(slot) = marks.get_mut(node) {
+            marks.get_mut(node).into_iter().for_each(|slot| {
                 *slot = mark;
-            }
+            });
         }
     }
 

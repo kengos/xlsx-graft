@@ -60,19 +60,24 @@ pub(crate) fn check<R: Read + Seek>(
 ) -> Result<Used, PackageError> {
     let mut held = targeted(package);
     let mut scanned = Vec::new();
-    for (index, part) in package.parts().iter().enumerate() {
+    for ((index, part), set) in package.parts().iter().enumerate().zip(&mut held) {
         let media_type = part.content_type().map(|t| t.essence());
-        if let Some(set) = held.get_mut(index) {
-            set.extend(media_type.and_then(kinds::media_type));
-        }
-        if !part.name().is_relationships() {
+        set.extend(media_type.and_then(kinds::media_type));
+        // A Relationships part is not scanned: the package reads every
+        // Relationships part (`Package::read_graph`) and reports its
+        // problems there.
+        scanned.push((!part.name().is_relationships()).then(|| {
             let links = web_or_mail_links(part.relationships());
             let name = part.name().as_str().to_owned();
-            scanned.push((index, name, media_type.is_some_and(is_xml), links));
-        }
+            (index, name, media_type.is_some_and(is_xml), links)
+        }));
     }
-    let mut shown: Vec<Shown> = held.iter().map(|_| Shown::default()).collect();
-    for (index, name, declared, links) in scanned {
+    let mut shown: Vec<Shown> = Vec::new();
+    for scan in scanned {
+        let Some((index, name, declared, links)) = scan else {
+            shown.push(Shown::default());
+            continue;
+        };
         let mut collector = Collector::new(formulas, &name, max_formula_bytes);
         let (found, links) = (&mut collector, &links);
         let part = Part {
@@ -80,10 +85,14 @@ pub(crate) fn check<R: Read + Seek>(
             declared,
             links,
         };
-        let read = scan::read(package, part, limits, found, worksheets, diagnostics)?;
-        if let Some(slot) = shown.get_mut(index) {
-            *slot = read;
-        }
+        shown.push(scan::read(
+            package,
+            part,
+            limits,
+            found,
+            worksheets,
+            diagnostics,
+        )?);
     }
     let mut findings = Findings::default();
     let mut used = Used::default();

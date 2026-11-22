@@ -64,12 +64,12 @@ impl<R: Read + Seek> Package<R> {
                 }
                 Presence::Unknown => return Ok(None),
             };
-            if let Some(part) = self.parts.get_mut(target) {
+            self.parts.get_mut(target).into_iter().for_each(|part| {
                 part.incoming.push(Incoming {
                     source: context.from,
                     index,
                 });
-            }
+            });
             Target::Internal(target)
         };
         Ok(Some(Relationship {

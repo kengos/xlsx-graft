@@ -185,14 +185,14 @@ impl<R: Read + Seek> Package<R> {
         };
         // Known when none was left out, nor dropped for its target.
         let known = whole && kept.len() == declared;
-        if let Some(relationships) = relationships {
-            *relationships = kept;
-        }
+        relationships.into_iter().for_each(|relationships| {
+            *relationships = std::mem::take(&mut kept);
+        });
         match from {
             RelationshipSource::Part(source) => {
-                if let Some(part) = self.parts.get_mut(source) {
+                self.parts.get_mut(source).into_iter().for_each(|part| {
                     part.relationships_known = known;
-                }
+                });
             }
             RelationshipSource::Package => self.relationships_known = known,
         }
@@ -202,7 +202,10 @@ impl<R: Read + Seek> Package<R> {
     /// Counts `declared` more relationships, those a part keeps once it is
     /// read, against the package's limit.
     /// Returns false when they are past it, pushing
-    /// `relationships_total_too_many` at `location` when they are the first.
+    /// `relationships_total_too_many` at `location`. This returns false once
+    /// per package at most: `read_part` reads no Relationships part once the
+    /// total is past the limit, so only the Relationships part that takes
+    /// the total past the limit is counted past it.
     fn count_relationships(
         &mut self,
         declared: usize,
@@ -211,16 +214,14 @@ impl<R: Read + Seek> Package<R> {
         diagnostics: &mut Diagnostics,
     ) -> bool {
         let limit = limits.max_total_relationships;
-        let before = self.total_relationships;
-        let count = before.saturating_add(u64::try_from(declared).unwrap_or(u64::MAX));
+        let declared = u64::try_from(declared).unwrap_or(u64::MAX);
+        let count = self.total_relationships.saturating_add(declared);
         self.total_relationships = count;
         if count <= limit.value {
             return true;
         }
-        if before <= limit.value {
-            let diagnostic = Diagnostic::RelationshipsTotalTooMany { count, limit };
-            diagnostics.push(diagnostic, location.clone());
-        }
+        let diagnostic = Diagnostic::RelationshipsTotalTooMany { count, limit };
+        diagnostics.push(diagnostic, location.clone());
         false
     }
 

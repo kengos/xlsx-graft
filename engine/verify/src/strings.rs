@@ -116,9 +116,10 @@ struct Table {
     root: Option<&'static str>,
     /// Whether the root was read.
     rooted: bool,
-    frames: Vec<Frame>,
-    /// How many elements deep the walk is inside one passed over.
-    skipped: u64,
+    /// The elements open: `None` for an element the checks pass over and
+    /// for every element nested in such an element; its length is bounded
+    /// by the XML reader's `max_depth`.
+    frames: Vec<Option<Frame>>,
     /// The strings so far.
     count: u64,
     /// The length of the string open.
@@ -136,10 +137,6 @@ impl Table {
         location: &Location,
         diagnostics: &mut Diagnostics,
     ) {
-        if self.skipped > 0 {
-            self.skipped = self.skipped.saturating_add(u64::from(opened));
-            return;
-        }
         let namespace = match resolved {
             ResolveResult::Bound(Namespace(ns)) => SPREADSHEETML.into_iter().find(|&n| n == *ns),
             _ => None,
@@ -149,12 +146,14 @@ impl Table {
                 self.root = namespace;
                 Some(Frame::Table)
             }
-            Some(&frame) if namespace.is_some() && namespace == self.root => match (frame, local) {
-                (Frame::Table, "si") => Some(Frame::Item),
-                (Frame::Item, "r") => Some(Frame::Run),
-                (Frame::Item | Frame::Run, "t") => Some(Frame::Text),
-                _ => None,
-            },
+            Some(&Some(frame)) if namespace.is_some() && namespace == self.root => {
+                match (frame, local) {
+                    (Frame::Table, "si") => Some(Frame::Item),
+                    (Frame::Item, "r") => Some(Frame::Run),
+                    (Frame::Item | Frame::Run, "t") => Some(Frame::Text),
+                    _ => None,
+                }
+            }
             _ => None,
         };
         self.rooted = true;
@@ -162,24 +161,23 @@ impl Table {
             self.length = Utf16::default();
         }
         match frame {
-            Some(frame) if opened => self.frames.push(frame),
+            Some(frame) if opened => self.frames.push(Some(frame)),
             Some(frame) => self.close(frame, location, diagnostics),
-            None => self.skipped = u64::from(opened),
+            None if opened => self.frames.push(None),
+            None => {}
         }
     }
 
     /// Reads the end of the element open.
     fn end(&mut self, location: &Location, diagnostics: &mut Diagnostics) {
-        if self.skipped > 0 {
-            self.skipped -= 1;
-        } else if let Some(frame) = self.frames.pop() {
+        if let Some(Some(frame)) = self.frames.pop() {
             self.close(frame, location, diagnostics);
         }
     }
 
     /// Reads `text`, in the element open.
     fn text(&mut self, text: &str) {
-        if self.skipped == 0 && self.frames.last() == Some(&Frame::Text) {
+        if self.frames.last() == Some(&Some(Frame::Text)) {
             self.length.push(text);
         }
     }

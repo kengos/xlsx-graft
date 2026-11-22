@@ -179,9 +179,9 @@ impl<'a> Tree<'a> {
                     tree.names.push(None);
                 }
             }
-            if let Some(slot) = tree.names.get_mut(node) {
+            tree.names.get_mut(node).into_iter().for_each(|slot| {
                 *slot = Some(name);
-            }
+            });
         }
         tree
     }

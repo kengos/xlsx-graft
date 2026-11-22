@@ -41,10 +41,11 @@ fn run(arguments: &Value, _context: &Context) -> Result<Value, RpcError> {
     let arguments = arguments::read(arguments, "describe_function", &["name"])?;
     // The description's JSON has string keys only, so this does not fail;
     // `Null` is only the value the type needs for a case that cannot happen.
-    let mut value =
-        serde_json::to_value(describe_function(arguments.required)).unwrap_or(Value::Null);
-    if let Some(name) = value.get("name").and_then(Value::as_str) {
-        value["name"] = clip(name).into();
-    }
+    let description = describe_function(arguments.required);
+    let mut value = serde_json::to_value(&description).unwrap_or(Value::Null);
+    // Assigning to `value["name"]` does not panic on an object or on `Null`
+    // (`serde_json` turns `Null` into an object); the description's JSON
+    // always holds `name`.
+    value["name"] = clip(description.name()).into();
     Ok(structured(&value))
 }

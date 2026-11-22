@@ -142,6 +142,20 @@ fn only_the_text_of_the_table_counts() {
 }
 
 #[test]
+fn an_element_in_the_other_spreadsheetml_namespace_than_the_root_is_not_counted() {
+    // The root `sst` is Transitional, so a Strict `si` inside it is not a
+    // string of the table, and a Strict `t` is not its text: neither is
+    // counted (index 1 is past the one string there is) nor measured
+    // (their 32,768 characters raise nothing).
+    let strict = "http://purl.oclc.org/ooxml/spreadsheetml/main";
+    let a = "a".repeat(32_768);
+    let xml = format!(
+        r#"<sst xmlns="{MAIN}" xmlns:s="{strict}"><si><t>a</t><s:t>{a}</s:t></si><s:si><s:t>{a}</s:t></s:si></sst>"#
+    );
+    assert_eq!(check(with_cell(with_table(&xml), 1)), [missing(1)]);
+}
+
+#[test]
 fn text_counts_however_it_is_written() {
     // CDATA and a reference are text as any other, and an element in no
     // namespace is passed over.
