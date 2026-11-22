@@ -9,7 +9,7 @@ use serde_json::json;
 fn a_call_with_a_string_path_and_only_keys_the_tool_takes_is_read() {
     let value = json!({ "path": "a.xlsx", "extra": 1 });
     let read = read(&value, "tool", &["path", "extra"]).unwrap();
-    assert_eq!(read.path, "a.xlsx");
+    assert_eq!(read.required, "a.xlsx");
     assert_eq!(read.map.len(), 2);
 }
 

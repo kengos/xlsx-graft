@@ -4,8 +4,8 @@
 //! ABI and the MCP server. `main.rs` parses [`Cli`]
 //! ([`Cli::try_parse_args`]), hands it to [`run`] and exits with the
 //! [`exit_status`] of what it returns; everything testable lives here.
-//! There are `--version` and the `sheets`, `read`, `verify`, `tree` and
-//! `describe-sheet` commands.
+//! There are `--version` and the `sheets`, `read`, `verify`, `tree`,
+//! `describe-sheet` and `describe-function` commands.
 //!
 //! Every command's output is printed as text or as JSON by `--format`:
 //! `--version` through [`emit`], one value; `sheets` one value too
@@ -17,7 +17,10 @@
 //! `tree` and `describe-sheet` do too, a file or a sheet they could not read
 //! being their view's `error` (see [`TreeArgs`], [`DescribeSheetArgs`]),
 //! except that `describe-sheet` prints no view for a range, a number of rows
-//! or a number of columns the host does not take (exit 2). The
+//! or a number of columns the host does not take (exit 2).
+//! `describe-function` prints its description for every name, one the
+//! compatibility table does not list included, and exits 0 (see
+//! [`DescribeFunctionArgs`]). The
 //! help is not a command's output: it is text whatever `--format` says,
 //! as clap's own `-h` / `--help` are.
 
@@ -26,6 +29,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use std::ffi::OsString;
 use std::io::{self, Write};
 
+mod describe_function;
 mod describe_sheet;
 mod error;
 mod format;
@@ -38,6 +42,7 @@ mod version;
 mod view;
 mod workbook;
 
+pub use describe_function::DescribeFunctionArgs;
 pub use describe_sheet::DescribeSheetArgs;
 pub use error::CliError;
 pub use format::{Format, Report, emit};
@@ -115,6 +120,13 @@ enum Command {
         after_long_help = describe_sheet::AFTER_LONG_HELP
     )]
     DescribeSheet(DescribeSheetArgs),
+    /// Look a function up in the compatibility table: who supports it, from which version.
+    #[command(
+        name = "describe-function",
+        long_about = describe_function::LONG_ABOUT,
+        after_long_help = describe_function::AFTER_LONG_HELP
+    )]
+    DescribeFunction(DescribeFunctionArgs),
 }
 
 /// How a run that printed what it had to ended.
@@ -148,6 +160,7 @@ pub fn run(cli: &Cli, out: &mut dyn Write, err: &mut dyn Write) -> Result<Outcom
         Some(Command::Verify(args)) => verify::run(args, cli.format, out)?,
         Some(Command::Tree(args)) => tree::run(args, cli.format, out)?,
         Some(Command::DescribeSheet(args)) => describe_sheet::run(args, cli.format, out, err)?,
+        Some(Command::DescribeFunction(args)) => describe_function::run(args, cli.format, out)?,
         None if cli.version => {
             emit(cli.format, &VersionReport::current(), out)?;
             Outcome::Success

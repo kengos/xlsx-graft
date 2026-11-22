@@ -1,37 +1,42 @@
-//! The `arguments` of a tool call that every tool with a workbook `path`
-//! shares: an object with a string `path` and no key the tool does not take.
+//! The `arguments` of a tool call that every tool shares: an object with one
+//! required string key (the first of the keys the tool takes) and no key the
+//! tool does not take.
 
 use crate::rpc::{INVALID_PARAMS, RpcError, clip};
 use serde_json::{Map, Value};
 
-/// The `arguments` of a call to a tool: the `path` and the object that holds
-/// it and every other key.
+/// The `arguments` of a call to a tool: the value of the required key and the
+/// object that holds it and every other key.
 pub(super) struct Arguments<'a> {
-    /// The workbook the call names.
-    pub(super) path: &'a str,
-    /// Every key of `arguments`, `path` included; each key is one the tool
-    /// takes.
+    /// The value of the required key (the first of the tool's keys): the
+    /// workbook `path` of a workbook tool, the function `name` of
+    /// `describe_function`.
+    pub(super) required: &'a str,
+    /// Every key of `arguments`, the required key included; each key is one
+    /// the tool takes.
     pub(super) map: &'a Map<String, Value>,
 }
 
-/// Reads the `arguments` of a call to `tool`, which takes `keys` (`path`
-/// first).
+/// Reads the `arguments` of a call to `tool`, which takes `keys` (the
+/// required string key first). `keys` is not empty: every tool has a required
+/// key.
 ///
 /// # Errors
 ///
 /// A protocol error (`INVALID_PARAMS`) when `arguments` is not an object with
-/// a string `path`, and, when it is, when it holds a key that is not in
-/// `keys`. A key is never silently dropped.
+/// a string value for the first of `keys`, and, when it is, when it holds a
+/// key that is not in `keys`. A key is never silently dropped.
 pub(super) fn read<'a>(
     arguments: &'a Value,
     tool: &str,
     keys: &[&str],
 ) -> Result<Arguments<'a>, RpcError> {
+    let required = keys.first().copied().unwrap_or_default();
     let Some(map) = arguments.as_object() else {
-        return Err(needs_path(tool));
+        return Err(needs(tool, required));
     };
-    let Some(path) = map.get("path").and_then(Value::as_str) else {
-        return Err(needs_path(tool));
+    let Some(value) = map.get(required).and_then(Value::as_str) else {
+        return Err(needs(tool, required));
     };
     if let Some(key) = map.keys().find(|key| !keys.contains(&key.as_str())) {
         return Err(RpcError::new(
@@ -39,12 +44,15 @@ pub(super) fn read<'a>(
             format!("{tool} takes {}, not {}", list(keys), clip(key)),
         ));
     }
-    Ok(Arguments { path, map })
+    Ok(Arguments {
+        required: value,
+        map,
+    })
 }
 
-/// The protocol error of a call to `tool` without a string `path`.
-fn needs_path(tool: &str) -> RpcError {
-    RpcError::new(INVALID_PARAMS, format!("{tool} needs a string `path`"))
+/// The protocol error of a call to `tool` without a string `key`.
+fn needs(tool: &str, key: &str) -> RpcError {
+    RpcError::new(INVALID_PARAMS, format!("{tool} needs a string `{key}`"))
 }
 
 /// `keys` joined with `, `, and ` and ` between the last two.
