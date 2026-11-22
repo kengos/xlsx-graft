@@ -1,8 +1,10 @@
 //! Tests for the spools and [`SpillBuffer`](crate::SpillBuffer), driven
 //! through the public API. `spools` holds what every [`Spool`] does, run on
 //! both of the crate's; `temp_files` what only a temporary file does;
-//! `spill` the buffer, over both and over a spool that fails.
+//! `spill` the buffer, over both and over a spool that fails; `read_at`
+//! reading up to the end of the buffer.
 
+mod read_at;
 mod spill;
 mod spools;
 mod temp_files;

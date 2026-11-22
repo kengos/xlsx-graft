@@ -13,6 +13,7 @@ mod entry_streams;
 mod graph;
 mod names;
 mod opc;
+mod raw_copies;
 mod reading;
 mod sizes;
 mod streams;

@@ -1,0 +1,21 @@
+[package]
+name = "xlsx-graft-write"
+description = "xlsx-graft write: writes a zip container deterministically, copying entries of an untrusted xlsx as they are and deflating new content, spilling large content to scratch storage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+crc32fast = { workspace = true }
+miniz_oxide = { workspace = true }
+thiserror = { workspace = true }
+# Every problem in an entry copied from a workbook is a Diagnostic.
+xlsx-graft-diagnostics = { workspace = true }
+# The zip an entry is copied from.
+xlsx-graft-package = { workspace = true }
+# Holds new content deflated until it is written.
+xlsx-graft-spool = { workspace = true }
+
+[lints]
+workspace = true

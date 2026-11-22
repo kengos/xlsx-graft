@@ -9,7 +9,7 @@ use super::{Entry, Method, ZipArchive};
 use input::INPUT_BUFFER;
 use miniz_oxide::DataFormat;
 use miniz_oxide::inflate::stream::InflateState;
-use std::io::{self, Read, Seek};
+use std::io::{self, Read, Seek, Write};
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, InflateReason};
 
 /// Where a stream is.
@@ -126,6 +126,19 @@ impl EntryStream {
         out: &mut [u8],
         diagnostics: &mut Diagnostics,
     ) -> io::Result<usize> {
+        self.read_inner(archive, out, diagnostics, None)
+    }
+
+    /// [`read`](Self::read), writing every stored byte it reads from the
+    /// file to `tap`, as it reads it. A failure of `tap` fails the read as
+    /// a failure of the host does.
+    pub(in crate::zip) fn read_inner<R: Read + Seek>(
+        &mut self,
+        archive: &mut ZipArchive<R>,
+        out: &mut [u8],
+        diagnostics: &mut Diagnostics,
+        tap: Option<&mut (dyn Write + '_)>,
+    ) -> io::Result<usize> {
         match self.state {
             State::Done => return Ok(0),
             State::Stopped => return Err(stopped()),
@@ -157,11 +170,11 @@ impl EntryStream {
         let (out, _) = out.split_at_mut(out.len().min(room));
         let written = match self.inflater.take() {
             Some(mut state) => {
-                let written = self.inflate(&mut state, reader, entry, out);
+                let written = self.inflate(&mut state, reader, entry, out, tap);
                 self.inflater = Some(state);
                 written
             }
-            None => self.copy(reader, entry, out),
+            None => self.copy(reader, entry, out, tap),
         };
         if written.is_err() {
             self.state = State::Failed;

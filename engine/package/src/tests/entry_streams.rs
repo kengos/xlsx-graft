@@ -193,3 +193,29 @@ fn a_stream_that_ended_or_stopped_stays_so_whatever_archive_it_is_handed() {
     assert!(stopped.is_stopped());
     assert_eq!(diagnostics.records().len(), 1);
 }
+
+#[test]
+fn the_read_that_ends_a_stored_entry_does_not_read_or_seek_the_file() {
+    let failing = std::rc::Rc::new(std::cell::Cell::new(false));
+    let bytes = Zip::of(vec![Item::stored("a", b"hello")]).build();
+    let mut diagnostics = Diagnostics::new();
+    let reader = super::Reader::failing_with(bytes, failing.clone());
+    let mut archive =
+        crate::ZipArchive::open(reader, &crate::ZipLimits::default(), &mut diagnostics)
+            .unwrap()
+            .unwrap();
+    let mut stream = archive.stream_entry(0).unwrap();
+    let mut out = [0; 5];
+    let read = stream.read(&mut archive, &mut out, &mut diagnostics);
+    assert_eq!((read.unwrap(), &out), (5, b"hello"));
+    // Every access to the file fails from here on: the read that finds the
+    // end of the data, and checks its CRC-32, makes none.
+    failing.set(true);
+    assert_eq!(
+        stream
+            .read(&mut archive, &mut out, &mut diagnostics)
+            .unwrap(),
+        0
+    );
+    assert!(diagnostics.records().is_empty());
+}
