@@ -7,11 +7,11 @@
 //!
 //! A function ECMA-376-1:2016 §18.17.7 defines that has no row in
 //! `FUNCTIONS`, such as `SUM` and `IFERROR`, which Excel 2007 already had,
-//! is in the `unchecked` block at the end with its safety only: the table
+//! is in the `unchecked` block after the rows with its safety only: the table
 //! does not check it against a template's targets yet, and
 //! [`crate::function`] gives no row for it. ANCHORARRAY, SINGLE, CALL,
 //! REGISTER.ID and COPILOT, which ECMA-376 does not define, are in the
-//! `unchecked` block too.
+//! `undefined` block after it, also with their safety only.
 //!
 //! The dangerous functions are those that use the network (WEBSERVICE,
 //! IMAGE, STOCKHISTORY, TRANSLATE, DETECTLANGUAGE, PY, COPILOT), read a
@@ -35,6 +35,12 @@
 //! the result depends only on what [`crate::Safety::ReviewedSafe`] says a
 //! reviewed-safe function's result may depend on, and ENCODEURL, whose page
 //! gives encoding the URL WEBSERVICE requests as its only use.
+//!
+//! The prefix column is read from [MS-XLSX] 2.2.3 Functions (`MS_XLSX_FN`,
+//! the page last updated 2024-02-20); a function [MS-XLSX] 2.2.3 does not
+//! list has the prefix `Unknown`. Where 2.2.2 Formulas' grammar (last updated 2023-06-16)
+//! disagrees with 2.2.3, the row follows 2.2.3, the page the rows cite, and
+//! a comment above the row says so.
 //!
 //! The columns are excel, excel-mac, libreoffice, google-sheets, numbers,
 //! onlyoffice. A cell no cited source
@@ -181,197 +187,210 @@ const S365_REGEX: &[&str] = &[MS_FN, MS_REGEXEXTRACT, MS_XLFN, LO_HELP, GS_LIST,
 #[rustfmt::skip]
 functions! {
     // Excel 2010.
-    "BETA.DIST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/beta-dist-function"]);
-    "BETA.INV" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/beta-inv-function"]);
-    "BINOM.DIST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/binom-dist-function"]);
-    "BINOM.INV" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/binom-inv-function"]);
-    "CHISQ.DIST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/chisq-dist-function"]);
-    "CHISQ.DIST.RT" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/chisq-dist-rt-function"]);
-    "CHISQ.INV" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/chisq-inv-function"]);
-    "CHISQ.INV.RT" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/chisq-inv-rt-function"]);
-    "CHISQ.TEST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/chisq-test-function"]);
-    "CONFIDENCE.NORM" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/confidence-norm-function"]);
-    "CONFIDENCE.T" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/confidence-t-function"]);
-    "COVARIANCE.P" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/covariance-p-function"]);
-    "COVARIANCE.S" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/covariance-s-function"]);
-    "ERF.PRECISE" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/erf-precise-function"]);
-    "ERFC.PRECISE" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/erfc-precise-function"]);
-    "EXPON.DIST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/expon-dist-function"]);
-    "F.DIST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/f-dist-function"]);
-    "F.DIST.RT" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/f-dist-rt-function"]);
-    "F.INV" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/f-inv-function"]);
-    "F.INV.RT" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/f-inv-rt-function"]);
-    "F.TEST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/f-test-function"]);
-    "GAMMA.DIST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/gamma-dist-function"]);
-    "GAMMA.INV" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/gamma-inv-function"]);
-    "GAMMALN.PRECISE" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/gammaln-precise-function"]);
-    "LOGNORM.DIST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/lognorm-dist-function"]);
-    "LOGNORM.INV" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/lognorm-inv-function"]);
-    "MODE.MULT" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/mode-mult-function"]);
-    "MODE.SNGL" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/mode-sngl-function"]);
-    "NEGBINOM.DIST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/negbinom-dist-function"]);
-    "NETWORKDAYS.INTL" => E2010, requires: [], sources: S2010, safety: reviewed(&["ECMA-376-1:2016 §18.17.7.227"]);
-    "NORM.DIST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/norm-dist-function"]);
-    "NORM.INV" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/norm-inv-function"]);
-    "NORM.S.DIST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/norm-s-dist-function"]);
-    "NORM.S.INV" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/norm-s-inv-function"]);
-    "PERCENTILE.EXC" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/percentile-exc-function"]);
-    "PERCENTILE.INC" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/percentile-inc-function"]);
-    "PERCENTRANK.EXC" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/percentrank-exc-function"]);
-    "PERCENTRANK.INC" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/percentrank-inc-function"]);
-    "POISSON.DIST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/poisson-dist-function"]);
-    "QUARTILE.EXC" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/quartile-exc-function"]);
-    "QUARTILE.INC" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/quartile-inc-function"]);
-    "RANK.AVG" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/rank-avg-function"]);
-    "RANK.EQ" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/rank-eq-function"]);
-    "STDEV.P" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/stdev-p-function"]);
-    "STDEV.S" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/stdev-s-function"]);
-    "T.DIST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/t-dist-function"]);
-    "T.DIST.2T" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/t-dist-2t-function"]);
-    "T.DIST.RT" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/t-dist-rt-function"]);
-    "T.INV" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/t-inv-function"]);
-    "T.INV.2T" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/t-inv-2t-function"]);
-    "T.TEST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/t-test-function"]);
-    "VAR.P" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/var-p-function"]);
-    "VAR.S" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/var-s-function"]);
-    "WEIBULL.DIST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/weibull-dist-function"]);
-    "WORKDAY.INTL" => E2010, requires: [], sources: S2010, safety: reviewed(&["ECMA-376-1:2016 §18.17.7.348"]);
-    "Z.TEST" => E2010, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/z-test-function"]);
+    "BETA.DIST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/beta-dist-function"]);
+    "BETA.INV" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/beta-inv-function"]);
+    "BINOM.DIST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/binom-dist-function"]);
+    "BINOM.INV" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/binom-inv-function"]);
+    "CHISQ.DIST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/chisq-dist-function"]);
+    "CHISQ.DIST.RT" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/chisq-dist-rt-function"]);
+    "CHISQ.INV" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/chisq-inv-function"]);
+    "CHISQ.INV.RT" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/chisq-inv-rt-function"]);
+    "CHISQ.TEST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/chisq-test-function"]);
+    "CONFIDENCE.NORM" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/confidence-norm-function"]);
+    "CONFIDENCE.T" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/confidence-t-function"]);
+    "COVARIANCE.P" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/covariance-p-function"]);
+    "COVARIANCE.S" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/covariance-s-function"]);
+    "ERF.PRECISE" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/erf-precise-function"]);
+    "ERFC.PRECISE" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/erfc-precise-function"]);
+    "EXPON.DIST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/expon-dist-function"]);
+    "F.DIST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/f-dist-function"]);
+    "F.DIST.RT" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/f-dist-rt-function"]);
+    "F.INV" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/f-inv-function"]);
+    "F.INV.RT" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/f-inv-rt-function"]);
+    "F.TEST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/f-test-function"]);
+    "GAMMA.DIST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/gamma-dist-function"]);
+    "GAMMA.INV" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/gamma-inv-function"]);
+    "GAMMALN.PRECISE" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/gammaln-precise-function"]);
+    "LOGNORM.DIST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/lognorm-dist-function"]);
+    "LOGNORM.INV" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/lognorm-inv-function"]);
+    "MODE.MULT" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/mode-mult-function"]);
+    "MODE.SNGL" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/mode-sngl-function"]);
+    "NEGBINOM.DIST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/negbinom-dist-function"]);
+    "NETWORKDAYS.INTL" => E2010, prefix: Bare, requires: [], sources: S2010, safety: reviewed(&["ECMA-376-1:2016 §18.17.7.227"]);
+    "NORM.DIST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/norm-dist-function"]);
+    "NORM.INV" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/norm-inv-function"]);
+    "NORM.S.DIST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/norm-s-dist-function"]);
+    "NORM.S.INV" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/norm-s-inv-function"]);
+    "PERCENTILE.EXC" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/percentile-exc-function"]);
+    "PERCENTILE.INC" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/percentile-inc-function"]);
+    "PERCENTRANK.EXC" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/percentrank-exc-function"]);
+    "PERCENTRANK.INC" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/percentrank-inc-function"]);
+    "POISSON.DIST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/poisson-dist-function"]);
+    "QUARTILE.EXC" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/quartile-exc-function"]);
+    "QUARTILE.INC" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/quartile-inc-function"]);
+    "RANK.AVG" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/rank-avg-function"]);
+    "RANK.EQ" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/rank-eq-function"]);
+    "STDEV.P" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/stdev-p-function"]);
+    "STDEV.S" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/stdev-s-function"]);
+    "T.DIST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/t-dist-function"]);
+    "T.DIST.2T" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/t-dist-2t-function"]);
+    "T.DIST.RT" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/t-dist-rt-function"]);
+    "T.INV" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/t-inv-function"]);
+    "T.INV.2T" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/t-inv-2t-function"]);
+    "T.TEST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/t-test-function"]);
+    "VAR.P" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/var-p-function"]);
+    "VAR.S" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/var-s-function"]);
+    "WEIBULL.DIST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/weibull-dist-function"]);
+    "WORKDAY.INTL" => E2010, prefix: Bare, requires: [], sources: S2010, safety: reviewed(&["ECMA-376-1:2016 §18.17.7.348"]);
+    "Z.TEST" => E2010, prefix: Xlfn, requires: [], sources: S2010, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/z-test-function"]);
     // No version in the functions by category list; AGGREGATE's own page starts at 2016.
-    "AGGREGATE" => s(between(X::V2007, X::V2016).fallback(NameError), le(M::V2021), on(L::V24_2), unk(), unk(), on(O::V8_0)), requires: [], sources: &[MS_AGGREGATE, MS_FN, MS_XLSX_FN, MS_XLFN, LO_HELP, GS_LIST, OO_CL, OO_SRC], safety: reviewed(&[MS_AGGREGATE]);
-    "ARABIC" => E_UNDATED, requires: [], sources: S_UNDATED, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/arabic-function"]);
-    "CEILING.PRECISE" => E_UNDATED, requires: [], sources: S_UNDATED, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/ceiling-precise-function"]);
-    "FLOOR.PRECISE" => E_UNDATED, requires: [], sources: S_UNDATED, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/floor-precise-function"]);
-    "HYPGEOM.DIST" => E_UNDATED, requires: [], sources: S_UNDATED, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/hypgeom-dist-function"]);
+    "AGGREGATE" => s(between(X::V2007, X::V2016).fallback(NameError), le(M::V2021), on(L::V24_2), unk(), unk(), on(O::V8_0)), prefix: Xlfn, requires: [], sources: &[MS_AGGREGATE, MS_FN, MS_XLSX_FN, MS_XLFN, LO_HELP, GS_LIST, OO_CL, OO_SRC], safety: reviewed(&[MS_AGGREGATE]);
+    "ARABIC" => E_UNDATED, prefix: Xlfn, requires: [], sources: S_UNDATED, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/arabic-function"]);
+    "CEILING.PRECISE" => E_UNDATED, prefix: Xlfn, requires: [], sources: S_UNDATED, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/ceiling-precise-function"]);
+    "FLOOR.PRECISE" => E_UNDATED, prefix: Xlfn, requires: [], sources: S_UNDATED, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/floor-precise-function"]);
+    "HYPGEOM.DIST" => E_UNDATED, prefix: Xlfn, requires: [], sources: S_UNDATED, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/hypgeom-dist-function"]);
     // Excel 2013.
-    "ACOT" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/acot-function"]);
-    "ACOTH" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/acoth-function"]);
-    "BASE" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/base-function"]);
-    "BINOM.DIST.RANGE" => E2013.with_google_sheets(unk()), requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/binom-dist-range-function"]);
-    "BITAND" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/bitand-function"]);
-    "BITLSHIFT" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/bitlshift-function"]);
-    "BITOR" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/bitor-function"]);
-    "BITRSHIFT" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/bitrshift-function"]);
-    "BITXOR" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/bitxor-function"]);
-    "CEILING.MATH" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/ceiling-math-function"]);
-    "COMBINA" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/combina-function"]);
-    "COT" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/cot-function"]);
-    "COTH" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/coth-function"]);
-    "CSC" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/csc-function"]);
-    "CSCH" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/csch-function"]);
-    "DAYS" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/days-function"]);
-    "DECIMAL" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/decimal-function"]);
+    "ACOT" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/acot-function"]);
+    "ACOTH" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/acoth-function"]);
+    "BASE" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/base-function"]);
+    "BINOM.DIST.RANGE" => E2013.with_google_sheets(unk()), prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/binom-dist-range-function"]);
+    "BITAND" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/bitand-function"]);
+    "BITLSHIFT" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/bitlshift-function"]);
+    "BITOR" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/bitor-function"]);
+    "BITRSHIFT" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/bitrshift-function"]);
+    "BITXOR" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/bitxor-function"]);
+    "CEILING.MATH" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/ceiling-math-function"]);
+    "COMBINA" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/combina-function"]);
+    "COT" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/cot-function"]);
+    "COTH" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/coth-function"]);
+    "CSC" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/csc-function"]);
+    "CSCH" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/csch-function"]);
+    "DAYS" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/days-function"]);
+    "DECIMAL" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/decimal-function"]);
     // Unreviewed: its result depends on its argument only, but its page says
     // ENCODEURL encodes the text of the URL that WEBSERVICE requests, and
     // WEBSERVICE is Danger::Network. A function whose only use its page gives
     // is to build an argument of a dangerous function stays unreviewed.
-    "ENCODEURL" => E2013.with_excel_mac(MAC_WINDOWS_ONLY), requires: [], sources: &[MS_FN, MS_XLSX_FN, MS_XLFN, MS_ENCODEURL, LO_HELP, GS_LIST, OO_CL, OO_SRC], safety: unreviewed();
+    // [MS-XLSX] 2.2.3 does not list it.
+    "ENCODEURL" => E2013.with_excel_mac(MAC_WINDOWS_ONLY), prefix: Unknown, requires: [], sources: &[MS_FN, MS_XLSX_FN, MS_XLFN, MS_ENCODEURL, LO_HELP, GS_LIST, OO_CL, OO_SRC], safety: unreviewed();
     // Unreviewed: its page says it relies on features of the Windows operating
     // system to read the XML, and does not say whether that reading fetches a
     // DTD or an external entity the XML names.
-    "FILTERXML" => E2013.with_excel_mac(MAC_WINDOWS_ONLY).with_google_sheets(unk()), requires: [], sources: &[MS_FN, MS_XLSX_FN, MS_XLFN, MS_FILTERXML, LO_HELP, GS_LIST, OO_CL, OO_SRC], safety: unreviewed();
-    "FLOOR.MATH" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/floor-math-function"]);
+    "FILTERXML" => E2013.with_excel_mac(MAC_WINDOWS_ONLY).with_google_sheets(unk()), prefix: Xlfn, requires: [], sources: &[MS_FN, MS_XLSX_FN, MS_XLFN, MS_FILTERXML, LO_HELP, GS_LIST, OO_CL, OO_SRC], safety: unreviewed();
+    "FLOOR.MATH" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/floor-math-function"]);
     // Unreviewed: it returns the formula bar's text of the cell it reads, as
     // its page says (https://support.microsoft.com/en-us/excel/functions/formulatext-function).
     // When that formula refers to a workbook that is not open, the formula
     // bar's text may hold the path of that workbook's file, which names a
     // folder of the machine as CELL("filename") does.
-    "FORMULATEXT" => E2013, requires: [], sources: S2013, safety: unreviewed();
-    "GAMMA" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/gamma-function"]);
-    "GAUSS" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/gauss-function"]);
-    "IFNA" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/ifna-function"]);
-    "IMCOSH" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imcosh-function"]);
-    "IMCOT" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imcot-function"]);
-    "IMCSC" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imcsc-function"]);
-    "IMCSCH" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imcsch-function"]);
-    "IMSEC" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imsec-function"]);
-    "IMSECH" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imsech-function"]);
-    "IMSINH" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imsinh-function"]);
-    "IMTAN" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imtan-function"]);
-    "ISFORMULA" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/isformula-function"]);
-    "ISO.CEILING" => E2013, requires: [], sources: S2013, safety: reviewed(&["ECMA-376-1:2016 §18.17.7.182"]);
-    "ISOWEEKNUM" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/isoweeknum-function"]);
-    "MUNIT" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/munit-function"]);
-    "NUMBERVALUE" => E2013.with_google_sheets(unk()), requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/numbervalue-function"]);
-    "PDURATION" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/pduration-function"]);
-    "PERMUTATIONA" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/permutationa-function"]);
-    "PHI" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/phi-function"]);
-    "RRI" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/rri-function"]);
-    "SEC" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/sec-function"]);
-    "SECH" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/sech-function"]);
-    "SHEET" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/sheet-function"]);
-    "SHEETS" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/sheets-function"]);
-    "SKEW.P" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/skew-p-function"]);
-    "UNICHAR" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/unichar-function"]);
-    "UNICODE" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/unicode-function"]);
-    "WEBSERVICE" => E2013.with_excel_mac(MAC_WINDOWS_ONLY).with_google_sheets(unk()), requires: [], sources: &[MS_FN, MS_XLSX_FN, MS_XLFN, MS_WEBSERVICE, LO_HELP, GS_LIST, OO_CL, OO_SRC], safety: dangerous(Danger::Network);
-    "XOR" => E2013, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/xor-function"]);
+    "FORMULATEXT" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: unreviewed();
+    "GAMMA" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/gamma-function"]);
+    "GAUSS" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/gauss-function"]);
+    "IFNA" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/ifna-function"]);
+    "IMCOSH" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imcosh-function"]);
+    "IMCOT" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imcot-function"]);
+    "IMCSC" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imcsc-function"]);
+    "IMCSCH" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imcsch-function"]);
+    "IMSEC" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imsec-function"]);
+    "IMSECH" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imsech-function"]);
+    "IMSINH" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imsinh-function"]);
+    "IMTAN" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/imtan-function"]);
+    "ISFORMULA" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/isformula-function"]);
+    "ISO.CEILING" => E2013, prefix: Bare, requires: [], sources: S2013, safety: reviewed(&["ECMA-376-1:2016 §18.17.7.182"]);
+    "ISOWEEKNUM" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/isoweeknum-function"]);
+    "MUNIT" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/munit-function"]);
+    "NUMBERVALUE" => E2013.with_google_sheets(unk()), prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/numbervalue-function"]);
+    "PDURATION" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/pduration-function"]);
+    "PERMUTATIONA" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/permutationa-function"]);
+    "PHI" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/phi-function"]);
+    "RRI" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/rri-function"]);
+    "SEC" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/sec-function"]);
+    "SECH" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/sech-function"]);
+    "SHEET" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/sheet-function"]);
+    "SHEETS" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/sheets-function"]);
+    "SKEW.P" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/skew-p-function"]);
+    "UNICHAR" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/unichar-function"]);
+    "UNICODE" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/unicode-function"]);
+    "WEBSERVICE" => E2013.with_excel_mac(MAC_WINDOWS_ONLY).with_google_sheets(unk()), prefix: Xlfn, requires: [], sources: &[MS_FN, MS_XLSX_FN, MS_XLFN, MS_WEBSERVICE, LO_HELP, GS_LIST, OO_CL, OO_SRC], safety: dangerous(Danger::Network);
+    "XOR" => E2013, prefix: Xlfn, requires: [], sources: S2013, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/xor-function"]);
     // Excel 2016.
-    "FORECAST.ETS" => E2016, requires: [], sources: S2016, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/forecast-ets-function"]);
-    "FORECAST.ETS.CONFINT" => E2016, requires: [], sources: S2016, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/forecast-ets-confint-function"]);
-    "FORECAST.ETS.SEASONALITY" => E2016, requires: [], sources: S2016, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/forecast-ets-seasonality-function"]);
-    "FORECAST.ETS.STAT" => E2016, requires: [], sources: S2016, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/forecast-ets-stat-function"]);
-    "FORECAST.LINEAR" => E2016.with_google_sheets(YES), requires: [], sources: S2016, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/forecast-and-forecast-linear-functions"]);
+    // [MS-XLSX] 2.2.2's grammar lists FORECAST.ETS, FORECAST.ETS.CONFINT, FORECAST.ETS.SEASONALITY,
+    // FORECAST.ETS.STAT and FORECAST.LINEAR outside its `_xlfn.` group; 2.2.3 lists them with
+    // `_xlfn.`, and the rows follow 2.2.3.
+    "FORECAST.ETS" => E2016, prefix: Xlfn, requires: [], sources: S2016, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/forecast-ets-function"]);
+    "FORECAST.ETS.CONFINT" => E2016, prefix: Xlfn, requires: [], sources: S2016, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/forecast-ets-confint-function"]);
+    "FORECAST.ETS.SEASONALITY" => E2016, prefix: Xlfn, requires: [], sources: S2016, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/forecast-ets-seasonality-function"]);
+    "FORECAST.ETS.STAT" => E2016, prefix: Xlfn, requires: [], sources: S2016, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/forecast-ets-stat-function"]);
+    "FORECAST.LINEAR" => E2016.with_google_sheets(YES), prefix: Xlfn, requires: [], sources: S2016, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/forecast-and-forecast-linear-functions"]);
     // Excel 2019.
-    "CONCAT" => s(xl(X::V2019), xl(M::V2019), on(L::V24_2), YES, le(N::V14_4), le(O::V10_0)), requires: [], sources: S2019, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/concat-function"]);
-    "IFS" => s(xl(X::V2019), xl(M::V2019), on(L::V24_2), YES, unk(), le(O::V10_0)), requires: [], sources: S2019, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/ifs-function"]);
-    "MAXIFS" => s(xl(X::V2019), xl(M::V2019), on(L::V24_2), YES, unk(), le(O::V10_0)), requires: [], sources: S2019, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/maxifs-function"]);
-    "MINIFS" => s(xl(X::V2019), xl(M::V2019), on(L::V24_2), YES, unk(), le(O::V10_0)), requires: [], sources: S2019, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/minifs-function"]);
-    "SWITCH" => s(xl(X::V2019).note(SWITCH_2016), xl(M::V2019), on(L::V24_2), YES, le(N::V14_4), on(O::V8_0)), requires: [], sources: &[MS_FN, MS_SWITCH, MS_XLSX_FN, MS_XLFN, LO_HELP, GS_LIST, NUM_FEATURES, OO_CL], safety: reviewed(&[MS_SWITCH]);
-    "TEXTJOIN" => s(xl(X::V2019), xl(M::V2019), on(L::V24_2), YES, le(N::V14_4), on(O::V8_0)), requires: [], sources: S2019, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/textjoin-function"]);
+    // [MS-XLSX] 2.2.2's grammar lists CONCAT, IFS, MAXIFS, MINIFS, SWITCH and TEXTJOIN among the
+    // functions written without a prefix; 2.2.3 lists them with `_xlfn.`, and the row follows 2.2.3.
+    "CONCAT" => s(xl(X::V2019), xl(M::V2019), on(L::V24_2), YES, le(N::V14_4), le(O::V10_0)), prefix: Xlfn, requires: [], sources: S2019, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/concat-function"]);
+    "IFS" => s(xl(X::V2019), xl(M::V2019), on(L::V24_2), YES, unk(), le(O::V10_0)), prefix: Xlfn, requires: [], sources: S2019, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/ifs-function"]);
+    "MAXIFS" => s(xl(X::V2019), xl(M::V2019), on(L::V24_2), YES, unk(), le(O::V10_0)), prefix: Xlfn, requires: [], sources: S2019, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/maxifs-function"]);
+    "MINIFS" => s(xl(X::V2019), xl(M::V2019), on(L::V24_2), YES, unk(), le(O::V10_0)), prefix: Xlfn, requires: [], sources: S2019, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/minifs-function"]);
+    "SWITCH" => s(xl(X::V2019).note(SWITCH_2016), xl(M::V2019), on(L::V24_2), YES, le(N::V14_4), on(O::V8_0)), prefix: Xlfn, requires: [], sources: &[MS_FN, MS_SWITCH, MS_XLSX_FN, MS_XLFN, LO_HELP, GS_LIST, NUM_FEATURES, OO_CL], safety: reviewed(&[MS_SWITCH]);
+    "TEXTJOIN" => s(xl(X::V2019), xl(M::V2019), on(L::V24_2), YES, le(N::V14_4), on(O::V8_0)), prefix: Xlfn, requires: [], sources: S2019, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/textjoin-function"]);
     // Excel 2021.
-    "ARRAYTOTEXT" => s(xl(X::V2021), xl(M::V2021), unk(), unk(), unk(), on(O::V8_0)), requires: [], sources: &[MS_FN, MS_NEW_2021, MS_XLFN, OO_CL], safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/arraytotext-function"]);
-    "FILTER" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, on(N::V14_4), on(O::V8_0)), requires: [DynamicArray], sources: S2021, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/filter-function"]);
-    "LET" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, on(N::V14_4), unk()), requires: [], sources: S2021, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/let-function"]);
-    "RANDARRAY" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, unk(), on(O::V8_0)), requires: [DynamicArray], sources: S2021, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/randarray-function"]);
-    "SEQUENCE" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, unk(), on(O::V8_0)), requires: [DynamicArray], sources: S2021, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/sequence-function"]);
-    "SORT" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, on(N::V14_4), on(O::V8_0)), requires: [DynamicArray], sources: S2021, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/sort-function"]);
-    "SORTBY" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), unk(), unk(), le(O::V10_0)), requires: [DynamicArray], sources: S2021, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/sortby-function"]);
-    "UNIQUE" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, on(N::V14_4), on(O::V8_0)), requires: [DynamicArray], sources: S2021, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/unique-function"]);
-    "VALUETOTEXT" => s(xl(X::V2021), xl(M::V2021), unk(), unk(), unk(), unk()), requires: [], sources: &[MS_FN, MS_NEW_2021, MS_XLFN], safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/valuetotext-function"]);
-    "XLOOKUP" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, le(N::V14_4).note(NUMBERS_ICLOUD), on(O::V8_0)), requires: [], sources: &[MS_FN, MS_NEW_2021, MS_XLSX_FN, MS_XLFN, LO_HELP, GS_LIST, NUM_ICLOUD, NUM_XLOOKUP, OO_CL], safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/xlookup-function"]);
-    "XMATCH" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, le(N::V14_4).note(NUMBERS_ICLOUD), on(O::V8_0)), requires: [], sources: &[MS_FN, MS_NEW_2021, MS_XLFN, LO_HELP, GS_XMATCH, NUM_ICLOUD, NUM_XMATCH, OO_CL], safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/xmatch-function"]);
+    // [MS-XLSX] 2.2.3 does not list it.
+    "ARRAYTOTEXT" => s(xl(X::V2021), xl(M::V2021), unk(), unk(), unk(), on(O::V8_0)), prefix: Unknown, requires: [], sources: &[MS_FN, MS_NEW_2021, MS_XLFN, OO_CL], safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/arraytotext-function"]);
+    "FILTER" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, on(N::V14_4), on(O::V8_0)), prefix: XlfnXlws, requires: [DynamicArray], sources: S2021, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/filter-function"]);
+    "LET" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, on(N::V14_4), unk()), prefix: Xlfn, requires: [], sources: S2021, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/let-function"]);
+    "RANDARRAY" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, unk(), on(O::V8_0)), prefix: Xlfn, requires: [DynamicArray], sources: S2021, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/randarray-function"]);
+    "SEQUENCE" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, unk(), on(O::V8_0)), prefix: Xlfn, requires: [DynamicArray], sources: S2021, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/sequence-function"]);
+    "SORT" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, on(N::V14_4), on(O::V8_0)), prefix: XlfnXlws, requires: [DynamicArray], sources: S2021, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/sort-function"]);
+    "SORTBY" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), unk(), unk(), le(O::V10_0)), prefix: Xlfn, requires: [DynamicArray], sources: S2021, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/sortby-function"]);
+    "UNIQUE" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, on(N::V14_4), on(O::V8_0)), prefix: Xlfn, requires: [DynamicArray], sources: S2021, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/unique-function"]);
+    // [MS-XLSX] 2.2.3 does not list it.
+    "VALUETOTEXT" => s(xl(X::V2021), xl(M::V2021), unk(), unk(), unk(), unk()), prefix: Unknown, requires: [], sources: &[MS_FN, MS_NEW_2021, MS_XLFN], safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/valuetotext-function"]);
+    "XLOOKUP" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, le(N::V14_4).note(NUMBERS_ICLOUD), on(O::V8_0)), prefix: Xlfn, requires: [], sources: &[MS_FN, MS_NEW_2021, MS_XLSX_FN, MS_XLFN, LO_HELP, GS_LIST, NUM_ICLOUD, NUM_XLOOKUP, OO_CL], safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/xlookup-function"]);
+    // [MS-XLSX] 2.2.3 does not list it.
+    "XMATCH" => s(xl(X::V2021), xl(M::V2021), on(L::V24_8), YES, le(N::V14_4).note(NUMBERS_ICLOUD), on(O::V8_0)), prefix: Unknown, requires: [], sources: &[MS_FN, MS_NEW_2021, MS_XLFN, LO_HELP, GS_XMATCH, NUM_ICLOUD, NUM_XMATCH, OO_CL], safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/xmatch-function"]);
     // Excel 2024.
-    "BYCOL" => E2024_LAMBDA, requires: [DynamicArray], sources: S2024_LAMBDA, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/bycol-function"]);
-    "BYROW" => E2024_LAMBDA, requires: [DynamicArray], sources: S2024_LAMBDA, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/byrow-function"]);
-    "CHOOSECOLS" => E2024_ARRAY, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/choosecols-function"]);
-    "CHOOSEROWS" => E2024_ARRAY, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/chooserows-function"]);
-    "DROP" => E2024_ARRAY.with_google_sheets(unk()), requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/drop-function"]);
-    "EXPAND" => E2024_ARRAY.with_google_sheets(unk()), requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/expand-function"]);
-    "HSTACK" => E2024_ARRAY, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/hstack-function"]);
-    "IMAGE" => s(xl(X::V2024), xl(M::V2024), no(), YES.partial("its arguments differ from Excel's"), unk(), unk()), requires: [], sources: &[MS_FN, MS_IMAGE, MS_NEW_2024, MS_XLFN, LO_HELP, GS_LIST], safety: dangerous(Danger::Network);
-    "ISOMITTED" => s(xl(X::V2024), xl(M::V2024), unk(), unk(), unk(), unk()), requires: [], sources: &[MS_FN, MS_NEW_2024, MS_XLFN], safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/isomitted-function"]);
-    "LAMBDA" => E2024_LAMBDA.with_libreoffice(no().note("a workbook with LAMBDA is reported to show Err:508")).with_numbers(on(N::V14_4)), requires: [], sources: S2024_LAMBDA, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/lambda-function"]);
-    "MAKEARRAY" => E2024_LAMBDA, requires: [DynamicArray], sources: S2024_LAMBDA, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/makearray-function"]);
-    "MAP" => E2024_LAMBDA, requires: [DynamicArray], sources: S2024_LAMBDA, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/map-function"]);
-    "REDUCE" => E2024_LAMBDA, requires: [], sources: S2024_LAMBDA, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/reduce-function"]);
-    "SCAN" => E2024_LAMBDA, requires: [DynamicArray], sources: S2024_LAMBDA, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/scan-function"]);
-    "TAKE" => E2024_ARRAY.with_google_sheets(unk()), requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/take-function"]);
-    "TEXTAFTER" => E2024_ARRAY.with_google_sheets(unk()), requires: [], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/textafter-function"]);
-    "TEXTBEFORE" => E2024_ARRAY.with_google_sheets(unk()), requires: [], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/textbefore-function"]);
-    "TEXTSPLIT" => E2024_ARRAY.with_google_sheets(unk()), requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/textsplit-function"]);
-    "TOCOL" => E2024_ARRAY, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/tocol-function"]);
-    "TOROW" => E2024_ARRAY, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/torow-function"]);
-    "VSTACK" => E2024_ARRAY, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/vstack-function"]);
-    "WRAPCOLS" => E2024_ARRAY, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/wrapcols-function"]);
-    "WRAPROWS" => E2024_ARRAY, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/wraprows-function"]);
+    "BYCOL" => E2024_LAMBDA, prefix: Xlfn, requires: [DynamicArray], sources: S2024_LAMBDA, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/bycol-function"]);
+    "BYROW" => E2024_LAMBDA, prefix: Xlfn, requires: [DynamicArray], sources: S2024_LAMBDA, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/byrow-function"]);
+    "CHOOSECOLS" => E2024_ARRAY, prefix: Xlfn, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/choosecols-function"]);
+    "CHOOSEROWS" => E2024_ARRAY, prefix: Xlfn, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/chooserows-function"]);
+    "DROP" => E2024_ARRAY.with_google_sheets(unk()), prefix: Xlfn, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/drop-function"]);
+    "EXPAND" => E2024_ARRAY.with_google_sheets(unk()), prefix: Xlfn, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/expand-function"]);
+    "HSTACK" => E2024_ARRAY, prefix: Xlfn, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/hstack-function"]);
+    // [MS-XLSX] 2.2.3 does not list it.
+    "IMAGE" => s(xl(X::V2024), xl(M::V2024), no(), YES.partial("its arguments differ from Excel's"), unk(), unk()), prefix: Unknown, requires: [], sources: &[MS_FN, MS_IMAGE, MS_NEW_2024, MS_XLFN, LO_HELP, GS_LIST], safety: dangerous(Danger::Network);
+    "ISOMITTED" => s(xl(X::V2024), xl(M::V2024), unk(), unk(), unk(), unk()), prefix: Xlfn, requires: [], sources: &[MS_FN, MS_NEW_2024, MS_XLSX_FN, MS_XLFN], safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/isomitted-function"]);
+    "LAMBDA" => E2024_LAMBDA.with_libreoffice(no().note("a workbook with LAMBDA is reported to show Err:508")).with_numbers(on(N::V14_4)), prefix: Xlfn, requires: [], sources: S2024_LAMBDA, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/lambda-function"]);
+    "MAKEARRAY" => E2024_LAMBDA, prefix: Xlfn, requires: [DynamicArray], sources: S2024_LAMBDA, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/makearray-function"]);
+    "MAP" => E2024_LAMBDA, prefix: Xlfn, requires: [DynamicArray], sources: S2024_LAMBDA, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/map-function"]);
+    "REDUCE" => E2024_LAMBDA, prefix: Xlfn, requires: [], sources: S2024_LAMBDA, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/reduce-function"]);
+    "SCAN" => E2024_LAMBDA, prefix: Xlfn, requires: [DynamicArray], sources: S2024_LAMBDA, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/scan-function"]);
+    "TAKE" => E2024_ARRAY.with_google_sheets(unk()), prefix: Xlfn, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/take-function"]);
+    "TEXTAFTER" => E2024_ARRAY.with_google_sheets(unk()), prefix: Xlfn, requires: [], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/textafter-function"]);
+    "TEXTBEFORE" => E2024_ARRAY.with_google_sheets(unk()), prefix: Xlfn, requires: [], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/textbefore-function"]);
+    "TEXTSPLIT" => E2024_ARRAY.with_google_sheets(unk()), prefix: Xlfn, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/textsplit-function"]);
+    "TOCOL" => E2024_ARRAY, prefix: Xlfn, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/tocol-function"]);
+    "TOROW" => E2024_ARRAY, prefix: Xlfn, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/torow-function"]);
+    "VSTACK" => E2024_ARRAY, prefix: Xlfn, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/vstack-function"]);
+    "WRAPCOLS" => E2024_ARRAY, prefix: Xlfn, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/wrapcols-function"]);
+    "WRAPROWS" => E2024_ARRAY, prefix: Xlfn, requires: [DynamicArray], sources: S2024, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/wraprows-function"]);
     // Microsoft 365 only.
-    "DETECTLANGUAGE" => E365_ONLY.with_google_sheets(YES.note("a function of the name is in the list; its results were not compared with Excel's")), requires: [], sources: &[MS_FN, MS_XLFN, GS_LIST], safety: dangerous(Danger::Network);
+    // [MS-XLSX] 2.2.3 does not list it.
+    "DETECTLANGUAGE" => E365_ONLY.with_google_sheets(YES.note("a function of the name is in the list; its results were not compared with Excel's")), prefix: Unknown, requires: [], sources: &[MS_FN, MS_XLFN, GS_LIST], safety: dangerous(Danger::Network);
     // Unreviewed: it returns a field of a linked data type (Stocks, Geography),
     // as its page says (https://support.microsoft.com/en-us/excel/functions/fieldvalue-function);
     // the page does not say whether Excel fetches the field from the online
     // source of the linked data type when it computes the formula.
-    "FIELDVALUE" => E365_ONLY.with_excel_mac(unk()), requires: [], sources: &[MS_FN, MS_XLSX_FN, MS_XLFN], safety: unreviewed();
-    "GROUPBY" => E365, requires: [DynamicArray], sources: S365, safety: reviewed(&[MS_GROUPBY]);
-    "PERCENTOF" => E365, requires: [], sources: S365, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/percentof-function"]);
-    "PIVOTBY" => E365, requires: [DynamicArray], sources: S365, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/pivotby-function"]);
-    "PY" => E365_ONLY.with_excel_mac(unk()), requires: [], sources: &[MS_FN, MS_XLSX_FN, MS_XLFN], safety: dangerous(Danger::Network);
-    "REGEXEXTRACT" => E365.with_libreoffice(LO_OWN_REGEX).with_google_sheets(GS_REGEX).with_onlyoffice(on(O::V9_3)), requires: [], sources: S365_REGEX, safety: reviewed(&[MS_REGEXEXTRACT]);
-    "REGEXREPLACE" => E365.with_libreoffice(LO_OWN_REGEX).with_google_sheets(GS_REGEX).with_onlyoffice(on(O::V9_3)), requires: [], sources: S365_REGEX, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/regexreplace-function"]);
-    "REGEXTEST" => E365.with_libreoffice(LO_OWN_REGEX).with_onlyoffice(on(O::V9_3)), requires: [], sources: S365_REGEX, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/regextest-function"]);
-    "STOCKHISTORY" => E365_ONLY, requires: [DynamicArray], sources: &[MS_FN, MS_XLFN], safety: dangerous(Danger::Network);
-    "TRANSLATE" => E365_ONLY, requires: [], sources: &[MS_FN, MS_XLFN], safety: dangerous(Danger::Network);
-    "TRIMRANGE" => E365, requires: [DynamicArray], sources: S365, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/trimrange-function"]);
+    "FIELDVALUE" => E365_ONLY.with_excel_mac(unk()), prefix: Xlfn, requires: [], sources: &[MS_FN, MS_XLSX_FN, MS_XLFN], safety: unreviewed();
+    // [MS-XLSX] 2.2.3 does not list these 3 functions (through PIVOTBY).
+    "GROUPBY" => E365, prefix: Unknown, requires: [DynamicArray], sources: S365, safety: reviewed(&[MS_GROUPBY]);
+    "PERCENTOF" => E365, prefix: Unknown, requires: [], sources: S365, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/percentof-function"]);
+    "PIVOTBY" => E365, prefix: Unknown, requires: [DynamicArray], sources: S365, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/pivotby-function"]);
+    "PY" => E365_ONLY.with_excel_mac(unk()), prefix: XlfnXlws, requires: [], sources: &[MS_FN, MS_XLSX_FN, MS_XLFN], safety: dangerous(Danger::Network);
+    // [MS-XLSX] 2.2.3 does not list these 6 functions (through TRIMRANGE).
+    "REGEXEXTRACT" => E365.with_libreoffice(LO_OWN_REGEX).with_google_sheets(GS_REGEX).with_onlyoffice(on(O::V9_3)), prefix: Unknown, requires: [], sources: S365_REGEX, safety: reviewed(&[MS_REGEXEXTRACT]);
+    "REGEXREPLACE" => E365.with_libreoffice(LO_OWN_REGEX).with_google_sheets(GS_REGEX).with_onlyoffice(on(O::V9_3)), prefix: Unknown, requires: [], sources: S365_REGEX, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/regexreplace-function"]);
+    "REGEXTEST" => E365.with_libreoffice(LO_OWN_REGEX).with_onlyoffice(on(O::V9_3)), prefix: Unknown, requires: [], sources: S365_REGEX, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/regextest-function"]);
+    "STOCKHISTORY" => E365_ONLY, prefix: Unknown, requires: [DynamicArray], sources: &[MS_FN, MS_XLFN], safety: dangerous(Danger::Network);
+    "TRANSLATE" => E365_ONLY, prefix: Unknown, requires: [], sources: &[MS_FN, MS_XLFN], safety: dangerous(Danger::Network);
+    "TRIMRANGE" => E365, prefix: Unknown, requires: [DynamicArray], sources: S365, safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/trimrange-function"]);
     unchecked {
         // The functions of ECMA-376-1:2016 §18.17.7 in its order, but for
         // ISO.CEILING, NETWORKDAYS.INTL and WORKDAY.INTL, which Excel added
@@ -767,17 +786,22 @@ functions! {
         "YIELDDISC" => safety: reviewed(&["ECMA-376-1:2016 §18.17.7.354"]);
         "YIELDMAT" => safety: reviewed(&["ECMA-376-1:2016 §18.17.7.355"]);
         "ZTEST" => safety: reviewed(&["ECMA-376-1:2016 §18.17.7.356"]);
+    }
+    undefined {
         // Not in ECMA-376. Their support columns are not filled. ANCHORARRAY
         // and SINGLE are the functions Excel writes for a spilled range
         // (`J1#` is saved as `_xlfn.ANCHORARRAY(J1)`) and for `@` in a
         // formula that also spills (`=A1:A10+@A1:A10` is saved with
         // `_xlfn.SINGLE(A1:A10)`, as the page on the implicit intersection
         // operator says); the dynamic_array feature's row covers their
-        // versions. CALL and REGISTER.ID are older than every
-        // version the table lists. COPILOT
-        // was a preview function of Excel for Microsoft 365, which removed
-        // it on 2026-09-14, as COPILOT's page says; a workbook saved before
-        // that day may still call it, and verify is to deny it.
+        // versions. CALL and REGISTER.ID are older than every version the
+        // table lists. COPILOT was a preview function of Excel for Microsoft
+        // 365, which removed it on 2026-09-14, as COPILOT's page says; a
+        // workbook saved before that day may still call it, and verify
+        // denies it. `look_up` gives every function of this block
+        // `Prefix::Unknown`, because [MS-XLSX] 2.2.3 does not list them;
+        // ANCHORARRAY and SINGLE get it too, although Excel saves them after
+        // `_xlfn.`.
 
         // Neither a specification nor a page at Microsoft that defines
         // ANCHORARRAY was found on REVIEWED_ON. That Excel saves the spilled

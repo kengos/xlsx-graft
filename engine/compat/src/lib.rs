@@ -10,12 +10,18 @@
 //! was read from. [`Entry::at`] answers for one version: [`Status`]
 //! supported, unsupported, or unverified when no source says.
 //!
+//! A row's [`Prefix`] is how Excel writes the function's name in a file.
+//! [`look_up`] takes a name as a formula writes it, with its `_xlfn.` and
+//! `_xlws.` prefixes, and says what the table knows of it ([`Known`]): a row
+//! of versions, a safety without a row of versions
+//! ([`Known::Baseline`]), or nothing.
+//!
 //! [`function`] looks a function up by its name without the `_xlfn.` or
 //! `_xlws.` prefix. The table checks the functions Excel 2010 and later
-//! added against a template's targets, all but ANCHORARRAY, SINGLE and
-//! COPILOT; it has no [`Row`] yet for one
-//! Excel 2007 already had, and says nothing about which versions support
-//! it. [`Feature::row`] gives a feature's row.
+//! added against a template's targets. It has no [`Row`] for ANCHORARRAY,
+//! SINGLE, CALL, COPILOT and REGISTER.ID, which ECMA-376 does not define,
+//! nor yet for a function Excel 2007 already had, and says nothing about
+//! which versions support them. [`Feature::row`] gives a feature's row.
 //!
 //! [`function_safety`] gives the [`Safety`] of every function the table
 //! lists, including those Excel 2007 had: reviewed safe
@@ -49,6 +55,8 @@
 
 mod app;
 mod entry;
+mod lookup;
+mod prefix;
 mod row;
 mod safety;
 mod table;
@@ -56,6 +64,8 @@ mod targets;
 
 pub use app::{App, Excel, ExcelMac, GoogleSheets, LibreOffice, Numbers, OnlyOffice, Version};
 pub use entry::{Added, Entry, Fallback, Status};
+pub use lookup::{Baseline, ECMA_FUNCTIONS, Known, Lookup, look_up, unprefixed};
+pub use prefix::Prefix;
 pub use row::{Row, Support};
 pub use safety::{Danger, Dangerous, Review, Safe, Safety, SafetyRow, Scheduled};
 pub use table::Feature;
@@ -71,9 +81,9 @@ pub fn functions() -> &'static [Row] {
 }
 
 /// The row of the function `name`, written without its `_xlfn.` or
-/// `_xlws.` prefix, in any case; `None` when the table has no row for it:
-/// a function Excel 2007 already had, or a name no application here
-/// knows.
+/// `_xlws.` prefix, in any case; `None` for a function the table gives a
+/// safety but no row of versions (see [`look_up`]'s [`Known::Baseline`]),
+/// and for a name the table does not list.
 #[must_use]
 pub fn function(name: &str) -> Option<&'static Row> {
     /// The rows by name, built at the first look-up: a workbook's formulas

@@ -3,6 +3,7 @@
 
 use crate::app::{Excel, ExcelMac, GoogleSheets, LibreOffice, Numbers, OnlyOffice};
 use crate::entry::Entry;
+use crate::prefix::Prefix;
 use crate::table::Feature;
 
 /// One function or feature.
@@ -13,6 +14,10 @@ pub struct Row {
     /// prefix (`XLOOKUP`, `FILTER`), or a feature's name
     /// ([`Feature::as_str`]).
     pub name: &'static str,
+    /// How Excel writes a function's name in a file, per [MS-XLSX] 2.2.3
+    /// Functions. A feature's row, which no formula names, has
+    /// [`Prefix::Bare`].
+    pub prefix: Prefix,
     /// How each application supports it.
     pub support: Support,
     /// The features it needs as well: an application that lacks one of

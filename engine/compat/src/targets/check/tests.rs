@@ -5,6 +5,7 @@
 use super::Unmet;
 use super::wire::{app, fallback};
 use crate::entry::Entry;
+use crate::prefix::Prefix;
 use crate::row::{Row, Support};
 use crate::{
     App, Excel, ExcelMac, Fallback, Feature, GoogleSheets, LibreOffice, Numbers, OnlyOffice,
@@ -109,6 +110,7 @@ fn a_feature_the_function_needs_counts_where_the_function_is_there() {
 fn a_feature_gives_its_fallback_when_the_function_itself_is_everywhere() {
     static ROW: Row = Row {
         name: "ANYWHERE",
+        prefix: Prefix::Bare,
         support: Support::new(
             Entry::added(Excel::V2007),
             Entry::added(ExcelMac::V2016),
@@ -187,6 +189,7 @@ fn every_application_keeps_its_name_in_the_diagnostic() {
 fn a_function_not_there_itself_gives_its_own_fallback() {
     static ROW: Row = Row {
         name: "UNDATED",
+        prefix: Prefix::Bare,
         support: Support::new(
             Entry::between(Excel::V2007, Excel::V2016),
             Entry::added(ExcelMac::V2016),

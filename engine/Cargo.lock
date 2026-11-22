@@ -854,6 +854,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror",
+ "xlsx-graft-compat",
  "xlsx-graft-diagnostics",
  "xlsx-graft-package",
  "xlsx-graft-read",

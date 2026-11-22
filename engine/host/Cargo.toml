@@ -7,6 +7,8 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+# The compatibility table `describe_function` reads.
+xlsx-graft-compat = { workspace = true }
 # The policy, the rules and the result are JSON.
 serde = { workspace = true }
 serde_json = { workspace = true }

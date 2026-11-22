@@ -6,19 +6,24 @@
 //!
 //! ```text
 //! "TEXTJOIN" => s(xl(X::V2019), xl(M::V2019), on(L::V24_2), YES, le(N::V14_4), on(O::V8_0)),
-//!     requires: [], sources: S2019,
+//!     prefix: Xlfn, requires: [], sources: S2019,
 //!     safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/textjoin-function"]);
 //! ```
 //!
 //! The six cells are the columns of [`Support`] in order, each typed by its
-//! application's versions. `safety:` is the function's [`Safety`]:
+//! application's versions. `prefix:` is a [`crate::Prefix`] variant: how
+//! Excel writes the function's name in a file (`Xlfn` for
+//! `_xlfn.TEXTJOIN`). `safety:` is the function's [`Safety`]:
 //! `reviewed(&["ECMA-376-1:2016 §18.17.7.306"])` (the sources read on
-//! [`REVIEWED_ON`]), `safe(review)` for a review whose day or Excel differs from
-//! [`REVIEWED_ON`] / [`REVIEWED_IN`],
+//! [`REVIEWED_ON`]), `safe(review)` for a review whose day or Excel differs
+//! from [`REVIEWED_ON`] / [`REVIEWED_IN`],
 //! `dangerous(Danger::Network)` or `unreviewed()`. A function the table
 //! does not check against a template's targets yet goes in the
-//! `unchecked { ... }` block at the end, with its safety only:
+//! `unchecked { ... }` block after the rows, with its safety only:
 //! `"SUM" => safety: reviewed(&["ECMA-376-1:2016 §18.17.7.306"]);`. A
+//! function the table lists for its safety that ECMA-376-1:2016 §18.17.7
+//! does not define (ANCHORARRAY, SINGLE, CALL, COPILOT, REGISTER.ID) goes in
+//! the `undefined { ... }` block after that, written the same way. A
 //! feature's row starts with its variant and its name instead:
 //! `DynamicArray "dynamic_array" => s(...), requires: [], sources: &[...];`,
 //! and the rows declare [`Feature`] itself.
@@ -29,11 +34,13 @@ use crate::row::Support;
 use crate::safety::{Danger, Dangerous, Review, Safe, Safety};
 
 /// Expands the function rows into the `FUNCTIONS` slice, and every
-/// function's safety, the `unchecked` block's included, into `SAFETY`.
+/// function's safety, the `unchecked` and `undefined` blocks' included, into
+/// `SAFETY`, and the names of the `undefined` block into `UNDEFINED`.
 macro_rules! functions {
     (
         $(
             $name:literal => $support:expr,
+                prefix: $prefix:ident,
                 requires: [$($requires:ident),* $(,)?],
                 sources: $sources:expr,
                 safety: $safety:expr;
@@ -41,12 +48,16 @@ macro_rules! functions {
         unchecked {
             $( $unchecked:literal => safety: $unchecked_safety:expr; )*
         }
+        undefined {
+            $( $undefined:literal => safety: $undefined_safety:expr; )*
+        }
     ) => {
         /// Every function the table checks against a template's targets,
         /// in the table's order.
         pub(crate) static FUNCTIONS: &[Row] = &[$(
             Row {
                 name: $name,
+                prefix: $crate::Prefix::$prefix,
                 support: $support,
                 requires: &[$(Feature::$requires),*],
                 sources: $sources,
@@ -54,11 +65,18 @@ macro_rules! functions {
         )*];
 
         /// Every function's safety: those of `FUNCTIONS` in its order,
-        /// then those of the `unchecked` block.
+        /// then those of the `unchecked` block, then those of the
+        /// `undefined` block.
         pub(crate) static SAFETY: &[SafetyRow] = &[
             $( SafetyRow { name: $name, safety: $safety }, )*
             $( SafetyRow { name: $unchecked, safety: $unchecked_safety }, )*
+            $( SafetyRow { name: $undefined, safety: $undefined_safety }, )*
         ];
+
+        /// The names of the `undefined` block: the functions the table
+        /// lists for their safety that ECMA-376-1:2016 §18.17.7 does not
+        /// define.
+        pub(crate) static UNDEFINED: &[&str] = &[ $( $undefined, )* ];
     };
 }
 
@@ -93,6 +111,7 @@ macro_rules! features {
                 match self { $( Feature::$variant => {
                     static ROW: Row = Row {
                         name: $name,
+                        prefix: $crate::Prefix::Bare,
                         support: $support,
                         requires: &[$(Feature::$requires),*],
                         sources: $sources,
@@ -110,7 +129,7 @@ mod functions;
 mod sources;
 
 pub use features::Feature;
-pub(crate) use functions::{FUNCTIONS, SAFETY};
+pub(crate) use functions::{FUNCTIONS, SAFETY, UNDEFINED};
 
 /// A row's six cells, in column order.
 const fn s(
