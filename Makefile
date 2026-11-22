@@ -296,7 +296,7 @@ endif
 # Nothing fails when step 2 is forgotten: the pins above would then name an
 # image nobody runs.
 # Afterwards `make docker:clean:images` drops the previous image locally.
-RUST_VERSION     := 1.99.0
+RUST_VERSION     := 1.100.0
 LLVM_COV_VERSION := 0.9.1
 # cargo-about writes the license list of the dependencies, cargo-deny checks
 # their licenses. The image installs each upstream release binary, checked
