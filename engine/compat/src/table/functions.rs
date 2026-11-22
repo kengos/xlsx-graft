@@ -7,11 +7,11 @@
 //!
 //! A function ECMA-376-1:2016 §18.17.7 defines that has no row in
 //! `FUNCTIONS`, such as `SUM` and `IFERROR`, which Excel 2007 already had,
-//! is in the `unchecked` block at the end with its safety only: the table
+//! is in the `unchecked` block after the rows with its safety only: the table
 //! does not check it against a template's targets yet, and
 //! [`crate::function`] gives no row for it. ANCHORARRAY, SINGLE, CALL,
 //! REGISTER.ID and COPILOT, which ECMA-376 does not define, are in the
-//! `unchecked` block too.
+//! `undefined` block after it, also with their safety only.
 //!
 //! The dangerous functions are those that use the network (WEBSERVICE,
 //! IMAGE, STOCKHISTORY, TRANSLATE, DETECTLANGUAGE, PY, COPILOT), read a
@@ -786,17 +786,22 @@ functions! {
         "YIELDDISC" => safety: reviewed(&["ECMA-376-1:2016 §18.17.7.354"]);
         "YIELDMAT" => safety: reviewed(&["ECMA-376-1:2016 §18.17.7.355"]);
         "ZTEST" => safety: reviewed(&["ECMA-376-1:2016 §18.17.7.356"]);
+    }
+    undefined {
         // Not in ECMA-376. Their support columns are not filled. ANCHORARRAY
         // and SINGLE are the functions Excel writes for a spilled range
         // (`J1#` is saved as `_xlfn.ANCHORARRAY(J1)`) and for `@` in a
         // formula that also spills (`=A1:A10+@A1:A10` is saved with
         // `_xlfn.SINGLE(A1:A10)`, as the page on the implicit intersection
         // operator says); the dynamic_array feature's row covers their
-        // versions. CALL and REGISTER.ID are older than every
-        // version the table lists. COPILOT
-        // was a preview function of Excel for Microsoft 365, which removed
-        // it on 2026-09-14, as COPILOT's page says; a workbook saved before
-        // that day may still call it, and verify is to deny it.
+        // versions. CALL and REGISTER.ID are older than every version the
+        // table lists. COPILOT was a preview function of Excel for Microsoft
+        // 365, which removed it on 2026-09-14, as COPILOT's page says; a
+        // workbook saved before that day may still call it, and verify
+        // denies it. `look_up` gives every function of this block
+        // `Prefix::Unknown`, because [MS-XLSX] 2.2.3 does not list them;
+        // ANCHORARRAY and SINGLE get it too, although Excel saves them after
+        // `_xlfn.`.
 
         // Neither a specification nor a page at Microsoft that defines
         // ANCHORARRAY was found on REVIEWED_ON. That Excel saves the spilled

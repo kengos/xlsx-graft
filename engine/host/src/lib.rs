@@ -43,7 +43,18 @@
 //! policy and no rules, and has the `ok`, `error` and `diagnostics` of a
 //! [`Report`], with the keys of what it shows after them. A view has no
 //! `failOn` and no `counts`; see [`View`] for what decides its `ok`.
+//!
+//! # Functions
+//!
+//! [`describe_function`] looks up a function by the name a formula writes
+//! (with or without `_xlfn.` and `_xlws.`, in any case) and gives the
+//! [`FunctionDescription`] of what the compatibility table says of it: its
+//! versions in each application, the features it needs, its safety and the
+//! sources. [`FunctionDescription::to_json`] writes the JSON each host
+//! returns and [`FunctionText`] the text a person reads. A name the table does
+//! not list is described as unknown, not as an error.
 
+mod function;
 mod input;
 mod open;
 mod policy;
@@ -59,6 +70,7 @@ mod value;
 mod view;
 mod walk;
 
+pub use function::{FunctionDescription, FunctionText, describe_function};
 pub use input::{Input, MAX_REQUEST_BYTES, MAX_SETTING_BYTES, read_setting};
 pub use policy::Policy;
 pub use policy::limits::{HostLimits, LIMITS, LimitKey, ReadOnlyLimits};

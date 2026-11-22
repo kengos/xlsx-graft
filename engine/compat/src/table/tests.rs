@@ -2,7 +2,7 @@
 //! the helpers its rows are written with.
 
 use super::sources::{MS_XLFN, MS_XLSX_FN};
-use super::{FUNCTIONS, Feature, YES, between, le, no, on, s, unk, xl};
+use super::{FUNCTIONS, Feature, UNDEFINED, YES, between, le, no, on, s, unk, xl};
 use crate::app::{Excel, ExcelMac, GoogleSheets, LibreOffice, Numbers, OnlyOffice, Version};
 use crate::entry::{Added, Entry, Fallback, Status};
 use crate::prefix::Prefix;
@@ -268,4 +268,12 @@ fn every_feature_row_is_bare() {
     for feature in Feature::ALL {
         assert_eq!(feature.row().prefix, Prefix::Bare, "{}", feature.as_str());
     }
+}
+
+#[test]
+fn the_undefined_block_names_the_five_functions_ecma_376_does_not_define() {
+    assert_eq!(
+        UNDEFINED,
+        ["ANCHORARRAY", "SINGLE", "CALL", "COPILOT", "REGISTER.ID"]
+    );
 }
