@@ -10,6 +10,7 @@
 //! name no tool themselves.
 
 mod arguments;
+mod describe_function;
 mod describe_sheet;
 mod reference;
 mod schema;
@@ -69,6 +70,7 @@ pub(crate) const TOOLS: &[Tool] = &[
     verify::TOOL,
     tree::TOOL,
     describe_sheet::TOOL,
+    describe_function::TOOL,
 ];
 
 /// The `tools/list` result.

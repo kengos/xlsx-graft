@@ -11,6 +11,7 @@
     reason = "a test binary: a panic is how a failing case reports"
 )]
 
+mod describe_function;
 mod describe_sheet;
 mod describe_sheet_failures;
 mod output;

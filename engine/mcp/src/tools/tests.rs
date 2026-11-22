@@ -3,6 +3,7 @@
 //! page are in the submodules.
 
 mod arguments;
+mod describe_function;
 mod describe_sheet;
 mod pages;
 mod reference;
