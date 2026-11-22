@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+# The gems `make bench:compare` measures against xlsx-graft. Their versions are
+# the ones in Gemfile.lock (`make bench:lock` writes it); the report names them.
+source "https://rubygems.org"
+
+gem "creek"
+gem "roo"
+gem "rubyXL"
+gem "simple_xlsx_reader"
+gem "xsv"
+
+# The Ruby SDK (sdk/ruby, loaded from the checkout) needs it, with the same
+# range as its gemspec.
+gem "fiddle", "~> 1.1"

@@ -62,19 +62,22 @@ fixtures\:scrub: ## Remove the account and organization names and the paths Exce
 	exec python3 -I scripts/fixtures-scrub "$$@"
 
 # fixtures:generate — writes into fixtures/generated/, which git ignores
-# (.gitignore), workbooks too large to commit, for the reader's tests and
-# benchmarks on large workbooks (none reads them yet): rows-100000.xlsx
-# and rows-1000000.xlsx, a header row and that many data rows each,
-# written by rust_xlsxwriter (engine/fixtures-gen, whose write_book says
-# what a workbook holds). Runs in the toolchain image
-# like the engine's gates, but is not a gate: it prints the release build's
-# output and the path of each workbook written, and proves nothing. A
-# workbook already there under the same name is replaced.
+# (.gitignore), workbooks too large to commit, for the reader's benchmarks
+# (`make bench:compare`, `make bench:cli`, bench/ruby/) and, later, tests on
+# large workbooks: rows-100000.xlsx, rows-1000000.xlsx, shared-100000.xlsx and
+# shared-1000000.xlsx, a header row and that many data rows each (a rows
+# book has its strings in its cells; a shared book has strings all
+# different, in the shared strings table), written by rust_xlsxwriter
+# (engine/fixtures-gen, whose write_rows_book and write_shared_book say
+# what a workbook holds). Runs in the toolchain image like the engine's
+# gates, but is not a gate: it prints the release build's output and the
+# path of each workbook written, and proves nothing. A workbook already
+# there under the same name is replaced.
 # scripts/check-fixtures.sh skips fixtures/generated/ and fails when git
 # tracks a file in it.
 
 .PHONY: fixtures\:generate
 
-fixtures\:generate: ## Write the large workbooks (100,000 and 1,000,000 rows) into fixtures/generated/ (gitignored) with engine/fixtures-gen
+fixtures\:generate: ## Write the large workbooks (rows and shared strings, 100,000 and 1,000,000 rows each) into fixtures/generated/ (gitignored) with engine/fixtures-gen
 	$(CARGO_IN_DOCKER) 'cd /repo && cargo run --manifest-path engine/Cargo.toml -p xlsx-graft-fixtures-gen \
 		--release --locked $(CARGO_JOBS) -- fixtures/generated'
