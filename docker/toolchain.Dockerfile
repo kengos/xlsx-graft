@@ -14,7 +14,7 @@
 # No crate of the workspace is built here: dependencies change with every
 # lockfile edit, and an image that went stale with them would be rebuilt for
 # nothing the toolchain cares about.
-ARG RUST_VERSION=1.99.0
+ARG RUST_VERSION=1.100.0
 FROM rust:${RUST_VERSION}-slim-bookworm
 
 ARG LLVM_COV_VERSION=0.9.1
