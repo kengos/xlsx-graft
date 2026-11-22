@@ -1,10 +1,11 @@
 //! Unit tests for the table's data: the checks every row must pass, and
 //! the helpers its rows are written with.
 
-use super::sources::MS_XLFN;
+use super::sources::{MS_XLFN, MS_XLSX_FN};
 use super::{FUNCTIONS, Feature, YES, between, le, no, on, s, unk, xl};
 use crate::app::{Excel, ExcelMac, GoogleSheets, LibreOffice, Numbers, OnlyOffice, Version};
 use crate::entry::{Added, Entry, Fallback, Status};
+use crate::prefix::Prefix;
 use crate::row::Row;
 use std::collections::HashSet;
 
@@ -233,4 +234,38 @@ fn the_helpers_build_the_cells_they_name() {
     assert_eq!(support.google_sheets, YES);
     assert_eq!(support.numbers, Entry::added(Numbers::V14_4));
     assert_eq!(support.onlyoffice, Entry::added(OnlyOffice::V9_3));
+}
+
+#[test]
+fn every_function_with_a_known_prefix_cites_ms_xlsx_functions() {
+    for row in FUNCTIONS {
+        if row.prefix != Prefix::Unknown {
+            assert!(row.sources.contains(&MS_XLSX_FN), "{}", row.name);
+        }
+    }
+}
+
+#[test]
+fn the_functions_prefixes_are_counted_by_kind() {
+    let count = |prefix| FUNCTIONS.iter().filter(|row| row.prefix == prefix).count();
+    assert_eq!(count(Prefix::Bare), 3);
+    assert_eq!(count(Prefix::Xlfn), 147);
+    assert_eq!(count(Prefix::XlfnXlws), 3);
+    assert_eq!(count(Prefix::Unknown), 15);
+}
+
+#[test]
+fn a_function_has_the_prefix_ms_xlsx_lists_for_it() {
+    let prefix = |name: &str| crate::function(name).map(|row| row.prefix);
+    assert_eq!(prefix("XLOOKUP"), Some(Prefix::Xlfn));
+    assert_eq!(prefix("SORT"), Some(Prefix::XlfnXlws));
+    assert_eq!(prefix("ISO.CEILING"), Some(Prefix::Bare));
+    assert_eq!(prefix("XMATCH"), Some(Prefix::Unknown));
+}
+
+#[test]
+fn every_feature_row_is_bare() {
+    for feature in Feature::ALL {
+        assert_eq!(feature.row().prefix, Prefix::Bare, "{}", feature.as_str());
+    }
 }

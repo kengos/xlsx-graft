@@ -6,15 +6,17 @@
 //!
 //! ```text
 //! "TEXTJOIN" => s(xl(X::V2019), xl(M::V2019), on(L::V24_2), YES, le(N::V14_4), on(O::V8_0)),
-//!     requires: [], sources: S2019,
+//!     prefix: Xlfn, requires: [], sources: S2019,
 //!     safety: reviewed(&["https://support.microsoft.com/en-us/excel/functions/textjoin-function"]);
 //! ```
 //!
 //! The six cells are the columns of [`Support`] in order, each typed by its
-//! application's versions. `safety:` is the function's [`Safety`]:
+//! application's versions. `prefix:` is a [`crate::Prefix`] variant: how
+//! Excel writes the function's name in a file (`Xlfn` for
+//! `_xlfn.TEXTJOIN`). `safety:` is the function's [`Safety`]:
 //! `reviewed(&["ECMA-376-1:2016 §18.17.7.306"])` (the sources read on
-//! [`REVIEWED_ON`]), `safe(review)` for a review whose day or Excel differs from
-//! [`REVIEWED_ON`] / [`REVIEWED_IN`],
+//! [`REVIEWED_ON`]), `safe(review)` for a review whose day or Excel differs
+//! from [`REVIEWED_ON`] / [`REVIEWED_IN`],
 //! `dangerous(Danger::Network)` or `unreviewed()`. A function the table
 //! does not check against a template's targets yet goes in the
 //! `unchecked { ... }` block at the end, with its safety only:
@@ -34,6 +36,7 @@ macro_rules! functions {
     (
         $(
             $name:literal => $support:expr,
+                prefix: $prefix:ident,
                 requires: [$($requires:ident),* $(,)?],
                 sources: $sources:expr,
                 safety: $safety:expr;
@@ -47,6 +50,7 @@ macro_rules! functions {
         pub(crate) static FUNCTIONS: &[Row] = &[$(
             Row {
                 name: $name,
+                prefix: $crate::Prefix::$prefix,
                 support: $support,
                 requires: &[$(Feature::$requires),*],
                 sources: $sources,
@@ -93,6 +97,7 @@ macro_rules! features {
                 match self { $( Feature::$variant => {
                     static ROW: Row = Row {
                         name: $name,
+                        prefix: $crate::Prefix::Bare,
                         support: $support,
                         requires: &[$(Feature::$requires),*],
                         sources: $sources,

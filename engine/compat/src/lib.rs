@@ -10,6 +10,8 @@
 //! was read from. [`Entry::at`] answers for one version: [`Status`]
 //! supported, unsupported, or unverified when no source says.
 //!
+//! A row's [`Prefix`] is how Excel writes the function's name in a file.
+//!
 //! [`function`] looks a function up by its name without the `_xlfn.` or
 //! `_xlws.` prefix. The table checks the functions Excel 2010 and later
 //! added against a template's targets, all but ANCHORARRAY, SINGLE and
@@ -49,6 +51,7 @@
 
 mod app;
 mod entry;
+mod prefix;
 mod row;
 mod safety;
 mod table;
@@ -56,6 +59,7 @@ mod targets;
 
 pub use app::{App, Excel, ExcelMac, GoogleSheets, LibreOffice, Numbers, OnlyOffice, Version};
 pub use entry::{Added, Entry, Fallback, Status};
+pub use prefix::Prefix;
 pub use row::{Row, Support};
 pub use safety::{Danger, Dangerous, Review, Safe, Safety, SafetyRow, Scheduled};
 pub use table::Feature;
