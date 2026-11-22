@@ -74,6 +74,13 @@ pub fn describe_function(name: &str) -> FunctionDescription {
 }
 
 impl FunctionDescription {
+    /// The function's name as the JSON's `name` gives it: without a leading
+    /// `_xlfn.` or `_xlws.`, in upper case.
+    #[must_use]
+    pub fn name(&self) -> &str {
+        self.0.name.as_str()
+    }
+
     /// The description as the JSON every host prints, in one line.
     ///
     /// # Errors

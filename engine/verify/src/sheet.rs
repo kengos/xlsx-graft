@@ -105,9 +105,10 @@ pub(crate) struct SheetCheck<'a> {
     root: Option<&'static str>,
     /// Whether the root was read.
     rooted: bool,
-    frames: Vec<Frame>,
-    /// How many elements deep the walk is inside one passed over.
-    skipped: u64,
+    /// The elements open: `None` for an element the checks pass over and
+    /// for every element nested in such an element; its length is bounded
+    /// by the XML reader's `max_depth`.
+    frames: Vec<Option<Frame>>,
     place: Place,
     cell: Cell,
     merges: Merges,
@@ -135,7 +136,6 @@ impl<'a> SheetCheck<'a> {
             root: None,
             rooted: false,
             frames: Vec::new(),
-            skipped: 0,
             place: Place::default(),
             cell: Cell::default(),
             merges: Merges::new(max_merged_cells),
@@ -155,10 +155,6 @@ impl<'a> SheetCheck<'a> {
         opened: bool,
         id: impl FnOnce() -> Option<String>,
     ) {
-        if self.skipped > 0 {
-            self.skipped = self.skipped.saturating_add(u64::from(opened));
-            return;
-        }
         let namespace = match resolved {
             ResolveResult::Bound(Namespace(ns)) => SPREADSHEETML.into_iter().find(|&n| n == *ns),
             _ => None,
@@ -168,24 +164,23 @@ impl<'a> SheetCheck<'a> {
                 self.root = namespace;
                 Some(Frame::Worksheet)
             }
-            Some(&frame) if namespace.is_some() && namespace == self.root => {
+            Some(&Some(frame)) if namespace.is_some() && namespace == self.root => {
                 self.child(frame, local, start, id)
             }
             _ => None,
         };
         self.rooted = true;
         match frame {
-            Some(frame) if opened => self.frames.push(frame),
+            Some(frame) if opened => self.frames.push(Some(frame)),
             Some(frame) => self.close(frame),
-            None => self.skipped = u64::from(opened),
+            None if opened => self.frames.push(None),
+            None => {}
         }
     }
 
     /// Reads the end of the element open.
     pub(crate) fn end(&mut self) {
-        if self.skipped > 0 {
-            self.skipped -= 1;
-        } else if let Some(frame) = self.frames.pop() {
+        if let Some(Some(frame)) = self.frames.pop() {
             self.close(frame);
         }
     }
@@ -193,12 +188,9 @@ impl<'a> SheetCheck<'a> {
     /// Reads text that `read` gives, in the element open, when a check
     /// needs it: the element's character data, its references resolved.
     pub(crate) fn text<'t>(&mut self, read: impl FnOnce() -> Cow<'t, str>) {
-        if self.skipped > 0 {
-            return;
-        }
         match (self.frames.last(), self.cell.kind) {
-            (Some(Frame::Value), Kind::Shared) => self.cell.index.push(&read()),
-            (Some(Frame::Text), Kind::Inline) => self.cell.length.push(&read()),
+            (Some(Some(Frame::Value)), Kind::Shared) => self.cell.index.push(&read()),
+            (Some(Some(Frame::Text)), Kind::Inline) => self.cell.length.push(&read()),
             _ => {}
         }
     }

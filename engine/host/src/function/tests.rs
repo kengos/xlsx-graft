@@ -205,3 +205,12 @@ fn keys_are_written_in_the_order_of_the_contract() {
             .unwrap_or_else(|| panic!("{key} is missing or out of order"));
     }
 }
+
+#[test]
+fn the_name_of_a_description_is_the_name_its_json_gives() {
+    for name in ["_xlfn.sequence", "sum", "NoSuchFunction"] {
+        let description = describe_function(name);
+        assert_eq!(described(name)["name"], description.name());
+    }
+    assert_eq!(describe_function("_xlfn.sequence").name(), "SEQUENCE");
+}

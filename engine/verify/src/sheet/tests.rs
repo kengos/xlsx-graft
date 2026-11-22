@@ -201,6 +201,23 @@ fn what_is_not_where_the_schema_puts_it_is_passed_over() {
 }
 
 #[test]
+fn an_element_in_the_other_spreadsheetml_namespace_than_the_root_is_passed_over() {
+    // The root is Transitional, so a Strict `row` and `c` inside it are
+    // not read: the shared string index 99 is past the 36 there are, and
+    // the rows are out of order, yet neither raises a diagnostic.
+    let strict = "http://purl.oclc.org/ooxml/spreadsheetml/main";
+    let xml = format!(
+        r#"<worksheet xmlns="{MAIN}" xmlns:s="{strict}"><s:sheetData><s:row r="2"/><s:row r="1"><s:c r="A1" t="s"><s:v>99</s:v></s:c></s:row></s:sheetData></worksheet>"#
+    );
+    assert_eq!(check(&xml), []);
+    // A Strict `c` inside a Transitional `row` is passed over as well.
+    let xml = format!(
+        r#"<worksheet xmlns="{MAIN}" xmlns:s="{strict}"><sheetData><row r="1"><s:c r="A1" t="s"><s:v>99</s:v></s:c></row></sheetData></worksheet>"#
+    );
+    assert_eq!(check(&xml), []);
+}
+
+#[test]
 fn attributes_are_read_unprefixed() {
     let xml = rows(r#"<row xmlns:z="urn:z" z:r="5" r="1"><c z:s="99" s="1"/></row>"#);
     assert_eq!(check(&xml), []);

@@ -70,6 +70,42 @@ fn tables_are_checked_in_the_order_the_table_parts_name_them() {
 }
 
 #[test]
+fn an_external_relationship_of_the_sheet_does_not_change_the_order_of_its_tables() {
+    let tables = [("T", "1", "A1:A2"), ("t", "2", "C1:C2")];
+    let sheet = "/xl/worksheets/sheet1.xml";
+    // The sheet also relates to a web page outside the package (`rId3`, the
+    // `hyperlink` of A1), which is no table part.
+    let book = (with_tables(
+        r#"<hyperlinks><hyperlink ref="A1" r:id="rId3"/></hyperlinks><tableParts><tablePart r:id="rId2"/><tablePart r:id="rId1"/></tableParts>"#,
+        &tables,
+    ))
+    .external(sheet, "hyperlink", "https://example.com/");
+    assert_eq!(check(book), [duplicate(1, "T", "t")]);
+}
+
+#[test]
+fn a_table_part_the_sheet_relates_to_twice_stands_where_its_tableparts_name_it_first() {
+    // `rId1` and `rId2` both relate the sheet to table 1 (named "T"), `rId3`
+    // to table 2 (named "t"). The `tableParts` names `rId2`, `rId3`, `rId1`,
+    // so table 1 is ordered first (by `rId2`), before table 2 (by `rId3`),
+    // though the Relationships part lists `rId1`, which the `tableParts`
+    // names last, before `rId2`. The duplicate name is then reported on
+    // table 2, the later of the two.
+    let sheet = "/xl/worksheets/sheet1.xml";
+    let table = |id: u32, name: &str, range: &str| {
+        format!(r#"<table xmlns="{MAIN}" id="{id}" displayName="{name}" ref="{range}"/>"#)
+    };
+    let parts = r#"<tableParts><tablePart r:id="rId2"/><tablePart r:id="rId3"/><tablePart r:id="rId1"/></tableParts>"#;
+    let book = (with_tables(parts, &[]))
+        .part("/xl/tables/table1.xml", TABLE, &table(1, "T", "A1:A2"))
+        .part("/xl/tables/table2.xml", TABLE, &table(2, "t", "C1:C2"))
+        .rel(sheet, "table", "/xl/tables/table1.xml")
+        .rel(sheet, "table", "/xl/tables/table1.xml")
+        .rel(sheet, "table", "/xl/tables/table2.xml");
+    assert_eq!(check(book), [duplicate(2, "t", "T")]);
+}
+
+#[test]
 fn the_tables_of_a_sheet_not_read_come_in_the_order_of_the_parts() {
     // The sheet relates to table 2 first; its part cannot be read, so its
     // `tableParts` names neither.

@@ -161,11 +161,11 @@ impl SpillBuffer {
         let start = offset
             .saturating_add(in_spool as u64)
             .saturating_sub(self.spooled);
-        let src = usize::try_from(start)
-            .ok()
-            .and_then(|start| self.memory.get(start..start.checked_add(tail.len())?));
-        if let Some(src) = src {
-            tail.copy_from_slice(src);
+        // `read_exact_at` returns `OutOfRange` first when `offset + buf.len()`
+        // passes `self.len()`, so `tail` lies inside `self.memory`.
+        let from = usize::try_from(start).unwrap_or(usize::MAX);
+        for (slot, byte) in tail.iter_mut().zip(self.memory.iter().skip(from)) {
+            *slot = *byte;
         }
         Ok(Fill::Filled)
     }

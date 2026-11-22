@@ -88,12 +88,12 @@ impl<'a> Batch<'a> {
                 }
                 Step::CheckOpen => {
                     let found = neighbour(ranges, &open, &range);
-                    if let Some(slot) = self.opened.get_mut(index) {
+                    self.opened.get_mut(index).into_iter().for_each(|slot| {
                         *slot = self.time;
-                    }
-                    if let Some(slot) = self.dropped.get_mut(index) {
+                    });
+                    self.dropped.get_mut(index).into_iter().for_each(|slot| {
                         *slot = found;
-                    }
+                    });
                 }
                 Step::CheckClose => {
                     let opened = self.opened.get(index).copied().unwrap_or(u64::MAX);

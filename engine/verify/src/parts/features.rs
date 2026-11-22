@@ -174,9 +174,9 @@ impl Roles {
                 let &Target::Internal(target) = relationship.target() else {
                     continue;
                 };
-                if let Some(set) = roles.get_mut(target) {
+                roles.get_mut(target).into_iter().for_each(|set| {
                     set.extend(relationship_type(relationship.rel_type()));
-                }
+                });
                 if let Some(seen) = reached.get_mut(target)
                     && !*seen
                 {

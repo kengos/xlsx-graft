@@ -62,15 +62,19 @@ impl Book {
         for (&at, named) in &worksheets.named {
             let relationships =
                 (package.parts().get(at)).map_or(&[][..], |part| part.relationships());
-            let mut targets = BTreeMap::new();
-            for relationship in relationships {
-                if let Target::Internal(target) = relationship.target() {
-                    targets.insert(relationship.id(), *target);
-                }
-            }
+            let mut named_at: BTreeMap<&str, usize> = BTreeMap::new();
             for (position, id) in named.iter().enumerate() {
-                if let Some(&target) = targets.get(id.as_str()) {
-                    positions.entry((at, target)).or_insert(position);
+                named_at.entry(id.as_str()).or_insert(position);
+            }
+            for relationship in relationships {
+                if let Target::Internal(target) = relationship.target()
+                    && let Some(&position) = named_at.get(relationship.id())
+                {
+                    // Two relationships of the sheet may target one table
+                    // part; the table part takes the first place in the
+                    // `tableParts` that names either of them.
+                    let first = positions.entry((at, *target)).or_insert(position);
+                    *first = (*first).min(position);
                 }
             }
         }

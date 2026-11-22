@@ -418,3 +418,22 @@ fn a_refused_entry_keeps_the_bytes_read_for_it() {
         matches!(&found[1].0, Diagnostic::ZipEntriesOverlap { other } if other.as_str().starts_with("aaa"))
     );
 }
+
+#[test]
+fn an_entry_inside_the_data_of_another_entry_with_an_unsupported_method_gets_only_the_unsupported_method_diagnostic()
+ {
+    // The entry `b` lies inside the data of entry `a` and also names a
+    // compression method the engine does not support; only the method is
+    // reported, because that refusal already made the entry unreadable.
+    let mut hidden = Item::stored("b", b"world").with_method(12);
+    hidden.no_local = true;
+    hidden.offset = Some(31);
+    let mut data = hidden.local_header();
+    data.extend(&hidden.data);
+    let zip = Zip::of(vec![Item::stored("a", &data), hidden]);
+    let unsupported = (
+        Diagnostic::ZipUnsupportedCompression { method: 12 },
+        "b".to_owned(),
+    );
+    assert_eq!(check(&zip), (vec![true, false], vec![unsupported]));
+}
