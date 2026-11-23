@@ -5,8 +5,11 @@
 //! its days in, a cell's position [`CellRef`] (`reference.rs`), why text is
 //! not the date, time of day, date-time or cell reference it is written as
 //! ([`ValueError`]), and the `_xHHHH_` escapes of ST_Xstring
-//! ([`unescape`], [`Xstring`]). A cell's number made one of the wall-clock
-//! types is `serial.rs`, and a cell's ISO 8601 text (`t="d"`) `iso.rs`.
+//! ([`unescape`], [`Xstring`], [`escape`]). A cell's number made one of the
+//! wall-clock types is `serial.rs`, and a cell's ISO 8601 text (`t="d"`)
+//! `iso.rs`. Writing goes the other way: a cell's value ([`CellValue`]) as
+//! its `<c>` element ([`write_cell`], `encode.rs`) and the shared strings
+//! part ([`SharedStringsWriter`]).
 //!
 //! # Numbers as dates and times
 //!
@@ -62,17 +65,68 @@
 //! 00 to 23 and seconds 00 to 59. Decimals of a second past the third are
 //! taken, rounded to the millisecond as a serial is; a time of day rounded
 //! to midnight wraps, as a time format drops the day.
+//!
+//! # Writing a cell
+//!
+//! [`write_cell`] writes what the value is and guesses nothing about it:
+//!
+//! - **The `<c>`**: `r` always; `s` only for a cell format that is not 0;
+//!   `t` only for text (`inlineStr`), a boolean (`b`), an error value
+//!   (`e`) and a shared string (`s`). A number and a date or time have no
+//!   `t`, and `t="d"` and `t="str"` are never written. A string that could
+//!   be read as a formula, a number or a date (`=A1`, `00123`,
+//!   `2024-01-01`) is also written as an inline string. An empty value is
+//!   `<c r="A1" s="3"/>`.
+//! - **Checked before writing**: a value `write_cell` refuses (a number that
+//!   is not finite, an integer past 2^53, a date, date-time or elapsed time
+//!   with no serial date-time in the date system) is checked before the
+//!   `<c` is written, so nothing is written to `out`.
+//! - **Text**: counted in UTF-16 code units, the text after its 32,767th
+//!   code unit is cut at a character boundary, never inside a surrogate
+//!   pair, and `write_cell` returns [`Written::Truncated`]. The standard
+//!   sets no length; Excel for Mac asks to repair a workbook with a longer
+//!   string and cuts it there (`inline_string_too_long` of
+//!   xlsx-graft-diagnostics).
+//!   `xml:space="preserve"` is written when the cut text starts or ends
+//!   with a space, tab, line feed or carriage return, since an XML reader
+//!   may remove white space at the edges of an element without it. A
+//!   character that is not an XML 1.0 `Char`, and an `_` that would be read
+//!   as the start of an escape, are written as `_xHHHH_` ([`escape`], the
+//!   inverse of [`unescape`]); the text is then escaped as XML
+//!   ([`xml_text`], [`xml_attribute`]), in that order, the order of the
+//!   layers: an ST_Xstring value is made first, then written as XML.
+//! - **Numbers**: the shortest decimal that reads back to the same `f64`,
+//!   plain from 1e-7 up to 1e21 and as `1.5E-8` or `1E+21` outside, and `0`
+//!   for `-0.0`. An integer is written whole up to 2^53.
+//! - **Dates and times**: the inverse of reading ([`Date::from_serial`] and
+//!   the others) in the date system given. A date or date-time before the
+//!   system's first day, and an elapsed time `from_serial` does not read,
+//!   are refused ([`CellError::DateOutOfRange`]); in
+//!   [`DateSystem::Compatibility1900`], which counts the 1900-02-29 that does
+//!   not exist as serial 60, serial 60 is never written and the first date
+//!   written is 1900-01-01 (serial 1).
+//!
+//! [`CellValue`], [`ErrorValue`] and [`CellError`] are `#[non_exhaustive]`,
+//! so a `match` on them needs a wildcard arm: a kind of value, an error
+//! value or a reason a value is refused can be added later. [`Written`] is
+//! not, so a `match` on it names both the whole text and the cut one.
 
 mod clock;
 mod date_system;
+mod encode;
 mod error;
 mod escape;
 mod iso;
 mod reference;
 mod serial;
+mod value;
+mod xml;
 
 pub use clock::{Date, DateTime, Elapsed, Time};
 pub use date_system::DateSystem;
-pub use error::ValueError;
-pub use escape::{Xstring, unescape};
+pub use encode::{SharedStringsWriter, Written, write_cell};
+pub use error::{CellError, ValueError};
+pub use escape::{Xstring, escape, unescape};
 pub use reference::CellRef;
+pub use value::{CellValue, ErrorValue};
+pub use xml::{xml_attribute, xml_text};

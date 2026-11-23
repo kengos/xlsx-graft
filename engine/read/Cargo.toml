@@ -23,6 +23,9 @@ xlsx-graft-xml = { workspace = true }
 [dev-dependencies]
 # The CRC-32 of each entry of the zips the tests build.
 crc32fast = { workspace = true }
+# The cells `write_cell` writes read back to the values they were written
+# from, for the strings generated.
+proptest = { workspace = true }
 
 [lints]
 workspace = true

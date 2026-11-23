@@ -7,6 +7,7 @@ mod failures;
 mod order;
 mod reading;
 mod schema;
+mod written;
 
 use super::zip::Item;
 use super::{

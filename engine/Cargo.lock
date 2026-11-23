@@ -793,6 +793,7 @@ dependencies = [
 name = "xlsx-graft-cell"
 version = "0.0.0"
 dependencies = [
+ "proptest",
  "thiserror",
 ]
 
@@ -912,6 +913,7 @@ name = "xlsx-graft-read"
 version = "0.0.0"
 dependencies = [
  "crc32fast",
+ "proptest",
  "thiserror",
  "xlsx-graft-cell",
  "xlsx-graft-diagnostics",
