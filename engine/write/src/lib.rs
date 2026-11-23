@@ -89,6 +89,7 @@ mod edit;
 mod error;
 mod limits;
 mod part;
+pub mod structure;
 mod zip;
 
 #[cfg(not(target_family = "wasm"))]

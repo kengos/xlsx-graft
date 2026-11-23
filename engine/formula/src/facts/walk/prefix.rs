@@ -12,17 +12,31 @@ use crate::{
 impl Walker<'_> {
     /// A quoted sheet name: before `!` a sheet, or a book and a sheet;
     /// before `|` a DDE application; otherwise malformed.
-    pub(super) fn sheet_name(&mut self, token: Token, location: Location) -> usize {
+    pub(super) fn sheet_name(
+        &mut self,
+        token: Token,
+        location: Location,
+        from: Option<usize>,
+    ) -> usize {
         match self.kind(1) {
             Some(TokenKind::Pipe) => self.dde(Some(token), 1),
             Some(TokenKind::Bang) => {
                 let name = unquote(self.text(token), '\'');
+                let start = from.unwrap_or(token.span.start);
                 self.pending = match name.rsplit_once(']') {
                     Some((path, sheet)) => {
                         let book = path
                             .rsplit_once('[')
                             .map_or_else(|| path.to_owned(), |(dir, file)| format!("{dir}{file}"));
                         self.external(&book, token.span);
+                        // Nothing after the `]`: a book alone, no sheet prefix.
+                        if !sheet.is_empty() {
+                            let named = sheets(sheet);
+                            // From the quote: a `[1]` before a quoted name that holds a
+                            // book gives the location no book, so it is not part of the
+                            // prefix.
+                            self.sheet_prefix(token.span.start, 1, Some(book.clone()), named);
+                        }
                         Location {
                             book: Some(book),
                             sheet: Some(sheet.to_owned()),
@@ -36,10 +50,13 @@ impl Walker<'_> {
                             sheet: None,
                         }
                     }
-                    None => Location {
-                        book: location.book,
-                        sheet: Some(name),
-                    },
+                    None => {
+                        self.sheet_prefix(start, 1, location.book.clone(), sheets(&name));
+                        Location {
+                            book: location.book,
+                            sheet: Some(name),
+                        }
+                    }
                 };
                 2
             }
@@ -82,6 +99,8 @@ impl Walker<'_> {
         if self.kind(1) == Some(TokenKind::Bang) {
             2
         } else {
+            // A sheet follows: its prefix starts at this bracket.
+            self.book_start = Some(token.span.start);
             1
         }
     }
@@ -123,4 +142,11 @@ impl Walker<'_> {
             span,
         });
     }
+}
+
+/// The first sheet of `name` and the last if it holds two, a 3-D
+/// reference's: no sheet's name holds a `:`.
+fn sheets(name: &str) -> (&str, Option<&str>) {
+    name.split_once(':')
+        .map_or((name, None), |(first, last)| (first, Some(last)))
 }

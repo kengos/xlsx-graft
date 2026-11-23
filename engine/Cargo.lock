@@ -837,6 +837,7 @@ dependencies = [
 name = "xlsx-graft-fixtures-gen"
 version = "0.0.0"
 dependencies = [
+ "proptest",
  "rust_xlsxwriter",
  "tempfile",
  "thiserror",
@@ -844,6 +845,7 @@ dependencies = [
  "xlsx-graft-package",
  "xlsx-graft-read",
  "xlsx-graft-spool",
+ "xlsx-graft-verify",
  "xlsx-graft-write",
  "xlsx-graft-xml",
 ]
@@ -970,9 +972,11 @@ version = "0.0.0"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
+ "proptest",
  "tempfile",
  "thiserror",
  "xlsx-graft-diagnostics",
+ "xlsx-graft-formula",
  "xlsx-graft-package",
  "xlsx-graft-spool",
  "xlsx-graft-xml",

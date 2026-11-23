@@ -24,6 +24,9 @@ pub struct Facts {
     pub dde_links: Vec<DdeLink>,
     /// The other workbooks it refers to.
     pub external_books: Vec<ExternalBook>,
+    /// Each prefix that names a sheet (`Sheet1!`, `[1]S1:S3!`), where it
+    /// is and what it names.
+    pub sheet_prefixes: Vec<SheetPrefix>,
     /// Where it could not be read.
     pub malformed: Vec<Malformed>,
     /// Each `NAME(` the quote-blind scan found where the lexer saw no
@@ -105,6 +108,23 @@ pub struct Name {
     pub location: Location,
     /// Where it is.
     pub span: Span,
+}
+
+/// A sheet prefix: the book, if any, the sheet or two, and the `!`. A
+/// prefix that names a book alone (`[1]!x`, `'C:\d\b.xlsx'!x`) and a DDE
+/// link are not one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SheetPrefix {
+    /// From the `[` of a `[1]` that gives the prefix its book, or else the
+    /// prefix's first character (the quote of a quoted name), to the `!`
+    /// included.
+    pub span: Span,
+    /// The external book, as [`Location::book`]; `None` for this workbook.
+    pub book: Option<String>,
+    /// The sheet, unquoted (`''` is `'`); the first of a 3-D reference.
+    pub first: String,
+    /// The last sheet of a 3-D reference.
+    pub last: Option<String>,
 }
 
 /// A DDE link: `app|topic!item`.

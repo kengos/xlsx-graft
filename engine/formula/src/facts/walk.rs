@@ -4,6 +4,7 @@
 //! that ends a range looks back for the location of the one that starts it.
 
 mod prefix;
+mod sheet;
 
 use super::word::{is_cell, is_column, is_param, is_row, split_prefix, unquote};
 use crate::{Call, Facts, Location, Name, Param, Reference, ReferenceKind, Span, Token, TokenKind};
@@ -20,6 +21,7 @@ pub(super) fn walk(text: &str, tokens: &[Token], facts: &mut Facts) {
         tokens,
         at: 0,
         pending: Location::default(),
+        book_start: None,
         facts,
     };
     walker.run();
@@ -33,6 +35,8 @@ struct Walker<'a> {
     at: usize,
     /// The book and sheet the token being read is prefixed with.
     pending: Location,
+    /// Where the `[1]` that gave `pending` its book starts.
+    book_start: Option<usize>,
     facts: &'a mut Facts,
 }
 
@@ -41,25 +45,30 @@ impl<'a> Walker<'a> {
     fn run(&mut self) {
         while let Some(token) = self.peek(0) {
             let location = std::mem::take(&mut self.pending);
+            let from = self.book_start.take();
             let used = match token.kind {
-                TokenKind::Word => self.word(token, location),
+                TokenKind::Word => self.word(token, location, from),
                 TokenKind::Number => self.range(token, location).unwrap_or(1),
-                TokenKind::SheetName => self.sheet_name(token, location),
+                TokenKind::SheetName => self.sheet_name(token, location, from),
                 TokenKind::Bracket => self.bracket(token, location),
                 TokenKind::Pipe => self.dde(None, 0),
                 _ => 1,
             };
-            self.at = self.at.saturating_add(used);
+            // At least one: no handler uses none today, and this keeps a future
+            // one from hanging the walk.
+            self.at = self.at.saturating_add(used.max(1));
         }
     }
 
     /// A word: a DDE application, a sheet (alone or the first of two), a
     /// call, a range of columns or rows, a table, or one word alone.
-    fn word(&mut self, token: Token, location: Location) -> usize {
+    fn word(&mut self, token: Token, location: Location, from: Option<usize>) -> usize {
         let text = self.text(token);
         match self.kind(1) {
             Some(TokenKind::Pipe) => return self.dde(Some(token), 1),
             Some(TokenKind::Bang) => {
+                let start = from.unwrap_or(token.span.start);
+                self.sheet_prefix(start, 1, location.book.clone(), (text, None));
                 self.pending = Location {
                     book: location.book,
                     sheet: Some(text.to_owned()),
@@ -78,9 +87,11 @@ impl<'a> Walker<'a> {
             && last.kind == TokenKind::Word
             && self.kind(3) == Some(TokenKind::Bang)
         {
+            let (start, to) = (from.unwrap_or(token.span.start), self.text(last));
+            self.sheet_prefix(start, 3, location.book.clone(), (text, Some(to)));
             self.pending = Location {
                 book: location.book,
-                sheet: Some(format!("{text}:{}", self.text(last))),
+                sheet: Some(format!("{text}:{to}")),
             };
             return 4;
         }

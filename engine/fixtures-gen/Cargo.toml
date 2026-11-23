@@ -29,10 +29,18 @@ xlsx-graft-write = { workspace = true }
 xlsx-graft-xml = { workspace = true }
 
 [dev-dependencies]
+# The property tests of tests/names: any name the writer's rules accept is
+# one the verifier reports no problem with.
+proptest = { workspace = true }
 # Each test writes its workbooks into a directory of its own.
 tempfile = { workspace = true }
 # The tests read each workbook written back with the engine's reader.
 xlsx-graft-read = { workspace = true }
+# The verifier that checks the names the writer's rules accept. It is here
+# and not in xlsx-graft-write's tests because crates.txt publishes the
+# writer before the verifier, and a dependency, a dev-dependency too, must
+# come first.
+xlsx-graft-verify = { workspace = true }
 
 [lints]
 workspace = true

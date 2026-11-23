@@ -1,14 +1,16 @@
 //! Tests for the writer, driven through its public API, on zips it writes
 //! and reads back with `xlsx_graft_package`. `round_trip` covers what a
 //! zip it writes holds, `many_entries` an archive past 65,535 entries,
-//! `deflate` the content writer, and `failures` what is refused and the
-//! failures of the host. The header bytes are tested on plain values in
+//! `deflate` the content writer, `failures` what is refused and the
+//! failures of the host, and `structure` the rules for the names a
+//! structure edit writes. The header bytes are tested on plain values in
 //! `zip/header/tests.rs`.
 
 mod deflate;
 mod failures;
 mod many_entries;
 mod round_trip;
+mod structure;
 
 use crate::{DeflateWriter, Deflated, ZipWriter};
 use std::io::{self, Cursor, Read, Write};
