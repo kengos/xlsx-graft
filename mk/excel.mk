@@ -121,3 +121,32 @@ fixtures\:repack: ## Write each workbook of fixtures/ again with the engine's wr
 fixtures\:cells: ## Write three workbooks of cell values with the engine's cell writer into fixtures/generated/cells/ (gitignored), for make excel:check
 	$(CARGO_IN_DOCKER) 'cd /repo && cargo run --manifest-path engine/Cargo.toml -p xlsx-graft-fixtures-gen \
 		--release --locked $(CARGO_JOBS) -- cells fixtures/generated/cells'
+
+# fixtures:styles — writes each workbook of fixtures/ again with a cell format
+# of the engine's style crate (engine/style's StylesEdit) on each of the cells
+# A1 to A18 of its first worksheet, into fixtures/generated/styles/, which git
+# ignores, for `make excel:check` to open on a Mac and show that Excel accepts
+# the styles part StylesEdit writes and shows each format as it is meant to be
+# shown: bold, italic, underline, colours, fonts, fills, borders, number
+# formats (dates, times, elapsed time, thousands, percent), alignment and
+# protection, in the order engine/fixtures-gen's src/styles/catalog.rs lists.
+# A cell column A already has keeps its value and gets the format; a row
+# without one gets a cell with a value that shows the format (the number
+# 45292.75 for a number format, a string that names the format otherwise),
+# and has its spans attribute removed; a row the sheet lacks is added. The
+# dimension is not changed, so a cell added outside it is a thing to look for
+# when Excel repairs a workbook. A workbook with no worksheet or no styles part gives
+# nothing (a workbook whose sheets are all chartsheets, say); one whose
+# package cannot be read, or whose workbook.xml is not XML or is not allowed
+# by the schema (a <sheets> with no <sheet>, say), or which has two styles
+# relationships to different parts, is refused. Runs in the
+# toolchain image like fixtures:generate, and is not a gate and not a member
+# of verify: it prints the release build's output and the path of each
+# workbook written, and proves nothing. A workbook already there under the
+# same name is replaced.
+
+.PHONY: fixtures\:styles
+
+fixtures\:styles: ## Write each workbook of fixtures/ again with a cell format on each of A1 to A18 of its first worksheet into fixtures/generated/styles/ (gitignored), for make excel:check
+	$(CARGO_IN_DOCKER) 'cd /repo && cargo run --manifest-path engine/Cargo.toml -p xlsx-graft-fixtures-gen \
+		--release --locked $(CARGO_JOBS) -- styles fixtures fixtures/generated/styles'

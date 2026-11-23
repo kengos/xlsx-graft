@@ -1,10 +1,12 @@
 //! [`StylesEdit`]: an existing styles part read, cell formats added to it
 //! without repeating an item it has, and the part written again with what was
 //! added. It is made of `scan` (reading the part), `list` (the items read and
-//! added), `assign` (`cell_format`) and `rewrite` (writing).
+//! added), `assign` (`cell_format`) and `rewrite` (writing). `part` makes a
+//! `StylesEdit` a [`PartRewriter`](xlsx_graft_write::PartRewriter).
 
 mod assign;
 mod list;
+mod part;
 mod rewrite;
 mod scan;
 

@@ -11,10 +11,11 @@ use thiserror::Error;
 /// stopped stay written.
 #[derive(Debug, Error)]
 pub enum FixturesGenError {
-    /// The command line gives no directory, `repack` is not followed by
-    /// two directories, or `cells` is not followed by exactly one directory.
+    /// The command line gives no directory, `repack` or `styles` is not
+    /// followed by two directories, or `cells` is not followed by exactly
+    /// one directory.
     #[error(
-        "usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir> | cells <dir>"
+        "usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir> | cells <dir> | styles <fixtures-dir> <dir>"
     )]
     Usage,
     /// A book on the command line is not `rows-<n>` or `shared-<n>` with
@@ -40,12 +41,13 @@ pub enum FixturesGenError {
         /// What rust_xlsxwriter said.
         source: XlsxError,
     },
-    /// `repack` could not write the workbook at `path` again: it is not a
-    /// package the engine reads, or it holds an entry that cannot be read, or
-    /// the engine failed to write it. `detail` says which.
+    /// `repack` or `styles` could not write the workbook at `path` again: it
+    /// is not a package the engine reads, or it holds an entry that cannot be
+    /// read (for `styles`, a styles part or a worksheet it refuses), or the
+    /// engine failed to write it. `detail` says which.
     #[error("{}: {detail}", path.display())]
     Repack {
-        /// The workbook that was being repacked.
+        /// The workbook that was being repacked or given styles.
         path: PathBuf,
         /// The diagnostics or the error, as text.
         detail: String,

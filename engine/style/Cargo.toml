@@ -11,6 +11,9 @@ repository.workspace = true
 thiserror = { workspace = true }
 # The diagnostics of a styles part that is refused (StyleError::Invalid).
 xlsx-graft-diagnostics = { workspace = true }
+# `PartRewriter` and `WriteError`: a `StylesEdit` is a part rewriter that
+# `PackageEdit::replace` takes (src/edit/part.rs).
+xlsx-graft-write = { workspace = true }
 # Reads the styles part under limits, and rewrites it keeping what it does
 # not change.
 xlsx-graft-xml = { workspace = true }
@@ -24,8 +27,6 @@ xlsx-graft-package = { workspace = true }
 xlsx-graft-read = { workspace = true }
 # Holds the new content of the zip the read-back test writes.
 xlsx-graft-spool = { workspace = true }
-# Writes the zip the read-back test builds.
-xlsx-graft-write = { workspace = true }
 
 [lints]
 workspace = true

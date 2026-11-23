@@ -58,13 +58,13 @@ pub(crate) fn run(args: &[OsString], out: &mut dyn Write) -> Result<(), Fixtures
 }
 
 /// The error for `source`, a failure of the file system at `path`.
-fn io_error(path: &Path) -> impl FnOnce(io::Error) -> FixturesGenError {
+pub(crate) fn io_error(path: &Path) -> impl FnOnce(io::Error) -> FixturesGenError {
     let path = path.to_owned();
     move |source| FixturesGenError::Io { path, source }
 }
 
 /// The `.xlsx` and `.xlsm` files in `folder`, sorted by path.
-fn workbooks(folder: &Path) -> Result<Vec<PathBuf>, FixturesGenError> {
+pub(crate) fn workbooks(folder: &Path) -> Result<Vec<PathBuf>, FixturesGenError> {
     let mut paths = Vec::new();
     for entry in fs::read_dir(folder).map_err(io_error(folder))? {
         let path = entry.map_err(io_error(folder))?.path();
@@ -130,7 +130,7 @@ impl Book<'_> {
 }
 
 /// The codes of the diagnostics in `diagnostics`, as a sentence.
-fn codes(diagnostics: &Diagnostics) -> String {
+pub(crate) fn codes(diagnostics: &Diagnostics) -> String {
     let codes: Vec<String> = (diagnostics.records().iter())
         .map(|record| record.diagnostic.code().to_string())
         .collect();
