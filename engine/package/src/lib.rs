@@ -182,12 +182,13 @@ mod relationships;
 mod schema;
 mod zip;
 
-pub use content_types::ContentType;
+pub use content_types::{ContentType, override_key};
 pub use error::PackageError;
 pub use limits::{Limits, ZipLimits};
 pub use package::{Incoming, Package, Part, Presence, RelationshipSource};
 pub use part_name::PartName;
 pub use relationships::{OFFICE_DOCUMENT, Relationship, Target};
+pub use schema::collapse;
 pub use zip::{Entry, EntryReader, EntryStream, Method, ZipArchive};
 
 #[cfg(test)]

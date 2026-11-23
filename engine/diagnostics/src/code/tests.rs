@@ -718,6 +718,10 @@ fn sample(code: Code) -> (Diagnostic, Location) {
             },
             Location::default(),
         ),
+        Code::WriteEntryUnreadable => (
+            Diagnostic::WriteEntryUnreadable {},
+            Location::default().with_entry("xl/workbook.xml"),
+        ),
     }
 }
 

@@ -2,8 +2,12 @@
 
 /// Whether XML 1.0 allows `c` in a document: tab, line feed, carriage
 /// return and everything from U+0020 except U+FFFE and U+FFFF (a `char` is
-/// never a surrogate).
-pub(crate) fn is_xml_char(c: char) -> bool {
+/// never a surrogate). A caller that writes text it was given into XML with
+/// [`XmlRewriter::write`](crate::XmlRewriter::write) checks each character
+/// with `is_xml_char` first, since `XmlRewriter::write` does not check the
+/// characters it writes.
+#[must_use]
+pub fn is_xml_char(c: char) -> bool {
     matches!(c, '\t' | '\n' | '\r' | '\u{20}'..='\u{fffd}' | '\u{10000}'..)
 }
 

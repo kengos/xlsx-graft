@@ -844,6 +844,8 @@ dependencies = [
  "xlsx-graft-package",
  "xlsx-graft-read",
  "xlsx-graft-spool",
+ "xlsx-graft-write",
+ "xlsx-graft-xml",
 ]
 
 [[package]]
@@ -968,6 +970,7 @@ version = "0.0.0"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
+ "tempfile",
  "thiserror",
  "xlsx-graft-diagnostics",
  "xlsx-graft-package",

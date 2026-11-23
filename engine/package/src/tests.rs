@@ -7,6 +7,7 @@
 mod builder;
 mod content_types;
 mod directory;
+mod edit_support;
 mod end;
 mod entries;
 mod entry_streams;

@@ -266,7 +266,7 @@ fn run_refuses_a_command_line_without_a_directory() {
     assert_eq!(err.exit_status(), 2);
     assert_eq!(
         err.to_string(),
-        "usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...]"
+        "usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir>"
     );
 }
 

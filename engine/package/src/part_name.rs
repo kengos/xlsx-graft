@@ -67,8 +67,11 @@ impl PartName {
         &self.name
     }
 
-    /// The key two equivalent names share.
-    pub(crate) fn key(&self) -> &str {
+    /// The key two equivalent names share (§6.2.2.3): the name with its ASCII
+    /// letters lowered. Two part names are the same part when their keys are
+    /// equal.
+    #[must_use]
+    pub fn key(&self) -> &str {
         &self.key
     }
 
@@ -77,6 +80,28 @@ impl PartName {
     pub(crate) fn extension(&self) -> Option<&str> {
         let last = self.key.rsplit('/').next().unwrap_or_default();
         last.rsplit_once('.').map(|(_, extension)| extension)
+    }
+
+    /// The name of the Relationships part that holds the relationships of
+    /// this part (§6.5.2.2): `/<folder>/_rels/<name>.rels`. It is a valid
+    /// part name for any part name, and [`is_relationships`](Self::is_relationships).
+    #[must_use]
+    pub fn relationships_part(&self) -> Self {
+        let (folder, file) = self.name.rsplit_once('/').unwrap_or(("", &self.name));
+        let name = format!("{folder}/_rels/{file}.rels");
+        let key = name.to_ascii_lowercase();
+        Self { name, key }
+    }
+
+    /// The name of the package's own Relationships part, `/_rels/.rels`
+    /// (§6.5.2.2).
+    #[must_use]
+    pub fn package_relationships() -> Self {
+        let name = PACKAGE_RELATIONSHIPS.to_owned();
+        Self {
+            key: name.clone(),
+            name,
+        }
     }
 
     /// The source of the relationships this part holds, when its name is a

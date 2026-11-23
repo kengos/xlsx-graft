@@ -146,7 +146,8 @@ pub(crate) fn invalid_value(offset: u64, name: &str) -> Diagnostic {
 
 /// `value` collapsed as XML Schema's `whiteSpace` facet `collapse` has it:
 /// runs of white space become one space, and none is left at either end.
-pub(crate) fn collapse(value: &str) -> String {
+#[must_use]
+pub fn collapse(value: &str) -> String {
     let words: Vec<&str> = (value.split([' ', '\t', '\r', '\n']))
         .filter(|word| !word.is_empty())
         .collect();

@@ -1,12 +1,16 @@
-//! [`WriteError`]: the failures that writing a zip can end in.
+//! [`WriteError`]: the failures that writing a zip or editing a package can
+//! end in.
 
 use std::io;
 use thiserror::Error;
+use xlsx_graft_diagnostics::Diagnostic;
 use xlsx_graft_package::PackageError;
 use xlsx_graft_spool::SpoolError;
+use xlsx_graft_xml::XmlStreamError;
 
-/// A failure of the host or a name that no zip can hold, never a problem in
-/// a workbook (those are diagnostics).
+/// A failure of the host, a name that no zip can hold, a call that cannot be
+/// carried out on the package it is made on, or the content a rewriter
+/// refuses: never a problem in the workbook itself, which is a diagnostic.
 #[derive(Debug, Error)]
 pub enum WriteError {
     /// Writing the zip, or reading the archive an entry is copied from,
@@ -27,6 +31,69 @@ pub enum WriteError {
         /// The length of the name in bytes.
         length: usize,
     },
+    /// A part the call names is not in the package: the part to replace or
+    /// remove, or the source of a link. The caller made a mistake.
+    #[error("the package has no part {name}")]
+    PartMissing {
+        /// The part name as the caller gave it.
+        name: String,
+    },
+    /// A name the call would take is not free. It is the name of the part to
+    /// add, the name of the Relationships part a link would make, or the name
+    /// of the Relationships part that a part added would have as its own and
+    /// that the package holds already. It overlaps a name of the package the
+    /// edit writes: a part of the package (the name of a part removed
+    /// included), a name the package refused an entry for (a duplicate, or
+    /// derived from another name, or no part name), a part added, or a
+    /// Relationships part to be made. It overlaps when it is the same part,
+    /// ASCII letter case aside, or one is the other and `/` and one or more
+    /// segments (ECMA-376-2:2021 §6.2.2.3). The caller made a mistake.
+    #[error(
+        "the name {name} is the same part as a name of the package, or a folder of one, or in a folder of one"
+    )]
+    PartExists {
+        /// The name refused. For a Relationships part a link would make, it
+        /// is built from the spelling the package has of the link's source;
+        /// for the Relationships part of the part added, from the spelling the
+        /// caller gave the part; for the part itself, as the caller gave it.
+        name: String,
+    },
+    /// The call names a Relationships part, which is written by the edit
+    /// from the links of the parts it adds and the parts it removes, never
+    /// replaced, removed or added by the caller.
+    #[error("{name} is a Relationships part, which the edit writes itself")]
+    PartReserved {
+        /// The part name as the caller gave it.
+        name: String,
+    },
+    /// A link names a source whose relationships are not all known: its
+    /// Relationships part could not be read whole, so a new relationship
+    /// might take an `Id` it already uses. For the package itself, `name`
+    /// is `/_rels/.rels`; otherwise the name of the source part.
+    #[error("the relationships of {name} are not all known, so one cannot be added to them")]
+    RelationshipsUnknown {
+        /// The source of the link: the part's name, or `/_rels/.rels`.
+        name: String,
+    },
+    /// A part cannot be removed because the package's Relationships parts
+    /// were not all read whole, so the relationships that target the part
+    /// are not all known and some might be left pointing at nothing.
+    #[error("the relationships of the package are not all known, so a part cannot be removed")]
+    GraphIncomplete,
+    /// The `rel_type` of a link has a character XML 1.0 does not allow (a
+    /// control character such as U+0001, or U+FFFE or U+FFFF), which would
+    /// make the Relationships part not well-formed. Nothing was changed. The
+    /// caller made a mistake.
+    #[error("the relationship type {rel_type:?} has a character XML does not allow")]
+    RelationshipTypeInvalid {
+        /// The type as the caller gave it.
+        rel_type: String,
+    },
+    /// A rewriter or writer refused the content of a part. The diagnostic
+    /// says why, and `PackageEdit::finish` pushes it at the part and returns
+    /// `Ok(None)`.
+    #[error("the content of a part is refused ({}): {}", .0.code(), .0.message())]
+    Invalid(Diagnostic),
 }
 
 impl From<PackageError> for WriteError {
@@ -44,6 +111,19 @@ impl From<io::Error> for WriteError {
         match error.downcast::<Self>() {
             Ok(carried) => carried,
             Err(error) => Self::Io(error),
+        }
+    }
+}
+
+impl From<XmlStreamError> for WriteError {
+    /// [`WriteError::Invalid`] for an XML problem of the part, so a
+    /// rewriter can pass it on with `?`; for a failure of the reader or
+    /// writer underneath, what [`WriteError::from`] makes of its
+    /// [`io::Error`].
+    fn from(error: XmlStreamError) -> Self {
+        match error {
+            XmlStreamError::Invalid(diagnostic) => Self::Invalid(diagnostic),
+            XmlStreamError::Io(error) => Self::from(error),
         }
     }
 }

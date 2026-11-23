@@ -43,7 +43,7 @@ fn the_binary_exits_2_with_the_usage_for_a_command_line_without_a_directory() {
     assert_eq!(text(&output.stdout), "");
     assert_eq!(
         text(&output.stderr),
-        "xlsx-graft-fixtures-gen: usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...]\n"
+        "xlsx-graft-fixtures-gen: usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir>\n"
     );
 }
 
@@ -60,4 +60,26 @@ fn the_binary_exits_1_when_the_directory_is_a_file() {
         "{}",
         text(&output.stderr)
     );
+}
+
+#[test]
+fn the_binary_repacks_the_workbooks_of_a_directory_and_prints_each_path_written() {
+    let dir = tempfile::tempdir().unwrap();
+    let from = dir.path().join("from");
+    let to = dir.path().join("to");
+    std::fs::create_dir(&from).unwrap();
+    let table = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/table.xlsx");
+    std::fs::copy(table, from.join("table.xlsx")).unwrap();
+    let output = fixtures_gen(&["repack", from.to_str().unwrap(), to.to_str().unwrap()]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(
+        text(&output.stdout),
+        format!(
+            "{}\n{}\n",
+            to.join("table.xlsx").display(),
+            to.join("table-app.xlsx").display()
+        )
+    );
+    assert_eq!(text(&output.stderr), "");
+    assert!(to.join("table.xlsx").is_file() && to.join("table-app.xlsx").is_file());
 }

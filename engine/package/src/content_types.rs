@@ -13,6 +13,7 @@ mod media;
 mod read;
 
 pub use media::ContentType;
+pub use read::override_key;
 pub(crate) use read::read;
 
 use crate::PartName;
@@ -49,6 +50,12 @@ pub(crate) enum Lookup<'a> {
 }
 
 impl ContentTypes {
+    /// Whether a mapping that does not say what it names was refused, so
+    /// what no mapping names is not known either.
+    pub(crate) fn is_wild(&self) -> bool {
+        self.wild
+    }
+
     /// The media type of the part `name`: an `Override`'s, else a
     /// `Default`'s. A hole where a refused mapping would stand refuses
     /// whatever stands under the same key.

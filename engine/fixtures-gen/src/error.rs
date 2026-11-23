@@ -11,8 +11,11 @@ use thiserror::Error;
 /// stopped stay written.
 #[derive(Debug, Error)]
 pub enum FixturesGenError {
-    /// The command line gives no directory.
-    #[error("usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...]")]
+    /// The command line gives no directory, or `repack` is not followed by
+    /// two directories.
+    #[error(
+        "usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir>"
+    )]
     Usage,
     /// A book on the command line is not `rows-<n>` or `shared-<n>` with
     /// `<n>` a decimal number from 1 to [`MAX_ROWS`]; the field is the
@@ -37,6 +40,16 @@ pub enum FixturesGenError {
         /// What rust_xlsxwriter said.
         source: XlsxError,
     },
+    /// `repack` could not write the workbook at `path` again: it is not a
+    /// package the engine reads, or it holds an entry that cannot be read, or
+    /// the engine failed to write it. `detail` says which.
+    #[error("{}: {detail}", path.display())]
+    Repack {
+        /// The workbook that was being repacked.
+        path: PathBuf,
+        /// The diagnostics or the error, as text.
+        detail: String,
+    },
     /// Writing the line that names a written workbook to `out` (standard
     /// output in the binary) failed.
     #[error("writing to the output failed: {0}")]
@@ -51,7 +64,7 @@ impl FixturesGenError {
     pub fn exit_status(&self) -> u8 {
         match self {
             Self::Usage | Self::Book(_) => 2,
-            Self::Io { .. } | Self::Xlsx { .. } | Self::Output(_) => 1,
+            Self::Io { .. } | Self::Xlsx { .. } | Self::Repack { .. } | Self::Output(_) => 1,
         }
     }
 }

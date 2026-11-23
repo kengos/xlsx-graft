@@ -103,6 +103,7 @@ mod reader;
 mod rewriter;
 mod stream;
 
+pub use chars::is_xml_char;
 pub use limits::XmlLimits;
 pub use quick_xml::XmlVersion;
 pub use quick_xml::events;

@@ -1,0 +1,262 @@
+//! [`PackageEdit::finish`]: the zip written entry by entry from the plan.
+
+use super::PackageEdit;
+use super::plan::Plan;
+use super::{content_types, relationships};
+use crate::deflate::DeflateWriter;
+use crate::error::WriteError;
+use crate::limits::WriteLimits;
+use crate::zip::ZipWriter;
+use std::collections::BTreeMap;
+use std::io::{self, BufRead, BufReader, Read, Seek, Write};
+use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Location};
+use xlsx_graft_package::{Package, ZipArchive};
+use xlsx_graft_spool::SpoolFactory;
+
+/// What writes the content of a new entry.
+type NewContent<'a> = Box<dyn FnOnce(&mut dyn Write) -> Result<(), WriteError> + 'a>;
+
+/// What a write needs besides the zip: where to spill, the limits, and
+/// where the diagnostics go.
+struct Context<'a> {
+    spools: &'a mut dyn SpoolFactory,
+    limits: &'a WriteLimits,
+    diagnostics: &'a mut Diagnostics,
+    /// The name of the part of each zip entry, by the entry's index.
+    parts: BTreeMap<usize, String>,
+}
+
+impl<'r, R: Read + Seek> PackageEdit<'r, R> {
+    /// Writes the edited package as a zip to `out`.
+    ///
+    /// `Ok(Some(out))` when the zip is written, after the central directory.
+    /// `Ok(None)` when it is not, for a problem of the workbook, which is
+    /// a diagnostic: a zip entry of the original that cannot be read
+    /// (`write_entry_unreadable`, after the diagnostic of the entry), or
+    /// an entry found damaged while it is copied or read, or content that a
+    /// [`PartRewriter`](crate::PartRewriter) or a
+    /// [`PartWriter`](crate::PartWriter) refuses ([`WriteError::Invalid`]), or
+    /// XML that is too large or malformed
+    /// in the content types stream or a Relationships part the edit changes
+    /// (pushed at the part, or at the entry for the content types stream, as
+    /// the package does). When the edit adds or removes a part and the
+    /// package has no content types stream it could read whole, nothing is
+    /// written and `finish` pushes no diagnostic of its own. The reason is
+    /// the diagnostic the package pushed when it was read, which depends on
+    /// the case: `content_types_missing` when there is no stream; a
+    /// duplicate-name or `entry_name_invalid` diagnostic of the entry when
+    /// there are two or the entry is refused for its name; an XML limit or
+    /// well-formedness diagnostic of the stream; the schema diagnostic of a
+    /// mapping that names nothing. A host that wants to show
+    /// the reason keeps the `Diagnostics` it passed to `Package::open`. A part
+    /// added would have no media type that could be known.
+    ///
+    /// After `Ok(None)` or an error, `out` holds the bytes written so far,
+    /// which are not a zip: a host that passed a pipe or a socket may have
+    /// received part of one, and a host that writes to a path uses
+    /// [`write_file_atomically`](crate::write_file_atomically).
+    ///
+    /// Each part is read and written one at a time: a part rewritten or
+    /// added is deflated into memory until it passes
+    /// [`WriteLimits::part_spill_bytes`], then into a spool from `spools`.
+    /// A part copied is not held at all.
+    ///
+    /// # Errors
+    ///
+    /// A [`WriteError`] for a failure of the host (`out`, the spool, the
+    /// reader of the original), or one a rewriter returns that is not a
+    /// problem of the workbook.
+    pub fn finish<W: Write>(
+        self,
+        out: W,
+        spools: &mut dyn SpoolFactory,
+        limits: &WriteLimits,
+        diagnostics: &mut Diagnostics,
+    ) -> Result<Option<W>, WriteError> {
+        let plan = Plan::build(&self);
+        if refuse_unreadable(&self.package, &plan, diagnostics) {
+            return Ok(None);
+        }
+        // The content types stream is rewritten only when the edit changes it
+        // and the package read it and every mapping in it says what it names.
+        // With no such stream no part added has a media type, and the package
+        // has reported why already.
+        let changes = plan.changes_content_types();
+        let content_types = self.package.content_types_entry();
+        if changes && content_types.is_none() {
+            return Ok(None);
+        }
+        let content_types = changes.then_some(content_types).flatten();
+        let mut parts = BTreeMap::new();
+        for part in self.package.parts() {
+            parts.insert(part.entry(), part.name().to_string());
+        }
+        let Self {
+            package,
+            mut replaced,
+            added,
+            ..
+        } = self;
+        let mut archive = package.into_archive();
+        let mut zip = ZipWriter::new(out);
+        let mut context = Context {
+            spools,
+            limits,
+            diagnostics,
+            parts,
+        };
+        for index in 0..archive.entries().len() {
+            let written = if plan.removed.contains(&index) {
+                true
+            } else if Some(index) == content_types {
+                let (drop, add) = (&plan.drop_overrides, &plan.add_overrides);
+                let rewrite = |original: &mut dyn BufRead, out: &mut dyn Write| {
+                    content_types::rewrite(original, out, &limits.xml, drop, add)
+                };
+                context.rewritten(&mut zip, &mut archive, index, rewrite)?
+            } else if let Some(change) = plan.rels.get(&index) {
+                let rewrite = |original: &mut dyn BufRead, out: &mut dyn Write| {
+                    relationships::rewrite(original, out, &limits.xml, &change.drop, &change.add)
+                };
+                context.rewritten(&mut zip, &mut archive, index, rewrite)?
+            } else if let Some(mut rewriter) = replaced.remove(&index) {
+                let rewrite = |original: &mut dyn BufRead, out: &mut dyn Write| {
+                    rewriter.rewrite(original, out)
+                };
+                context.rewritten(&mut zip, &mut archive, index, rewrite)?
+            } else {
+                zip.copy_entry(&mut archive, index, context.diagnostics)?
+            };
+            if !written {
+                return Ok(None);
+            }
+        }
+        // The parts added, then the Relationships parts made for a source that
+        // had none. A new Relationships part is the empty root of
+        // `relationships::EMPTY` with the relationships added to it, so the
+        // XML reader reads nothing but that root.
+        let mut new: Vec<(String, NewContent<'_>)> = Vec::new();
+        for mut part in added {
+            let write = move |out: &mut dyn Write| part.writer.write(out);
+            new.push((part.name.to_string(), Box::new(write)));
+        }
+        for (name, add) in &plan.new_rels {
+            let write = |out: &mut dyn Write| relationships::create(out, &limits.xml, add);
+            new.push((name.to_string(), Box::new(write)));
+        }
+        for (name, write) in new {
+            if !context.added(&mut zip, &name, write)? {
+                return Ok(None);
+            }
+        }
+        zip.finish().map(Some)
+    }
+}
+
+/// Pushes `write_entry_unreadable` for each entry of `package` that cannot
+/// be read and is not left out. Returns whether there was one.
+fn refuse_unreadable<R: Read + Seek>(
+    package: &Package<R>,
+    plan: &Plan,
+    diagnostics: &mut Diagnostics,
+) -> bool {
+    let mut refused = false;
+    for (index, entry) in package.archive().entries().iter().enumerate() {
+        if !entry.is_readable() && !plan.removed.contains(&index) {
+            let location = Location::default().with_entry_bytes(entry.name());
+            diagnostics.push(Diagnostic::WriteEntryUnreadable {}, location);
+            refused = true;
+        }
+    }
+    refused
+}
+
+impl Context<'_> {
+    /// Writes the entry at `index` of `archive` as the next entry of `zip`,
+    /// its new content made by `rewrite` from its inflated content. Returns
+    /// whether the entry was written: `false` after a diagnostic is pushed
+    /// (the content refused, or the entry found damaged).
+    fn rewritten<R: Read + Seek, W: Write>(
+        &mut self,
+        zip: &mut ZipWriter<W>,
+        archive: &mut ZipArchive<R>,
+        index: usize,
+        rewrite: impl FnOnce(&mut dyn BufRead, &mut dyn Write) -> Result<(), WriteError>,
+    ) -> Result<bool, WriteError> {
+        let name = archive
+            .entries()
+            .get(index)
+            .map_or(Vec::new(), |e| e.name().to_vec());
+        // A diagnostic about a part is at the part. The content types stream
+        // is not a part, so a diagnostic about the stream is at its zip entry,
+        // as the package pushes its own diagnostics about the stream.
+        let stream = Location::default().with_entry_bytes(&name);
+        let location =
+            (self.parts.get(&index)).map_or(stream, |part| Location::default().with_part(part));
+        let Some(entry) = archive.open_entry(index, self.diagnostics)? else { return Ok(false) };
+        let mut original = BufReader::new(entry);
+        let mut deflate = DeflateWriter::new(&mut *self.spools, self.limits.part_spill_bytes);
+        // Whatever `rewrite` leaves unread is read to the end, so the
+        // entry's size and CRC-32 are checked in every case.
+        let result = rewrite(&mut original, &mut deflate).and_then(|()| drain(&mut original));
+        let stopped = original.get_ref().is_stopped();
+        drop(original);
+        if !accepted(self.diagnostics, result, stopped, location)? {
+            return Ok(false);
+        }
+        zip.write_deflated(&name, deflate.finish()?)?;
+        Ok(true)
+    }
+
+    /// Writes a new entry for the part `part` (its name with a `/` in front)
+    /// as the next entry of `zip`, its content made by `write`. Returns
+    /// whether it was written, as [`rewritten`](Self::rewritten) does.
+    fn added<W: Write>(
+        &mut self,
+        zip: &mut ZipWriter<W>,
+        part: &str,
+        write: impl FnOnce(&mut dyn Write) -> Result<(), WriteError>,
+    ) -> Result<bool, WriteError> {
+        let name = part.get(1..).unwrap_or_default().as_bytes();
+        let mut deflate = DeflateWriter::new(&mut *self.spools, self.limits.part_spill_bytes);
+        let result = write(&mut deflate);
+        if !accepted(
+            self.diagnostics,
+            result,
+            false,
+            Location::default().with_part(part),
+        )? {
+            return Ok(false);
+        }
+        zip.write_deflated(name, deflate.finish()?)?;
+        Ok(true)
+    }
+}
+
+/// Reads `original` to its end and drops what it reads.
+fn drain(original: &mut dyn Read) -> Result<(), WriteError> {
+    io::copy(original, &mut io::sink())?;
+    Ok(())
+}
+
+/// Whether the content of an entry is accepted: `result` is `Ok`.
+/// `Ok(false)` when it is refused, with a diagnostic pushed already or now
+/// at `location`: `result` is [`WriteError::Invalid`], or an error that comes
+/// from the entry being read, which `stopped` says, with its own
+/// diagnostic. Any other error is the host's, and is returned.
+fn accepted(
+    diagnostics: &mut Diagnostics,
+    result: Result<(), WriteError>,
+    stopped: bool,
+    location: Location,
+) -> Result<bool, WriteError> {
+    match result {
+        Ok(()) => Ok(true),
+        Err(WriteError::Invalid(diagnostic)) => {
+            diagnostics.push(diagnostic, location);
+            Ok(false)
+        }
+        Err(_) if stopped => Ok(false),
+        Err(error) => Err(error),
+    }
+}

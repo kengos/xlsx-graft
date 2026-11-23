@@ -140,6 +140,9 @@ pub struct Package<R> {
     total_relationships: u64,
     /// Whether every Relationships part was read whole.
     graph_complete: bool,
+    /// The entry of the content types stream, when it was read and every
+    /// mapping in it says what it names.
+    content_types: Option<usize>,
 }
 
 impl<R: Read + Seek> Package<R> {
@@ -187,6 +190,7 @@ impl<R: Read + Seek> Package<R> {
             unknown: names.unknown,
             total_relationships: 0,
             graph_complete: false,
+            content_types: None,
         };
         package.assign_types(names.content_types, limits, diagnostics)?;
         package.graph_complete = package.read_graph(limits, diagnostics)?;
@@ -255,9 +259,36 @@ impl<R: Read + Seek> Package<R> {
         self.graph_complete
     }
 
+    /// The keys of the names that are taken but are no part: zip entries
+    /// that were refused, for a name that is the same part as another's or
+    /// derived from another's, or is no part name; each was reported. A part
+    /// added under a name that is, or is a folder of or in, such a key would
+    /// not be read as a part.
+    pub fn unknown_keys(&self) -> impl Iterator<Item = &str> {
+        self.unknown.iter().map(String::as_str)
+    }
+
+    /// The index in [`ZipArchive::entries`] of the content types stream,
+    /// when it was read and every mapping in it says what it names. `None`
+    /// when there is no stream, or two, or it could not be read, or a mapping
+    /// in it names nothing (so what no mapping names has no known type): a
+    /// part added to the package then has no media type that can be known.
+    #[must_use]
+    pub fn content_types_entry(&self) -> Option<usize> {
+        self.content_types
+    }
+
     /// The zip the package is read from.
     #[must_use]
     pub fn archive(&self) -> &ZipArchive<R> {
         &self.archive
+    }
+
+    /// The zip the package is read from, given up: for a caller that has
+    /// planned from what the package says and now copies or reads entries
+    /// from the zip, which takes `&mut ZipArchive`.
+    #[must_use]
+    pub fn into_archive(self) -> ZipArchive<R> {
+        self.archive
     }
 }

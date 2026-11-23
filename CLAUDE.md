@@ -45,6 +45,11 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   the four workbooks `make fixtures:generate` writes with the Ruby xlsx gems and the CLI
   (bench/ruby, in Docker, 8 GiB) and write the peak memory and time to
   `dist/bench/compare.{json,md}` / `dist/bench/cli.{json,md}`.
+- `make fixtures:repack` is not a gate and not a member of `make verify`: it
+  writes each workbook of `fixtures/` again with the engine's writer
+  (engine/fixtures-gen, in Docker) into `fixtures/generated/repacked/`, as it
+  is and with `docProps/app.xml`'s Application rewritten, for
+  `make excel:check F='fixtures/generated/repacked/*'` to open on a Mac.
 - `make bench:memory` is the one bench target that is a gate and a member of
   `make verify`: it runs the CLI's `read` and `verify` on
   `shared-100000.xlsx` and `shared-1000000.xlsx` (bench/ruby/compare.rb,
