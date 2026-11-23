@@ -17,5 +17,10 @@ xlsx-graft-package = { workspace = true }
 # Holds new content deflated until it is written.
 xlsx-graft-spool = { workspace = true }
 
+[dev-dependencies]
+# The XmlRewriter the integration test passes the fixtures' XML parts through
+# (tests/xml_passthrough/main.rs).
+xlsx-graft-xml = { workspace = true }
+
 [lints]
 workspace = true

@@ -77,6 +77,20 @@
 //! - The streaming reader hands back a host failure of the reader it reads
 //!   from as [`XmlStreamError::Io`], apart from the diagnostics.
 //!
+//! [`XmlRewriter`] reads a part as the streaming reader does and writes
+//! events with quick-xml's writer, for a caller that changes some of a part
+//! and keeps the rest. For a UTF-8 part, the bytes written for events passed
+//! to `write` as `next` returned them equal the bytes those events were read
+//! from: the declaration, whitespace, comments, the quotes, order and
+//! newlines of attributes, whether an empty element is written `<a/>` or
+//! `<a />`, CDATA, processing instructions, references and the byte order
+//! mark. The one exception is whitespace after the name in a closing tag
+//! (`</a >`), which quick-xml's reader removes from the end tag's name
+//! (`trim_markup_names_in_closing_tags`), so it is written as `</a>`. The
+//! output is always UTF-8: a UTF-16 part is written as UTF-8, without a byte
+//! order mark, and its declaration is written with only the value of its
+//! `encoding` attribute replaced by `UTF-8`, every other byte as it was.
+//!
 //! The [`events`], [`name`] and [`XmlVersion`] it hands out are quick-xml's
 //! own, re-exported so a caller needs no dependency of its own; a quick-xml
 //! upgrade that changes them changes this crate's API too.
@@ -86,6 +100,7 @@ mod encoding;
 mod guard;
 mod limits;
 mod reader;
+mod rewriter;
 mod stream;
 
 pub use limits::XmlLimits;
@@ -93,6 +108,7 @@ pub use quick_xml::XmlVersion;
 pub use quick_xml::events;
 pub use quick_xml::name;
 pub use reader::XmlReader;
+pub use rewriter::XmlRewriter;
 pub use stream::{XmlStreamError, XmlStreamReader};
 
 use xlsx_graft_diagnostics::{Diagnostic, Echo};

@@ -1,15 +1,17 @@
-//! Tests for `XmlReader` and `XmlStreamReader`, driven through their public
-//! entry points. Each file under `tests/` covers one aspect of what the
-//! readers refuse or admit; [`read_with`] runs every input through both, at
-//! several chunk sizes, so that what a part gets depends neither on the
-//! reader (the in-memory one is the streaming one over a slice) nor on how
-//! its bytes arrive. `streaming` covers what only the streaming reader does.
+//! Tests for `XmlReader`, `XmlStreamReader` and `XmlRewriter`, driven through
+//! their public entry points. Each file under `tests/` covers one aspect of
+//! the readers or of `XmlRewriter`; [`read_with`] runs every input through
+//! both readers, at several chunk sizes, so that what a part gets depends
+//! neither on the reader (the in-memory one is the streaming one over a
+//! slice) nor on how its bytes arrive. `streaming` covers what only the
+//! streaming reader does; `rewriting` covers what `XmlRewriter` writes.
 
 mod doctype;
 mod encoding;
 mod limits;
 mod malformed;
 mod reading;
+mod rewriting;
 mod streaming;
 
 use crate::events::Event;

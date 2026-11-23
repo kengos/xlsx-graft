@@ -29,6 +29,9 @@ pub(crate) struct Decoder {
     written: u64,
     /// Whether the part has ended.
     ended: bool,
+    /// Whether the part began with a UTF-8 byte order mark, which `sniff`
+    /// removed from the text handed out.
+    utf8_bom: bool,
     /// The problem decoding stopped at.
     failed: Option<Diagnostic>,
 }
@@ -38,6 +41,12 @@ impl Decoder {
     /// are pushed.
     pub(crate) fn found(&self) -> Found {
         self.found.unwrap_or(Found::Utf8)
+    }
+
+    /// Whether the part began with a UTF-8 byte order mark, which is not in
+    /// the text handed out; false until the encoding is sniffed.
+    pub(crate) fn utf8_bom(&self) -> bool {
+        self.utf8_bom
     }
 
     /// The problem decoding stopped at.
@@ -100,6 +109,7 @@ impl Decoder {
             Err(diagnostic) => self.failed = Some(diagnostic),
             Ok((found, body)) => {
                 let body = body.to_vec();
+                self.utf8_bom = found == Found::Utf8 && body.len() < bytes.len();
                 self.found = Some(found);
                 self.decode(body);
             }
