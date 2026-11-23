@@ -126,6 +126,13 @@ fn an_entry_the_zip_refused_reports_nothing_more_but_its_name_still_counts() {
 }
 
 #[test]
+fn a_package_gives_up_the_zip_it_is_read_from() {
+    let archive = clean(minimal()).into_archive();
+    assert_eq!(archive.entries().len(), 3);
+    assert_eq!(archive.position(b"xl/workbook.xml"), Some(2));
+}
+
+#[test]
 fn a_package_gives_back_its_parts_and_their_relationships() {
     let mut package = clean(minimal());
     let names: Vec<&str> = package.parts().iter().map(|p| p.name().as_str()).collect();

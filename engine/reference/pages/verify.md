@@ -76,6 +76,7 @@ The pages that explain each code in `diagnostics`:
 - `xlsx-graft://reference/diagnostics-content`
 - `xlsx-graft://reference/diagnostics-targets`
 - `xlsx-graft://reference/diagnostics-host`
+- `xlsx-graft://reference/diagnostics-write`
 
 ## Examples
 

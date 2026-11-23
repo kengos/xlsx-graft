@@ -81,3 +81,21 @@ fixtures\:scrub: ## Remove the account and organization names and the paths Exce
 fixtures\:generate: ## Write the large workbooks (rows and shared strings, 100,000 and 1,000,000 rows each) into fixtures/generated/ (gitignored) with engine/fixtures-gen
 	$(CARGO_IN_DOCKER) 'cd /repo && cargo run --manifest-path engine/Cargo.toml -p xlsx-graft-fixtures-gen \
 		--release --locked $(CARGO_JOBS) -- fixtures/generated'
+
+# fixtures:repack — writes each workbook of fixtures/ again with the engine's
+# writer (engine/write's PackageEdit) into fixtures/generated/repacked/, which
+# git ignores, for `make excel:check` to open on a Mac and show that Excel
+# accepts what the writer makes: <name>, its package edited by nothing
+# (every entry copied as it is, the zip laid out again), and <stem>-app.<ext>,
+# with the text of the Application element of docProps/app.xml replaced (one
+# part rewritten, the others copied). A workbook with no docProps/app.xml
+# gives the first only. Runs in the toolchain image like fixtures:generate,
+# and is not a gate and not a member of verify: it prints the release
+# build's output and the path of each workbook written, and proves nothing.
+# A workbook already there under the same name is replaced.
+
+.PHONY: fixtures\:repack
+
+fixtures\:repack: ## Write each workbook of fixtures/ again with the engine's writer (as it is, and with the Application in docProps/app.xml rewritten) into fixtures/generated/repacked/ (gitignored), for make excel:check
+	$(CARGO_IN_DOCKER) 'cd /repo && cargo run --manifest-path engine/Cargo.toml -p xlsx-graft-fixtures-gen \
+		--release --locked $(CARGO_JOBS) -- repack fixtures fixtures/generated/repacked'

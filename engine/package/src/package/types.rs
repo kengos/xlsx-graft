@@ -49,6 +49,7 @@ impl<R: Read + Seek> Package<R> {
         else {
             return Ok(());
         };
+        self.content_types = (!types.is_wild()).then_some(index);
         for part in &mut self.parts {
             let is_relationships = part.name.is_relationships();
             let lookup = types.lookup(&part.name);

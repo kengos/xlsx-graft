@@ -12,8 +12,10 @@ pub struct ContentType {
 }
 
 impl ContentType {
-    /// `value` as a media type, or `None` when it is not one.
-    pub(crate) fn parse(value: &str) -> Option<Self> {
+    /// `value` as a media type, or `None` when it is not one: for a caller
+    /// that names the type of a part it adds to a package.
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
         // `ST_ContentType` admits Latin-1 at most, in a quoted string.
         if value.chars().any(|c| u32::from(c) > 0xFF) {
             return None;

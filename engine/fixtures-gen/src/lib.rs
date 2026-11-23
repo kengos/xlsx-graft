@@ -14,6 +14,11 @@
 //! or `shared-<n>` ([`write_shared_book`]: strings all different, in the
 //! shared strings table), with `<n>` data rows.
 //!
+//! `xlsx-graft-fixtures-gen repack <fixtures-dir> <dir>` is the other
+//! command (`make fixtures:repack`): it writes each workbook of
+//! `<fixtures-dir>` again with the engine's writer, to see whether Excel
+//! opens what the writer makes.
+//!
 //! The binary prints the path of each workbook once it is written, and
 //! exits 0. It exits 2 when the arguments are not a directory followed by
 //! books of that form with `<n>` from 1 to [`MAX_ROWS`], and 1 when a
@@ -22,6 +27,7 @@
 
 mod book;
 mod error;
+mod repack;
 mod shared;
 mod spec;
 
@@ -49,12 +55,21 @@ pub const MAX_ROWS: u32 = 1_048_575;
 /// workbook already under that name as it was. Once renamed, the
 /// workbook's path is written to `out` as a line.
 ///
+/// When the first argument is `repack`, the command is `repack`'s
+/// instead: two directories follow it, and a directory named `repack` is
+/// written `./repack`.
+///
 /// # Errors
 ///
 /// [`FixturesGenError`]: the arguments are not a directory followed by
 /// books, the directory cannot be created, a workbook cannot be written
 /// or renamed, or writing a line to `out` fails.
 pub fn run(args: &[OsString], out: &mut dyn Write) -> Result<(), FixturesGenError> {
+    if let Some((command, rest)) = args.split_first()
+        && command == "repack"
+    {
+        return repack::run(rest, out);
+    }
     let (dir, books) = parse(args)?;
     fs::create_dir_all(&dir).map_err(|source| FixturesGenError::Io {
         path: dir.clone(),

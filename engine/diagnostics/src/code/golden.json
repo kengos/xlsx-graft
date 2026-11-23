@@ -2051,5 +2051,20 @@
     },
     "fix": null,
     "origin": "<origin>"
+  },
+  {
+    "code": "write_entry_unreadable",
+    "severity": "error",
+    "message": "the zip entry cannot be read, so the package is not written",
+    "args": {},
+    "location": {
+      "entry": "xl/workbook.xml"
+    },
+    "decidedBy": null,
+    "fix": {
+      "in": "workbook",
+      "text": "fix the problem that the other diagnostic of this entry reports, or save the workbook again from Excel"
+    },
+    "origin": "<origin>"
   }
 ]

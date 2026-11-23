@@ -182,6 +182,15 @@
 #                               shared-100000.xlsx and shared-1000000.xlsx
 #                               into fixtures/generated/ (gitignored) with
 #                               rust_xlsxwriter (engine/fixtures-gen)
+#     make fixtures:repack      write each workbook of fixtures/ again with the
+#                               engine's writer into
+#                               fixtures/generated/repacked/ (gitignored): as
+#                               <name>, its entries copied as they are, and as
+#                               <stem>-app.<ext>, with the Application in
+#                               docProps/app.xml rewritten; then, on a Mac,
+#                               make excel:check F='fixtures/generated/repacked/*'
+#                               tells whether Excel opens them without a repair
+#                               (engine/fixtures-gen repack)
 #
 #   Benchmarks (in Docker; not a gate, not in verify: the result changes with
 #   the machine and the day; the one exception is bench:memory, a gate in

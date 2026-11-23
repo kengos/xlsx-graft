@@ -55,6 +55,20 @@ pub(crate) fn read(
     Some(types)
 }
 
+/// The key the reader files an `Override` under, given its `PartName`
+/// attribute: the value collapsed of white space, read as a part name and
+/// keyed as the parts are; a value that is no part name has the shadow key
+/// an entry of that name would have. Two `Override`s with the same key are a
+/// duplicate, and a part is typed by the `Override` with its own key.
+#[must_use]
+pub fn override_key(value: &str) -> String {
+    let name = schema::collapse(value);
+    match PartName::parse(&name) {
+        Ok(part) => part.key().to_owned(),
+        Err(_) => shadow_key(name.as_bytes()),
+    }
+}
+
 impl ContentTypes {
     /// Adds a `Default` or `Override`, pushing what is wrong with it. One
     /// that is refused still maps what it names, as refused; one that does

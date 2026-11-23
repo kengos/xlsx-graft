@@ -1456,6 +1456,17 @@ diagnostics! {
         message: crate::setting::message("the rules", key, *reason, hint),
         decided_by: Some(DecidedBy::Template {}),
         fix: None;
+
+    /// A zip entry of the workbook being edited cannot be read, so the
+    /// edited package is not written: copying the entry would carry its
+    /// problem into the output. Reported once for each such entry, after
+    /// the diagnostic that says why the entry cannot be read when the host
+    /// passes `finish` the `Diagnostics` it passed to `Package::open`; with
+    /// another one, that diagnostic is in the one passed to `Package::open`.
+    WriteEntryUnreadable {} => "write_entry_unreadable", Error,
+        message: String::from("the zip entry cannot be read, so the package is not written"),
+        decided_by: None,
+        fix: Some(Fix::workbook("fix the problem that the other diagnostic of this entry reports, or save the workbook again from Excel"));
 }
 
 #[cfg(test)]
