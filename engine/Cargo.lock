@@ -980,6 +980,7 @@ dependencies = [
  "proptest",
  "tempfile",
  "thiserror",
+ "xlsx-graft-cell",
  "xlsx-graft-diagnostics",
  "xlsx-graft-formula",
  "xlsx-graft-package",
