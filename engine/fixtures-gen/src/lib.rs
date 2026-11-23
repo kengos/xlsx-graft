@@ -14,18 +14,27 @@
 //! or `shared-<n>` ([`write_shared_book`]: strings all different, in the
 //! shared strings table), with `<n>` data rows.
 //!
-//! `xlsx-graft-fixtures-gen repack <fixtures-dir> <dir>` is the other
+//! `xlsx-graft-fixtures-gen repack <fixtures-dir> <dir>` is another
 //! command (`make fixtures:repack`): it writes each workbook of
 //! `<fixtures-dir>` again with the engine's writer, to see whether Excel
 //! opens what the writer makes.
 //!
+//! `xlsx-graft-fixtures-gen cells <dir>` is the third command
+//! (`make fixtures:cells`): it writes `cells-1900.xlsx`,
+//! `cells-1900-strict.xlsx` and `cells-1904.xlsx` into `<dir>`, workbooks
+//! of cell values (strings, numbers, booleans, error values, dates and
+//! times, shared strings) written with the engine's cell writer, to see
+//! whether Excel opens what the writer makes.
+//!
 //! The binary prints the path of each workbook once it is written, and
 //! exits 0. It exits 2 when the arguments are not a directory followed by
-//! books of that form with `<n>` from 1 to [`MAX_ROWS`], and 1 when a
-//! workbook cannot be written or its path cannot be printed
-//! ([`FixturesGenError::exit_status`]).
+//! books of that form with `<n>` from 1 to [`MAX_ROWS`], when `repack` is not
+//! followed by two directories, or when `cells` is not followed by one
+//! directory, and 1 when a workbook cannot be written or its path cannot be
+//! printed ([`FixturesGenError::exit_status`]).
 
 mod book;
+mod cells;
 mod error;
 mod repack;
 mod shared;
@@ -57,7 +66,8 @@ pub const MAX_ROWS: u32 = 1_048_575;
 ///
 /// When the first argument is `repack`, the command is `repack`'s
 /// instead: two directories follow it, and a directory named `repack` is
-/// written `./repack`.
+/// written `./repack`. When it is `cells`, one directory follows it, and
+/// a directory named `cells` is written `./cells`.
 ///
 /// # Errors
 ///
@@ -69,6 +79,11 @@ pub fn run(args: &[OsString], out: &mut dyn Write) -> Result<(), FixturesGenErro
         && command == "repack"
     {
         return repack::run(rest, out);
+    }
+    if let Some((command, rest)) = args.split_first()
+        && command == "cells"
+    {
+        return cells::run(rest, out);
     }
     let (dir, books) = parse(args)?;
     fs::create_dir_all(&dir).map_err(|source| FixturesGenError::Io {

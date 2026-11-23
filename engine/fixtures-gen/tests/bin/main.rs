@@ -43,7 +43,7 @@ fn the_binary_exits_2_with_the_usage_for_a_command_line_without_a_directory() {
     assert_eq!(text(&output.stdout), "");
     assert_eq!(
         text(&output.stderr),
-        "xlsx-graft-fixtures-gen: usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir>\n"
+        "xlsx-graft-fixtures-gen: usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir> | cells <dir>\n"
     );
 }
 
@@ -82,4 +82,21 @@ fn the_binary_repacks_the_workbooks_of_a_directory_and_prints_each_path_written(
     );
     assert_eq!(text(&output.stderr), "");
     assert!(to.join("table.xlsx").is_file() && to.join("table-app.xlsx").is_file());
+}
+
+#[test]
+fn the_binary_writes_the_cells_workbooks_and_prints_each_path_written() {
+    let dir = tempfile::tempdir().unwrap();
+    let output = fixtures_gen(&["cells", dir.path().to_str().unwrap()]);
+    assert_eq!(output.status.code(), Some(0));
+    let expected: String = [
+        "cells-1900.xlsx",
+        "cells-1900-strict.xlsx",
+        "cells-1904.xlsx",
+    ]
+    .iter()
+    .map(|name| format!("{}\n", dir.path().join(name).display()))
+    .collect();
+    assert_eq!(text(&output.stdout), expected);
+    assert_eq!(text(&output.stderr), "");
 }

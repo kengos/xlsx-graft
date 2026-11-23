@@ -191,6 +191,16 @@
 #                               make excel:check F='fixtures/generated/repacked/*'
 #                               tells whether Excel opens them without a repair
 #                               (engine/fixtures-gen repack)
+#     make fixtures:cells       write cells-1900.xlsx, cells-1900-strict.xlsx
+#                               and cells-1904.xlsx into
+#                               fixtures/generated/cells/ (gitignored) with
+#                               the engine's cell writer: a row for each kind
+#                               of value (strings, numbers, booleans, error
+#                               values, dates and times, shared strings);
+#                               then, on a Mac,
+#                               make excel:check F='fixtures/generated/cells/*.xlsx'
+#                               tells whether Excel opens them without a repair
+#                               (engine/fixtures-gen cells)
 #
 #   Benchmarks (in Docker; not a gate, not in verify: the result changes with
 #   the machine and the day; the one exception is bench:memory, a gate in

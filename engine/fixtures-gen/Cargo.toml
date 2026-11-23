@@ -1,6 +1,6 @@
 [package]
 name = "xlsx-graft-fixtures-gen"
-description = "Writes the large workbooks (rows and shared strings) `make fixtures:generate` puts in fixtures/generated/, and the workbooks of fixtures/ written again by the engine (`make fixtures:repack`)"
+description = "Writes the large workbooks (rows and shared strings) `make fixtures:generate` puts in fixtures/generated/, the workbooks of fixtures/ written again by the engine (`make fixtures:repack`), and workbooks of cell values written by the engine (`make fixtures:cells`)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -18,10 +18,14 @@ path = "src/main.rs"
 rust_xlsxwriter = { workspace = true }
 # FixturesGenError.
 thiserror = { workspace = true }
+# `cells` writes workbooks of cell values: each value as its `<c>` element,
+# and the shared strings part (engine/cell).
+xlsx-graft-cell = { workspace = true }
 # `repack` writes each workbook of fixtures/ again with the engine's writer,
 # to see whether Excel opens what it writes: the package it reads, the
 # edit that rewrites one part, the scratch files that edit spills to, and
-# the diagnostics a workbook that cannot be repacked reports.
+# the diagnostics a workbook that cannot be repacked reports. `cells` also
+# uses the zip writer and the in-memory scratch storage of this list.
 xlsx-graft-diagnostics = { workspace = true }
 xlsx-graft-package = { workspace = true }
 xlsx-graft-spool = { workspace = true }

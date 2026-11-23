@@ -99,3 +99,25 @@ fixtures\:generate: ## Write the large workbooks (rows and shared strings, 100,0
 fixtures\:repack: ## Write each workbook of fixtures/ again with the engine's writer (as it is, and with the Application in docProps/app.xml rewritten) into fixtures/generated/repacked/ (gitignored), for make excel:check
 	$(CARGO_IN_DOCKER) 'cd /repo && cargo run --manifest-path engine/Cargo.toml -p xlsx-graft-fixtures-gen \
 		--release --locked $(CARGO_JOBS) -- repack fixtures fixtures/generated/repacked'
+
+# fixtures:cells — writes three workbooks of cell values with the engine's
+# cell writer (engine/cell's write_cell and SharedStringsWriter, in zips from
+# engine/write) into fixtures/generated/cells/, which git ignores:
+# cells-1900.xlsx (the 1900 date system that counts 1900-02-29),
+# cells-1900-strict.xlsx (conformance="strict", the standard's 1900) and
+# cells-1904.xlsx (date1904="1"). Each has a row for each kind of value, a
+# description in column A and the value in column B: strings that need _xHHHH_
+# escapes or are cut at 32,767 UTF-16 code units, numbers at their limits,
+# booleans, error values, dates, times, date-times and elapsed times, and
+# shared strings; a value the cell writer refuses is the text "refused: <why>".
+# On a Mac, make excel:check F='fixtures/generated/cells/*.xlsx' tells
+# whether Excel opens them without a repair. Runs in the toolchain image like
+# fixtures:repack, and is not a gate and not a member of verify: it prints the
+# release build's output and the path of each workbook written, and proves
+# nothing. A workbook already there under the same name is replaced.
+
+.PHONY: fixtures\:cells
+
+fixtures\:cells: ## Write three workbooks of cell values with the engine's cell writer into fixtures/generated/cells/ (gitignored), for make excel:check
+	$(CARGO_IN_DOCKER) 'cd /repo && cargo run --manifest-path engine/Cargo.toml -p xlsx-graft-fixtures-gen \
+		--release --locked $(CARGO_JOBS) -- cells fixtures/generated/cells'

@@ -103,6 +103,18 @@ template is reported, not rewritten (below).
     breaks neither ECMA-376 nor MS-OI29500. The forms admitted only because
     Excel was seen to open them are for reading and verifying, never for
     writing.
+  - A cell's value is written as what it is, never guessed from its text.
+    A string is an inline string (`t="inlineStr"`, unless the caller puts
+    it in the shared strings part, `t="s"`), so `=A1`, `00123` and
+    `2024-01-01` stay text. A character that is not an XML Char, and an `_`
+    that would start an escape, are written as `_xHHHH_`
+    (ECMA-376-1:2016 §22.9.2.19). Text past 32,767 UTF-16 code units is cut
+    there, at a character boundary, and the caller is told it was cut. A
+    NaN, an infinity, an integer whose magnitude is past 2^53, a date or
+    date-time with no serial date-time in the workbook's date system, and an
+    elapsed time that cannot be read back are refused. A date or time is
+    the serial date-time of its wall-clock value in the workbook's date
+    system, with no time zone, and `t="d"` is never written.
   - What it carries over from a template is never rewritten: it is
     reported as verifying would report it.
   - Valid under ECMA-376 does not mean that Google Sheets, LibreOffice or
