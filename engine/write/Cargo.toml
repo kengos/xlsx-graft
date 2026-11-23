@@ -15,6 +15,10 @@ xlsx-graft-diagnostics = { workspace = true }
 # The zip an entry is copied from, and the package that says which parts
 # there are.
 xlsx-graft-package = { workspace = true }
+# The prefixes a formula reads as a function, which no defined name may
+# start with (`structure`); the property tests also read back with it the
+# prefix `sheet_prefix` writes.
+xlsx-graft-formula = { workspace = true }
 # Holds new content deflated until it is written.
 xlsx-graft-spool = { workspace = true }
 # Reads and writes the XML parts the edit changes itself: the content types
@@ -25,6 +29,11 @@ xlsx-graft-xml = { workspace = true }
 # not built for WebAssembly (the crate root).
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 tempfile = { workspace = true }
+
+[dev-dependencies]
+# The property test: the prefix `sheet_prefix` writes is read back as the
+# sheets it names.
+proptest = { workspace = true }
 
 [lints]
 workspace = true

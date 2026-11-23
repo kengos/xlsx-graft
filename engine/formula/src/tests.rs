@@ -6,6 +6,7 @@ mod bypass;
 mod excel;
 mod facts;
 mod lexing;
+mod prefixes;
 mod properties;
 
 use crate::{Formula, analyze};

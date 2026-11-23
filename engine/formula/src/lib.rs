@@ -38,11 +38,15 @@
 //! 3. **Facts**: the [`Call`]s (with the functions named as values, such
 //!    as `_xleta.SUM`), the LAMBDA [`Param`]s (`_xlpm.x`), the
 //!    [`Reference`]s, the [`Name`]s, the [`DdeLink`]s, the
-//!    [`ExternalBook`]s and the [`Malformed`] places.
+//!    [`ExternalBook`]s, the [`SheetPrefix`]es and the [`Malformed`]
+//!    places.
 //! 4. **A safety net**: a second scan that ignores every quote finds each
 //!    `NAME(` in the text; one the lexer did not see as a call is an
 //!    [`UnseenCall`]. A string holding `"SUM("` is one too: the net is for a
 //!    lexer that reads a formula wrong, and it errs towards reporting.
+//!
+//! [`function_prefix`] gives the prefixes the reader takes off a word before
+//! reading it as a function or a LAMBDA parameter.
 //!
 //! # Failing closed
 //!
@@ -83,7 +87,7 @@ mod unescape;
 
 pub use facts::{
     Call, DdeLink, ExternalBook, Facts, Location, Malformed, MalformedReason, Name, Param,
-    Reference, ReferenceKind, UnseenCall,
+    Reference, ReferenceKind, SheetPrefix, UnseenCall,
 };
 pub use lexer::MAX_BRACKET_DEPTH;
 pub use token::{Span, Token, TokenKind};
@@ -107,6 +111,16 @@ impl Formula {
     pub fn slice(&self, span: Span) -> &str {
         self.text.get(span.start..span.end).unwrap_or("")
     }
+}
+
+/// The prefixes `word` starts with, as written (`_xlfn._xlws.` of
+/// `_xlfn._xlws.FILTER`), or `""` when it starts with none: what the reader
+/// takes off a word before it reads the word as a function or a LAMBDA
+/// parameter. The prefixes are `_xlfn.`, `_xlws.`, `_xludf.`, `_xleta.` and
+/// `_xlpm.`, in any letter case.
+#[must_use]
+pub fn function_prefix(word: &str) -> &str {
+    facts::word::split_prefix(word).0
 }
 
 /// Reads `formula`, the text of a formula with no leading `=`.
