@@ -1,5 +1,6 @@
-//! [`unescape`]: the `_xHHHH_` escapes of ST_Xstring (ECMA-376-1:2016
-//! §22.9.2.19) undone, on a value that arrives in pieces.
+//! [`unescape`] and [`escape`]: the `_xHHHH_` escapes of ST_Xstring
+//! (ECMA-376-1:2016 §22.9.2.19) undone, on a value that arrives in pieces
+//! ([`unescape`]), and made for writing ([`escape`]).
 //!
 //! An escape is `_x`, four hexadecimal digits in either case, and `_`, and
 //! stands for the UTF-16 code unit the digits give: `_x005F_` is `_`
@@ -146,6 +147,59 @@ fn unit(text: &str) -> Option<u16> {
         .all(|b| b.is_ascii_hexdigit())
         .then_some(())?;
     u16::from_str_radix(digits, 16).ok()
+}
+
+/// Writes `text` as an ST_Xstring value (ECMA-376-1:2016 §22.9.2.19), the
+/// inverse of [`unescape`], handing it to `out` piece by piece.
+///
+/// A character that is not an XML 1.0 `Char` (U+0000 to U+001F but tab,
+/// line feed and carriage return, and U+FFFE and U+FFFF) is written as
+/// `_xHHHH_`, the digits in upper case. An `_` that would otherwise start an
+/// escape is written `_x005F_`: one followed by `x`, four hexadecimal
+/// digits in either case, and then an `_` or a character that is itself
+/// written as an escape (`_xABCD` followed by U+0001 is written
+/// `_xABCD_x0001_`, whose `_xABCD_` would be read as the escape of U+ABCD).
+/// Any other `_` is written as it is.
+///
+/// Use it on an ST_Xstring value first, then apply the XML's escape
+/// ([`xml_text`](crate::xml_text) or
+/// [`xml_attribute`](crate::xml_attribute)) to what it gives: the
+/// ST_Xstring value is made first, and the XML is written from it.
+pub fn escape<E>(text: &str, mut out: impl FnMut(&str) -> Result<(), E>) -> Result<(), E> {
+    let mut start = 0;
+    for (at, c) in text.char_indices() {
+        let after = at.saturating_add(c.len_utf8());
+        let hex;
+        let escaped: &str = if is_not_xml_char(c) {
+            hex = format!("_x{:04X}_", u32::from(c));
+            &hex
+        } else if c == '_' && starts_escape(text.get(after..).unwrap_or_default()) {
+            "_x005F_"
+        } else {
+            continue;
+        };
+        out(text.get(start..at).unwrap_or_default())?;
+        out(escaped)?;
+        start = after;
+    }
+    out(text.get(start..).unwrap_or_default())
+}
+
+/// Whether `c` is not a `Char` of XML 1.0's
+/// grammar (U+0009, U+000A, U+000D, U+0020 to U+D7FF, U+E000 to U+FFFD and
+/// U+10000 up).
+fn is_not_xml_char(c: char) -> bool {
+    matches!(c, '\u{0}'..='\u{8}' | '\u{B}' | '\u{C}' | '\u{E}'..='\u{1F}' | '\u{FFFE}' | '\u{FFFF}')
+}
+
+/// Whether an `_` followed by `rest` would be read as an escape by
+/// [`unescape`] once what follows is written: `x`, four hexadecimal digits,
+/// then an `_` or a character [`escape`] writes as an escape.
+fn starts_escape(rest: &str) -> bool {
+    let mut chars = rest.chars();
+    chars.next() == Some('x')
+        && (&mut chars).take(4).filter(char::is_ascii_hexdigit).count() == 4
+        && chars.next().is_some_and(|c| c == '_' || is_not_xml_char(c))
 }
 
 #[cfg(test)]

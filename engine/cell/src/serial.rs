@@ -1,5 +1,6 @@
 //! A cell's number as a serial date-time (§18.17.4.1) made a [`Date`],
-//! [`Time`], [`DateTime`] or [`Elapsed`] in a [`DateSystem`].
+//! [`Time`], [`DateTime`] or [`Elapsed`] in a [`DateSystem`], and each of
+//! them made that number again.
 
 use crate::DateSystem;
 use crate::clock::{DAY_MS, Date, DateTime, Elapsed, LAST_DAY, Time};
@@ -48,6 +49,77 @@ impl Elapsed {
     pub fn from_serial(serial: f64, system: DateSystem) -> Option<Self> {
         millis(serial, system).and_then(Elapsed::from_ms)
     }
+}
+
+impl Date {
+    /// The serial date-time of the date in `system`, the inverse of
+    /// [`Date::from_serial`]; `None` before the system's first day.
+    pub(crate) fn serial(self, system: DateSystem) -> Option<f64> {
+        Some(exact(day_serial(self, system)?, 0))
+    }
+}
+
+impl DateTime {
+    /// The serial date-time of the date and time of day in `system`, the
+    /// inverse of [`DateTime::from_serial`]; `None` before the system's
+    /// first day.
+    pub(crate) fn serial(self, system: DateSystem) -> Option<f64> {
+        Some(exact(
+            day_serial(self.date(), system)?,
+            time_ms(self.time()),
+        ))
+    }
+}
+
+impl Time {
+    /// The fraction of a day the time of day is, in every date system.
+    pub(crate) fn serial(self) -> f64 {
+        exact(0, time_ms(self))
+    }
+}
+
+impl Elapsed {
+    /// The days the elapsed time is, the inverse of [`Elapsed::from_serial`];
+    /// `None` when the length, counted from the system's serial 0, is past
+    /// the serial of 9999-12-31T23:59:59.999.
+    pub(crate) fn serial(self, system: DateSystem) -> Option<f64> {
+        let ms = i64::try_from(self.milliseconds()).ok()?;
+        let last = (LAST_DAY.saturating_add(1).saturating_sub(base(system))).saturating_mul(DAY_MS);
+        (ms < last).then(|| exact(0, ms))
+    }
+}
+
+/// The days of `date` from serial 0 in `system`; `None` before the system's
+/// first day: in `Compatibility1900`, which counts the 1900-02-29 that does
+/// not exist as serial 60, day 1 is 1900-01-01 and 1899-12-31 is before it.
+fn day_serial(date: Date, system: DateSystem) -> Option<i64> {
+    let (year, month, day) = (date.year(), date.month(), date.day());
+    let day = Date::day_of(i64::from(year), i64::from(month), i64::from(day))?
+        .saturating_sub(base(system));
+    match system {
+        DateSystem::Compatibility1900 => {
+            let serial = if day < 61 { day.saturating_sub(1) } else { day };
+            (serial >= 1).then_some(serial)
+        }
+        DateSystem::Base1900 | DateSystem::Base1904 => (day >= 0).then_some(day),
+    }
+}
+
+/// The milliseconds of a time of day from midnight.
+fn time_ms(time: Time) -> i64 {
+    i64::from(time.hour())
+        .saturating_mul(3_600_000)
+        .saturating_add(i64::from(time.minute()).saturating_mul(60_000))
+        .saturating_add(i64::from(time.second()).saturating_mul(1000))
+        .saturating_add(i64::from(time.millisecond()))
+}
+
+/// `day` days and `ms` milliseconds as a serial. `day × 86,400,000 + ms` is
+/// below 2^53, so it is held exactly by an `f64`, the division is the
+/// nearest `f64` to the exact quotient, and the millisecond is kept
+/// (`from_serial` rounds to it).
+fn exact(day: i64, ms: i64) -> f64 {
+    day.saturating_mul(DAY_MS).saturating_add(ms) as f64 / DAY_MS as f64
 }
 
 /// `serial` rounded to the millisecond, from serial 0; `None` when it is

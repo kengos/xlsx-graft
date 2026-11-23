@@ -9,5 +9,10 @@ repository.workspace = true
 [dependencies]
 thiserror = { workspace = true }
 
+[dev-dependencies]
+# The properties of the serial dates, the numbers' text and the escapes:
+# what is written reads back, for the values generated.
+proptest = { workspace = true }
+
 [lints]
 workspace = true

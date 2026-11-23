@@ -1,6 +1,9 @@
-//! Tests for `unescape`, on text alone: whole, and in pieces.
+//! Tests for `unescape`, on text alone: whole, and in pieces, and for
+//! `escape`, its inverse.
 
-use super::{Xstring, unescape};
+mod properties;
+
+use super::{Xstring, escape, unescape};
 use std::convert::Infallible;
 
 /// The value of `text` handed in whole.
@@ -126,4 +129,77 @@ fn a_surrogate_pair_that_ends_the_text_is_decoded_even_when_more_text_may_follow
         Ok(())
     });
     assert_eq!((read, value.as_str()), (Ok(15), "a\u{1F600}"));
+}
+
+/// The value of `text` written by `escape`, joined.
+fn escaped(text: &str) -> String {
+    let mut value = String::new();
+    escape::<Infallible>(text, |piece| {
+        value.push_str(piece);
+        Ok(())
+    })
+    .unwrap();
+    value
+}
+
+#[test]
+fn a_character_that_is_not_an_xml_char_is_written_as_an_escape_in_upper_case() {
+    assert_eq!(
+        escaped("\u{0}\u{8}\u{b}\u{c}\u{e}\u{1f}"),
+        "_x0000__x0008__x000B__x000C__x000E__x001F_"
+    );
+    assert_eq!(escaped("\u{fffe}\u{ffff}"), "_xFFFE__xFFFF_");
+    // Tab, line feed, carriage return and the characters at the edges of
+    // the ranges XML admits are kept.
+    let kept = "\t\n\r \u{7f}\u{9f}\u{d7ff}\u{e000}\u{fffd}\u{10000}\u{10ffff}a😀あ";
+    assert_eq!(escaped(kept), kept);
+    assert_eq!(escaped(""), "");
+}
+
+#[test]
+fn an_underscore_that_would_start_an_escape_is_written_as_one() {
+    assert_eq!(escaped("_x0041_"), "_x005F_x0041_");
+    assert_eq!(escaped("_xabcd_"), "_x005F_xabcd_");
+    assert_eq!(escaped("_x0041__x0042_"), "_x005F_x0041__x005F_x0042_");
+    // Any other underscore is kept.
+    for kept in [
+        "_", "a_b", "_x", "_x004", "_x0041", "_x004G_", "_X0041_", "_x00041_", "__x",
+    ] {
+        assert_eq!(escaped(kept), kept);
+    }
+}
+
+/// U+0001 is written as `_x0001_`, so the `_` of `_xABCD` is followed by
+/// `_` after the four digits and `_xABCD_` would be read as the escape of
+/// U+ABCD.
+#[test]
+fn an_underscore_before_a_character_written_as_an_escape_is_written_as_one() {
+    let text = "_xABCD\u{1}";
+    assert_eq!(escaped(text), "_x005F_xABCD_x0001_");
+    assert_eq!(whole(&escaped(text)), text);
+}
+
+#[test]
+fn a_failing_output_stops_the_writing() {
+    // `out` fails at its first call, and is not called again.
+    let mut calls = 0;
+    let result = escape("a\u{1}b", |_| {
+        calls += 1;
+        Err(())
+    });
+    assert_eq!((result, calls), (Err(()), 1));
+    // `out` fails at the escape of U+0001, its second call, and is not
+    // called for the `b`.
+    let mut calls = 0;
+    let result = escape("a\u{1}b", |piece| {
+        calls += 1;
+        if piece.starts_with("_x") {
+            Err(())
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!((result, calls), (Err(()), 2));
+    // `out` fails at the last piece.
+    assert_eq!(escape("a", |_| Err(())), Err(()));
 }

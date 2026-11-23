@@ -120,7 +120,7 @@ fn a_sheet_without_rows_reads_none() {
 /// A styles part whose cell formats are General, then the built-in date,
 /// time, date-time and elapsed time formats, then a format it does not
 /// define.
-fn styles() -> Item {
+pub(super) fn styles() -> Item {
     let xfs: String = [0, 14, 20, 22, 46, 5]
         .map(|id| format!(r#"<xf numFmtId="{id}"/>"#))
         .concat();
