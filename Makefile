@@ -201,6 +201,14 @@
 #                               make excel:check F='fixtures/generated/cells/*.xlsx'
 #                               tells whether Excel opens them without a repair
 #                               (engine/fixtures-gen cells)
+#     make fixtures:styles      write each workbook of fixtures/ again with a cell
+#                               format of engine/style's StylesEdit on each of
+#                               A1 to A18 of its first worksheet into
+#                               fixtures/generated/styles/ (gitignored); then,
+#                               on a Mac, make excel:check
+#                               F='fixtures/generated/styles/*' tells whether
+#                               Excel opens them without a repair
+#                               (engine/fixtures-gen styles)
 #
 #   Benchmarks (in Docker; not a gate, not in verify: the result changes with
 #   the machine and the day; the one exception is bench:memory, a gate in

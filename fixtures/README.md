@@ -36,6 +36,13 @@ workbook holds and [`shared.rs`](../engine/fixtures-gen/src/shared.rs)
 what a `shared-*` one does: strings all different, in the shared strings
 table), not by Excel.
 
+`make fixtures:styles` writes each workbook here again into
+`generated/styles/`, with a cell format of the engine's style crate on each of
+the cells A1 to A18 of its first worksheet, for `make excel:check` to open on
+a Mac ([`styles.rs`](../engine/fixtures-gen/src/styles.rs) says what it
+changes, and [`catalog.rs`](../engine/fixtures-gen/src/styles/catalog.rs)
+lists the formats).
+
 ## Adding a workbook
 
 1. Save it in Excel, with neutral sheet names and values (`Sheet1`, `Data`,

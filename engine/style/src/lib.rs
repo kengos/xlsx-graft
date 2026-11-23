@@ -45,6 +45,16 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
+//! # Writing a package
+//!
+//! A [`StylesEdit`] is an `xlsx_graft_write::PartRewriter`: given to
+//! `PackageEdit::replace` as a `Box` for the styles part, it writes the part
+//! when the edit is finished, from the part's original bytes. An original it
+//! cannot read is the diagnostic `finish` reports, as any rewriter's refusal
+//! is; the other [`StyleError`]s, which only [`StylesEdit::cell_format`]
+//! returns, are never returned by the rewriter
+//! ([`StylesEdit::rewrite`]).
+//!
 //! # What a [`Style`] promises
 //!
 //! A [`Style`] is laid over a base cell format, the one a cell has already,

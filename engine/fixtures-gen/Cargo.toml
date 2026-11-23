@@ -1,6 +1,6 @@
 [package]
 name = "xlsx-graft-fixtures-gen"
-description = "Writes the large workbooks (rows and shared strings) `make fixtures:generate` puts in fixtures/generated/, the workbooks of fixtures/ written again by the engine (`make fixtures:repack`), and workbooks of cell values written by the engine (`make fixtures:cells`)"
+description = "Writes the large workbooks (rows and shared strings) `make fixtures:generate` puts in fixtures/generated/, the workbooks of fixtures/ written again by the engine (`make fixtures:repack`) and again with cell formats given to their first cells (`make fixtures:styles`), and workbooks of cell values written by the engine (`make fixtures:cells`)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -31,6 +31,12 @@ xlsx-graft-package = { workspace = true }
 xlsx-graft-spool = { workspace = true }
 xlsx-graft-write = { workspace = true }
 xlsx-graft-xml = { workspace = true }
+# `styles` gives the cell formats of xlsx-graft-style to cells A1 and on of
+# each workbook of fixtures/: the reader finds the first worksheet and the
+# styles part, the style crate adds the cell formats to that part and
+# xlsx-graft-cell (above) writes the cells the sheet lacks.
+xlsx-graft-read = { workspace = true }
+xlsx-graft-style = { workspace = true }
 
 [dev-dependencies]
 # The property tests of tests/names: any name the writer's rules accept is
@@ -38,8 +44,6 @@ xlsx-graft-xml = { workspace = true }
 proptest = { workspace = true }
 # Each test writes its workbooks into a directory of its own.
 tempfile = { workspace = true }
-# The tests read each workbook written back with the engine's reader.
-xlsx-graft-read = { workspace = true }
 # The verifier that checks the names the writer's rules accept. It is here
 # and not in xlsx-graft-write's tests because crates.txt publishes the
 # writer before the verifier, and a dependency, a dev-dependency too, must

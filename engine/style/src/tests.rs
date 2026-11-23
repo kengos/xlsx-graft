@@ -1,9 +1,11 @@
 //! Tests of the crate's public values and of the number formats it writes:
 //! `read_back` reads the formats back with `xlsx-graft-read`; `fixtures`
-//! edits the styles part of every workbook in `fixtures/`, and `properties`
+//! edits the styles part of every workbook in `fixtures/`, `package` gives a
+//! `StylesEdit` to `PackageEdit::replace`, and `properties`
 //! edits a small part with random styles.
 
 mod fixtures;
+mod package;
 mod properties;
 mod read_back;
 

@@ -26,10 +26,17 @@
 //! times, shared strings) written with the engine's cell writer, to see
 //! whether Excel opens what the writer makes.
 //!
+//! `xlsx-graft-fixtures-gen styles <fixtures-dir> <dir>` is the fourth
+//! command (`make fixtures:styles`): it gives the cell formats of the `xlsx-graft-style`
+//! crate to cells A1 to A18 of the first worksheet of each workbook of
+//! `<fixtures-dir>`, one format to a cell, by writing the workbook again with
+//! the engine's writer, to see whether Excel opens what `StylesEdit` writes
+//! and shows each format as it is meant to be shown.
+//!
 //! The binary prints the path of each workbook once it is written, and
 //! exits 0. It exits 2 when the arguments are not a directory followed by
-//! books of that form with `<n>` from 1 to [`MAX_ROWS`], when `repack` is not
-//! followed by two directories, or when `cells` is not followed by one
+//! books of that form with `<n>` from 1 to [`MAX_ROWS`], when `repack` or
+//! `styles` is not followed by two directories, or when `cells` is not followed by one
 //! directory, and 1 when a workbook cannot be written or its path cannot be
 //! printed ([`FixturesGenError::exit_status`]).
 
@@ -39,6 +46,7 @@ mod error;
 mod repack;
 mod shared;
 mod spec;
+mod styles;
 
 pub use book::{ROWS_HEADER, write_rows_book};
 pub use error::FixturesGenError;
@@ -64,10 +72,10 @@ pub const MAX_ROWS: u32 = 1_048_575;
 /// workbook already under that name as it was. Once renamed, the
 /// workbook's path is written to `out` as a line.
 ///
-/// When the first argument is `repack`, the command is `repack`'s
-/// instead: two directories follow it, and a directory named `repack` is
-/// written `./repack`. When it is `cells`, one directory follows it, and
-/// a directory named `cells` is written `./cells`.
+/// When the first argument is `repack` or `styles`, the command is that
+/// one's instead: two directories follow it, and a directory named `repack`
+/// or `styles` is written `./repack` or `./styles`. When it is `cells`, one
+/// directory follows it, and a directory named `cells` is written `./cells`.
 ///
 /// # Errors
 ///
@@ -75,15 +83,16 @@ pub const MAX_ROWS: u32 = 1_048_575;
 /// books, the directory cannot be created, a workbook cannot be written
 /// or renamed, or writing a line to `out` fails.
 pub fn run(args: &[OsString], out: &mut dyn Write) -> Result<(), FixturesGenError> {
-    if let Some((command, rest)) = args.split_first()
-        && command == "repack"
-    {
-        return repack::run(rest, out);
-    }
-    if let Some((command, rest)) = args.split_first()
-        && command == "cells"
-    {
-        return cells::run(rest, out);
+    if let Some((command, rest)) = args.split_first() {
+        if command == "repack" {
+            return repack::run(rest, out);
+        }
+        if command == "cells" {
+            return cells::run(rest, out);
+        }
+        if command == "styles" {
+            return styles::run(rest, out);
+        }
     }
     let (dir, books) = parse(args)?;
     fs::create_dir_all(&dir).map_err(|source| FixturesGenError::Io {
