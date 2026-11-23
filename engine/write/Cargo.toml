@@ -10,6 +10,8 @@ repository.workspace = true
 crc32fast = { workspace = true }
 miniz_oxide = { workspace = true }
 thiserror = { workspace = true }
+# Undoes the `_xHHHH_` escapes of a sheet's name (`structure::model`).
+xlsx-graft-cell = { workspace = true }
 # Every problem in an entry copied from a workbook is a Diagnostic.
 xlsx-graft-diagnostics = { workspace = true }
 # The zip an entry is copied from, and the package that says which parts

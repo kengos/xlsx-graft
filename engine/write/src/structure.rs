@@ -27,6 +27,14 @@
 //! - **The prefix of a sheet in a formula** (`prefix.rs`): the quotes
 //!   ECMA-376-1:2016 §18.17.2.3 asks of a sheet name, and a 3-D
 //!   reference's two names.
+//! - **The workbook part, as a structure edit reads it** (`model.rs`):
+//!   [`model::Workbook`] holds the sheets, the defined names, the views
+//!   and the relationships of the workbook part, and the names of the
+//!   tables. It is read the way `xlsx-graft-read` reads the sheets, and
+//!   pushes the same diagnostics for a sheet it cannot tie to a part. It
+//!   is not re-exported: call it as `structure::model::Workbook`.
+
+pub mod model;
 
 mod error;
 mod names;
