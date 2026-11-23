@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "capi",
+    "cell",
     "cli",
     "compat",
     "core",
@@ -37,6 +38,9 @@ repository = "https://github.com/kengos/xlsx-graft"
 # refuses a path dependency with none. The version is the workspace's, and
 # `make version:check` fails when they differ.
 xlsx-graft-core = { path = "core", version = "0.0.0" }
+# The cell value types and their conversions, shared by reading and writing
+# (engine/cell).
+xlsx-graft-cell = { path = "cell", version = "0.0.0" }
 # The closed diagnostic codes and their JSON shape (engine/diagnostics).
 xlsx-graft-diagnostics = { path = "diagnostics", version = "0.0.0" }
 # The guarded reader for a package's untrusted XML (engine/xml).

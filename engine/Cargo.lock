@@ -790,6 +790,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "xlsx-graft-cell"
+version = "0.0.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "xlsx-graft-cli"
 version = "0.0.0"
 dependencies = [
@@ -904,6 +911,7 @@ version = "0.0.0"
 dependencies = [
  "crc32fast",
  "thiserror",
+ "xlsx-graft-cell",
  "xlsx-graft-diagnostics",
  "xlsx-graft-package",
  "xlsx-graft-spool",

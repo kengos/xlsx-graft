@@ -12,7 +12,7 @@ published to crates.io are listed too, with the project's own license text
 Licenses
 --------
 
-- MIT License: 97 crate(s)
+- MIT License: 98 crate(s)
 - Apache License 2.0: 2 crate(s)
 - ISC License: 1 crate(s)
 - Unicode License v3: 1 crate(s)
@@ -1068,6 +1068,7 @@ MIT License (MIT)
 ================================================================================
 
 Used by:
+- xlsx-graft-cell 0.0.0
 - xlsx-graft-cli 0.0.0
 - xlsx-graft-compat 0.0.0
 - xlsx-graft-core 0.0.0

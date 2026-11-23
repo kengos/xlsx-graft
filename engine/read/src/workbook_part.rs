@@ -8,6 +8,7 @@ mod walk;
 
 use crate::{ReadError, ReadLimits, Workbook};
 use std::io::{Read, Seek};
+pub use xlsx_graft_cell::DateSystem;
 use xlsx_graft_diagnostics::{Diagnostics, Location};
 use xlsx_graft_package::Package;
 
@@ -57,21 +58,6 @@ pub enum SheetKind {
     /// An Excel 4.0 macro sheet, international or not ([MS-OFFMACRO2]
     /// 2.2.1.1 and 2.2.1.2).
     Macrosheet,
-}
-
-/// How a serial date-time counts days (§18.17.4.1), as Excel takes it
-/// (MS-OI29500 on §18.2.28, note j): `date1904` decides between 1900 and
-/// 1904, and a workbook whose `conformance` is `strict` counts 1900 as the
-/// standard has it. `dateCompatibility`, which Excel ignores, is not read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DateSystem {
-    /// Day 1 is 1900-01-01, and day 60 the 1900-02-29 that never was, as
-    /// in Lotus 1-2-3: the default.
-    Compatibility1900,
-    /// Day 0 is 1899-12-30: `conformance="strict"`.
-    Base1900,
-    /// Day 0 is 1904-01-01: `date1904`.
-    Base1904,
 }
 
 impl WorkbookPart {

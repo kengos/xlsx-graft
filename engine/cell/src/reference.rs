@@ -18,9 +18,10 @@ impl CellRef {
     /// The last row (§18.17.5.1).
     pub const MAX_ROW: u32 = 1_048_576;
 
-    /// Reads an A1 reference to one cell: column letters, in either case
-    /// (§18.17.2.3.1), then the row's digits, leading zeros taken as the
-    /// grammar's digit sequence has them (`A01` is `A1`).
+    /// Reads an A1 reference to one cell (ST_CellRef, §18.18.7): column
+    /// letters, in either case (§18.17.2.3.1), then the row's digits,
+    /// leading zeros taken as the grammar's digit sequence has them (`A01`
+    /// is `A1`).
     ///
     /// # Errors
     ///

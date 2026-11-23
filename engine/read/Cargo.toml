@@ -8,6 +8,9 @@ repository.workspace = true
 
 [dependencies]
 thiserror = { workspace = true }
+# The cell value types this crate re-exports, and Xstring and unescape,
+# which it uses to undo the escapes of ST_Xstring.
+xlsx-graft-cell = { workspace = true }
 # Every problem in the workbook is returned as a Diagnostic.
 xlsx-graft-diagnostics = { workspace = true }
 # The package the parts are read from, and its relationships.

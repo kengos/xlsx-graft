@@ -7,9 +7,9 @@
 use std::fmt;
 
 /// Milliseconds in a day.
-pub(super) const DAY_MS: i64 = 86_400_000;
+pub(crate) const DAY_MS: i64 = 86_400_000;
 /// The day of 9999-12-31, the latest date (§18.17.4).
-pub(super) const LAST_DAY: i64 = 3_652_058;
+pub(crate) const LAST_DAY: i64 = 3_652_058;
 
 /// A date, without a time of day: 0001-01-01 to 9999-12-31.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,7 +62,7 @@ impl Date {
 
     /// The date `day` days after 0001-01-01; `None` past 9999-12-31 or
     /// before 0001-01-01.
-    pub(super) fn from_day(day: i64) -> Option<Self> {
+    pub(crate) fn from_day(day: i64) -> Option<Self> {
         if !(0..=LAST_DAY).contains(&day) {
             return None;
         }
@@ -86,7 +86,7 @@ impl Date {
 
     /// The days from 0001-01-01 to `year-month-day`; `None` for a date
     /// the calendar does not have, or one outside 0001 to 9999.
-    pub(super) fn day_of(year: i64, month: i64, day: i64) -> Option<i64> {
+    pub(crate) fn day_of(year: i64, month: i64, day: i64) -> Option<i64> {
         let last = match month {
             1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
             4 | 6 | 9 | 11 => 30,
@@ -133,7 +133,7 @@ impl Time {
     }
 
     /// The time `ms` milliseconds after midnight, wrapped at a day.
-    pub(super) fn from_ms(ms: i64) -> Option<Self> {
+    pub(crate) fn from_ms(ms: i64) -> Option<Self> {
         let ms = ms.rem_euclid(DAY_MS);
         Some(Self {
             hour: u8::try_from(ms / 3_600_000).ok()?,
@@ -159,7 +159,7 @@ impl DateTime {
 
     /// The instant `ms` milliseconds after 0001-01-01T00:00:00.000; `None`
     /// past 9999-12-31T23:59:59.999.
-    pub(super) fn from_ms(ms: i64) -> Option<Self> {
+    pub(crate) fn from_ms(ms: i64) -> Option<Self> {
         Some(Self {
             date: Date::from_day(ms.div_euclid(DAY_MS))?,
             time: Time::from_ms(ms)?,
@@ -175,7 +175,7 @@ impl Elapsed {
     }
 
     /// `ms` milliseconds of elapsed time; `None` when negative.
-    pub(super) fn from_ms(ms: i64) -> Option<Self> {
+    pub(crate) fn from_ms(ms: i64) -> Option<Self> {
         Some(Self {
             milliseconds: u64::try_from(ms).ok()?,
         })

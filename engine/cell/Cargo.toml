@@ -1,0 +1,13 @@
+[package]
+name = "xlsx-graft-cell"
+description = "xlsx-graft cell: the types a cell's value is made of (dates, times of day, date-times, elapsed times, cell references, the date system) and the conversions between them and a cell's number or text, shared by reading and writing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+
+[lints]
+workspace = true
