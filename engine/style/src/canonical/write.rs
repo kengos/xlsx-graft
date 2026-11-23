@@ -1,4 +1,5 @@
-//! Writing a [`Node`] as XML, and the `numFmt` element.
+//! Writing a [`Node`] as XML, the `numFmt` element, and a list element
+//! (`fonts`, `cellXfs`) around items already written.
 
 use super::{Child, Node, Value};
 
@@ -90,6 +91,19 @@ pub(crate) fn write_number_format(prefix: &[u8], id: u32, code: &str, out: &mut 
     attribute(b"numFmtId", &id.to_string(), out);
     attribute(b"formatCode", code, out);
     out.extend_from_slice(b"/>");
+}
+
+/// Writes the list element `name` (`numFmts`, `fonts`, `fills`, `borders` or
+/// `cellXfs`) whose `count` is `count`, around `items`, the bytes of its
+/// items already written, its names prefixed as `Node::write`'s are.
+pub(crate) fn write_list(prefix: &[u8], name: &str, count: usize, items: &[u8], out: &mut Vec<u8>) {
+    open(prefix, name.as_bytes(), out);
+    attribute(b"count", &count.to_string(), out);
+    out.push(b'>');
+    out.extend_from_slice(items);
+    out.extend_from_slice(b"</");
+    qualify(prefix, name.as_bytes(), out);
+    out.push(b'>');
 }
 
 /// Writes `<` and the qualified `name`.

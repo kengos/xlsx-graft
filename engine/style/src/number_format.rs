@@ -24,10 +24,6 @@ pub const ELAPSED: &str = "[h]:mm:ss";
 /// `#,##0`, `#,##0.00`, `0%`, `0.00%`, `0.00E+00`, `# ?/?` and `# ??/??`, and
 /// the text format `@`. A date or time has no id here: its code is written
 /// into the styles part.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "StylesEdit uses it in the next pull request")
-)]
 pub(crate) fn builtin_id(code: &str) -> Option<u32> {
     let id = match code {
         "General" => 0,

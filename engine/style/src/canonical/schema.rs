@@ -48,10 +48,10 @@ mod xf;
 
 use super::Value;
 
-pub(super) use border::{BOTTOM, DIAGONAL, LEFT, RIGHT, TOP};
+pub(super) use border::{BORDER, BOTTOM, DIAGONAL, LEFT, RIGHT, TOP};
 pub(super) use fill::{BG_COLOR, COLOR, FG_COLOR, FILL, PATTERN_FILL};
-pub(super) use font::{B, I, NAME, SCHEME, STRIKE, SZ, U, VERT_ALIGN};
-pub(super) use xf::{ALIGNMENT, PROTECTION};
+pub(super) use font::{B, FONT, I, NAME, SCHEME, STRIKE, SZ, U, VERT_ALIGN};
+pub(super) use xf::{ALIGNMENT, PROTECTION, XF};
 
 /// An element the table names. Two are equal when their names are, since the
 /// table names each element once.

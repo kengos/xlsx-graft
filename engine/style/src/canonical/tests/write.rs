@@ -138,8 +138,8 @@ fn what_is_not_in_the_table_is_written_as_it_was() {
     assert_eq!(
         written(xml, ""),
         concat!(
-            r#"<xf a:y="1&amp;" b:z="2"><alignment wrapText="1"/><extLst><ext uri="{1}"/></extLst>"#,
-            r#"<x:extra xmlns:x="urn:x"  k = 'v'/></xf>"#,
+            r#"<xf a:y="1&amp;" b:z="2"><alignment wrapText="1"/>"#,
+            r#"<x:extra xmlns:x="urn:x"  k = 'v'/><extLst><ext uri="{1}"/></extLst></xf>"#,
         )
     );
 }

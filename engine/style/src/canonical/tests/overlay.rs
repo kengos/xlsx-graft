@@ -147,7 +147,7 @@ fn a_foreign_attribute_a_raw_child_and_a_table_element_the_model_lacks_stay() {
     font_is(
         base,
         &font,
-        r#"<font x:a="1"><name val="Arial"/><x:c xmlns:x="urn:x"/><charset val="128"/></font>"#,
+        r#"<font x:a="1"><x:c xmlns:x="urn:x"/><name val="Arial"/><charset val="128"/></font>"#,
     );
 }
 
@@ -207,7 +207,7 @@ fn a_raw_child_of_a_cell_format_stays_through_alignment_and_protection() {
 
 #[test]
 fn a_raw_child_and_a_foreign_attribute_of_a_border_stay() {
-    let base = r#"<border x:a="1"><left style="thin"/><x:c xmlns:x="urn:x"/></border>"#;
+    let base = r#"<border x:a="1"><x:c xmlns:x="urn:x"/><left style="thin"/></border>"#;
     let border = Border {
         left: side(BorderStyle::None, None),
         top: side(BorderStyle::Thick, None),
@@ -216,7 +216,7 @@ fn a_raw_child_and_a_foreign_attribute_of_a_border_stay() {
     border_is(
         base,
         &border,
-        r#"<border x:a="1"><top style="thick"/><x:c xmlns:x="urn:x"/></border>"#,
+        r#"<border x:a="1"><x:c xmlns:x="urn:x"/><top style="thick"/></border>"#,
     );
 }
 

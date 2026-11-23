@@ -944,6 +944,8 @@ dependencies = [
 name = "xlsx-graft-style"
 version = "0.0.0"
 dependencies = [
+ "proptest",
+ "thiserror",
  "xlsx-graft-diagnostics",
  "xlsx-graft-package",
  "xlsx-graft-read",
