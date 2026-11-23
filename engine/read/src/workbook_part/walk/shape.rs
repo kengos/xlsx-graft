@@ -12,9 +12,9 @@
 
 use crate::compat::Ignorable;
 use crate::schema::{RELATIONSHIPS, boolean, is_space, namespace, refuse};
-use crate::shared_strings::escape::unescape;
 use crate::workbook_part::SheetState;
 use std::convert::Infallible;
+use xlsx_graft_cell::unescape;
 use xlsx_graft_diagnostics::{Diagnostic, SchemaReason};
 use xlsx_graft_xml::XmlReader;
 use xlsx_graft_xml::XmlVersion;

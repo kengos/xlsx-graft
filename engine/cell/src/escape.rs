@@ -23,25 +23,54 @@ const LONGEST_ESCAPE: usize = 2 * ESCAPE;
 
 /// The value of one ST_Xstring element as it arrives, piece by piece, its
 /// escapes undone.
+///
+/// The caller pushes the last piece of a value with `last = true`: until
+/// then, the text from the first `_` that is fewer than 14 bytes (the
+/// length of an escaped surrogate pair) from the end is held back, whether
+/// or not it turns out to start an escape, and it is passed to the `out`
+/// of a later [`Xstring::push`]. [`Xstring::begin`] starts the next value
+/// and discards the text held back from the previous one.
+///
+/// # Examples
+///
+/// ```
+/// use std::convert::Infallible;
+/// use xlsx_graft_cell::Xstring;
+///
+/// let mut value = String::new();
+/// let mut xstring = Xstring::default();
+/// xstring.begin();
+/// for (piece, last) in [("a_x00", false), ("41_b", true)] {
+///     xstring
+///         .push::<Infallible>(piece, last, |text| {
+///             value.push_str(text);
+///             Ok(())
+///         })
+///         .unwrap();
+/// }
+/// assert_eq!(value, "aAb");
+/// ```
 #[derive(Debug, Default)]
-pub(crate) struct Xstring {
+pub struct Xstring {
     /// The end of the value read so far that may still start an escape,
     /// held back until more of it arrives.
     held: String,
 }
 
 impl Xstring {
-    /// Starts a value.
-    pub(crate) fn begin(&mut self) {
+    /// Starts a value, discarding the text held back from the previous
+    /// value.
+    pub fn begin(&mut self) {
         self.held.clear();
     }
 
     /// Adds `text` to the value, its escapes undone and handed to `out`,
-    /// holding back what may still start one unless it is the `last`.
+    /// holding back what may still start one unless `last` says `text` is
+    /// the last piece of the value.
     ///
     /// What was held back is joined to no more of `text` than finishes an
     /// escape it may start, so `text` is never copied whole.
-    pub(crate) fn push<E>(
+    pub fn push<E>(
         &mut self,
         text: &str,
         last: bool,
@@ -74,8 +103,9 @@ impl Xstring {
 /// Undoes the escapes in `text`, handing the value to `out` piece by piece,
 /// and returns how many bytes of `text` it read. Unless `last`, it stops
 /// at an `_` too close to the end to tell whether it starts an escape, and
-/// the caller hands the rest in again ahead of what follows.
-pub(crate) fn unescape<E>(
+/// the caller passes `text[n..]` again, `n` the returned count, joined in
+/// front of the next piece.
+pub fn unescape<E>(
     text: &str,
     last: bool,
     mut out: impl FnMut(&str) -> Result<(), E>,

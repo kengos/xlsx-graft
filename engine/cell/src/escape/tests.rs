@@ -1,6 +1,6 @@
 //! Tests for `unescape`, on text alone: whole, and in pieces.
 
-use super::unescape;
+use super::{Xstring, unescape};
 use std::convert::Infallible;
 
 /// The value of `text` handed in whole.
@@ -90,4 +90,40 @@ fn a_failing_output_stops_the_reading() {
     assert_eq!(unescape("a", true, |_| Err(())), Err(()));
     let fail_at_a = |piece: &str| if piece == "A" { Err(()) } else { Ok(()) };
     assert_eq!(unescape("_x0041_", true, fail_at_a), Err(()));
+}
+
+/// `Xstring::begin` discards the text a previous, unfinished value held
+/// back, so the next value does not join it.
+#[test]
+fn begin_discards_the_text_held_back_from_the_previous_value() {
+    let mut xstring = Xstring::default();
+    let mut first = String::new();
+    xstring
+        .push::<Infallible>("ab_x00", false, |piece| {
+            first.push_str(piece);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(first, "ab");
+    xstring.begin();
+    let mut second = String::new();
+    xstring
+        .push::<Infallible>("41_", true, |piece| {
+            second.push_str(piece);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(second, "41_");
+}
+
+/// A surrogate pair that ends the text is decoded in full, and all of the
+/// text is reported as read, although more text may follow.
+#[test]
+fn a_surrogate_pair_that_ends_the_text_is_decoded_even_when_more_text_may_follow() {
+    let mut value = String::new();
+    let read = unescape::<Infallible>("a_xD83D__xDE00_", false, |piece| {
+        value.push_str(piece);
+        Ok(())
+    });
+    assert_eq!((read, value.as_str()), (Ok(15), "a\u{1F600}"));
 }

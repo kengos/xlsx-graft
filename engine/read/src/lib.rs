@@ -248,7 +248,9 @@
 //! 1900-01-01 or on 1900-02-29. It is rounded to the millisecond.
 //! [`Value::from_iso`] reads the ISO 8601 text of a `t="d"` cell, and
 //! [`CellRef::parse`] a cell's `r`, to XFD1048576. Each source the rules
-//! come from is in the `value` module's docs.
+//! come from is in the crate docs of [`xlsx_graft_cell`] and, for a cell
+//! reference, in the docs of [`CellRef::parse`]. The wall-clock types,
+//! [`DateSystem`], [`CellRef`] and [`ValueError`] come from xlsx-graft-cell.
 //!
 //! An `Err` is a failure of the host alone ([`ReadError`]): reading the
 //! package, or the spool.
@@ -258,7 +260,6 @@ mod compat;
 mod error;
 mod limits;
 mod range;
-mod reference;
 mod row;
 mod schema;
 mod shared_strings;
@@ -272,7 +273,6 @@ pub use book::{Book, Refusal, SheetChoice, SheetLookup};
 pub use error::ReadError;
 pub use limits::ReadLimits;
 pub use range::CellRange;
-pub use reference::CellRef;
 pub use row::Row;
 pub use shared_strings::{Lookup, SHARED_STRINGS, SharedStrings, StringTable};
 pub use sheet_rows::SheetRows;
@@ -280,6 +280,7 @@ pub use styles::{FormatKind, STYLES, Styles};
 pub use value::{Date, DateTime, Elapsed, Time, Value, ValueError};
 pub use workbook::Workbook;
 pub use workbook_part::{DateSystem, Sheet, SheetKind, SheetPart, SheetState, WorkbookPart};
+pub use xlsx_graft_cell::CellRef;
 
 #[cfg(test)]
 mod tests;

@@ -9,7 +9,6 @@
 
 mod shape;
 
-use super::escape::Xstring;
 use super::table::{Builder, StringTable};
 use super::{Halt, rst};
 use crate::ReadLimits;
@@ -17,6 +16,7 @@ use crate::compat::Ignorable;
 use crate::schema::{NAMESPACES, is_blank, namespace, resolve};
 use shape::{Child, Frame, attributes, child, refuse};
 use std::io::BufRead;
+use xlsx_graft_cell::Xstring;
 use xlsx_graft_diagnostics::SchemaReason;
 use xlsx_graft_spool::SpoolFactory;
 use xlsx_graft_xml::events::{BytesStart, Event};
