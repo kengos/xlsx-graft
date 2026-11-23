@@ -12,8 +12,8 @@
 //! fonts, fills, borders and `cellXfs` themselves). It does not hold for a
 //! `dxf`, a differential format, where `<b val="0"/>` and no `b` differ.
 //!
-//! The form is built with the functions of [`Node`]: the reader of the next
-//! pull request calls [`Node::push_attribute`], [`Node::push_child`] and
+//! The form is built with the functions of [`Node`]: the reader of the
+//! styles editor calls [`Node::push_attribute`], [`Node::push_child`] and
 //! [`Node::push_raw`] as it reads, and [`overlay`] states a style with
 //! [`Node::set_attribute`] and [`Node::set_child`]. A [`Node`] is compared
 //! only after [`Node::finish`], which sorts the foreign attributes and the
@@ -59,10 +59,17 @@ pub(crate) enum Child {
     Raw {
         /// The position of the element's name in the parent's list of
         /// children, which is the order they are written in; `usize::MAX`
-        /// when the list does not have the name.
+        /// when the list does not have the name. An element in another
+        /// namespace has the rank of the child before it (0 when it is the
+        /// first), so that it is written after the nodes of that rank and is
+        /// not moved after the `extLst`.
         rank: usize,
         /// The element's bytes, from `<` to `>`.
         bytes: Vec<u8>,
+        /// Whether the element is in a namespace other than the styles
+        /// part's. [`Node::set_child`] keeps such an element when it replaces
+        /// the child whose rank it has.
+        other_namespace: bool,
     },
 }
 
@@ -110,6 +117,21 @@ impl Node {
     /// or `xf`, named `local`. `None` for any other name.
     pub(crate) fn root(local: &[u8]) -> Option<Self> {
         schema::root(local).map(Self::new)
+    }
+
+    /// An empty `font`.
+    pub(crate) fn font() -> Self {
+        Self::new(&schema::FONT)
+    }
+
+    /// An empty `border`.
+    pub(crate) fn border() -> Self {
+        Self::new(&schema::BORDER)
+    }
+
+    /// An empty `xf`.
+    pub(crate) fn xf() -> Self {
+        Self::new(&schema::XF)
     }
 
     /// An empty node for the child named `local` of this node, when the
@@ -162,28 +184,54 @@ impl Node {
 
     /// Adds an element the table does not name, as the bytes it was written
     /// in. `local` is its local name when it is in the namespace of the
-    /// styles part, and `None` when it is in another.
+    /// styles part, and `None` when it is in another. An element in another
+    /// namespace has the rank of the child pushed before it (0 when it is
+    /// the first), so it is written after the nodes of that rank and does
+    /// not move after the `extLst`.
     pub(crate) fn push_raw(&mut self, local: Option<&[u8]>, bytes: Vec<u8>) {
-        let rank = local.map_or(usize::MAX, |local| {
-            let children = self.element.children;
-            (children.iter().position(|c| c.as_bytes() == local)).unwrap_or(usize::MAX)
+        let rank = match local {
+            Some(local) => {
+                let children = self.element.children;
+                (children.iter().position(|c| c.as_bytes() == local)).unwrap_or(usize::MAX)
+            }
+            None => self.children.last().map_or(0, |last| match last {
+                Child::Node(node) => self.rank_of(node.element.name),
+                Child::Raw { rank, .. } => *rank,
+            }),
+        };
+        let other_namespace = local.is_none();
+        self.children.push(Child::Raw {
+            rank,
+            bytes,
+            other_namespace,
         });
-        self.children.push(Child::Raw { rank, bytes });
     }
 
     /// Replaces every child named `name` (the nodes of that name, and the raw
-    /// children at the rank of that name) with `child`, or removes them for
-    /// `None`.
+    /// children at the rank of that name, but not those in another
+    /// namespace) with `child`, or removes them for `None`.
     pub(crate) fn set_child(&mut self, name: &str, child: Option<Self>) {
         let rank = self.rank_of(name);
         self.children.retain(|held| match held {
             Child::Node(node) => node.element.name != name,
-            Child::Raw { rank: held, .. } => *held != rank || rank == usize::MAX,
+            Child::Raw {
+                rank: held,
+                other_namespace,
+                ..
+            } => *other_namespace || *held != rank || rank == usize::MAX,
         });
         if let Some(child) = child {
             self.push_child(child);
         }
         self.sort();
+    }
+
+    /// The value of the attribute `name` of the table, which the node holds
+    /// unless it has its default value.
+    pub(crate) fn attribute(&self, name: &str) -> Option<&Value> {
+        (self.attributes.iter())
+            .find(|(held, _)| *held == name)
+            .map(|(_, value)| value)
     }
 
     /// The first child named `name`.

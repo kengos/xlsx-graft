@@ -18,7 +18,7 @@ const RELS: &str = "http://schemas.openxmlformats.org/package/2006/relationships
 const TYPES: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 
 /// A workbook with no sheet whose styles part is `styles`, written as a zip.
-fn workbook(styles: &str) -> Vec<u8> {
+pub(super) fn workbook(styles: &str) -> Vec<u8> {
     let content_types = concat!(
         r#"<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">"#,
         r#"<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>"#,
@@ -50,7 +50,7 @@ fn workbook(styles: &str) -> Vec<u8> {
 }
 
 /// The kind of each cell format of `styles`.
-fn kinds(styles: &str) -> Vec<FormatKind> {
+pub(super) fn kinds(styles: &str) -> Vec<FormatKind> {
     let mut diagnostics = Diagnostics::new();
     let reader = Cursor::new(workbook(styles));
     let mut package = Package::open(reader, &Limits::default(), &mut diagnostics)

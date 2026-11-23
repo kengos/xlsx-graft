@@ -1,6 +1,10 @@
 //! Tests of the crate's public values and of the number formats it writes:
-//! `read_back` reads the formats back with `xlsx-graft-read`.
+//! `read_back` reads the formats back with `xlsx-graft-read`; `fixtures`
+//! edits the styles part of every workbook in `fixtures/`, and `properties`
+//! edits a small part with random styles.
 
+mod fixtures;
+mod properties;
 mod read_back;
 
 use crate::Style;

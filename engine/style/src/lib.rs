@@ -1,11 +1,49 @@
 //! xlsx-graft style: the writing side of a workbook's styles. This crate
 //! holds the values a caller states to format a cell ([`Style`] and the
-//! types in it) and, below them, how the styles part (`xl/styles.xml`,
-//! ECMA-376-1:2016 §18.8) holds one of its items (a `font`, `fill`,
-//! `border` or `xf`) in a canonical form, overlays a [`Style`] on it and
-//! writes it as XML. The canonical form, the overlay and the writer are
-//! private to the crate for now: the styles editor that uses them is in the
-//! next pull request.
+//! types in it) and [`StylesEdit`], which reads an existing styles part
+//! (`xl/styles.xml`, ECMA-376-1:2016 §18.8), lays a [`Style`] over a cell
+//! format it has, adds the cell format, font, fill, border and number format
+//! that result unless the part has them already, and writes the part again.
+//! Below them, a private canonical form holds one item of the part (a
+//! `font`, `fill`, `border` or `xf`), so that two items with the same effect
+//! are found equal.
+//!
+//! # Adding a cell format
+//!
+//! [`StylesEdit::read`] reads the part, [`StylesEdit::cell_format`] gives
+//! the index a cell's `s` has (the same index for the same style, so the
+//! part does not grow with every call), and [`StylesEdit::rewrite`] writes
+//! the part with what was added at the end of its lists. What the part
+//! already has is not moved or removed, and a part that nothing was added to
+//! is written back byte for byte.
+//!
+//! ```
+//! use xlsx_graft_style::{Font, Style, StyleLimits, StylesEdit};
+//!
+//! let original: &[u8] = br#"<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellXfs></styleSheet>"#;
+//! let mut edit = StylesEdit::read(original, &StyleLimits::default())?;
+//!
+//! let bold = Style {
+//!     font: Some(Font {
+//!         bold: Some(true),
+//!         ..Default::default()
+//!     }),
+//!     ..Default::default()
+//! };
+//! // Laid over the cell format 0, the one a cell without an `s` has.
+//! let index = edit.cell_format(0, &bold)?;
+//! assert_eq!(index, 1);
+//! assert_eq!(edit.cell_format(0, &bold)?, index);
+//!
+//! let mut out = Vec::new();
+//! let mut original = original;
+//! edit.rewrite(&mut original, &mut out)?;
+//! let out = String::from_utf8(out)?;
+//! assert!(out.contains(r#"<fonts count="2">"#));
+//! assert!(out.contains(r#"<cellXfs count="2">"#));
+//! assert!(out.contains(r#"<xf numFmtId="0" fontId="1" fillId="0" borderId="0" applyFont="1"/>"#));
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
 //!
 //! # What a [`Style`] promises
 //!
@@ -20,11 +58,12 @@
 //! `diagonalDown`) writes it as `0`, such as `locked="0"`: the cell is not
 //! locked.
 //!
-//! A [`Style`] is not checked here. The XML writer assumes valid values:
-//! a text rotation of 181 to 254, a tint outside -1 to 1, a font size that is
-//! not a finite positive number or a name with a character XML cannot hold
-//! make it write a styles part Excel may refuse. The next pull request's
-//! cell format function checks them before it uses the writer.
+//! A [`Style`] is checked when it is laid over a cell format, not when it is
+//! built: [`StylesEdit::cell_format`] refuses a text rotation of 181 to 254,
+//! a tint outside -1 to 1, a font size that is not a number from 1 to 409, an
+//! empty name or number format code, and one with a character XML cannot
+//! hold ([`StyleError::InvalidValue`]), since the XML writer would write a
+//! styles part Excel may refuse.
 //!
 //! # Number formats
 //!
@@ -89,12 +128,10 @@
 mod number_format;
 mod value;
 
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "StylesEdit uses it in the next pull request")
-)]
 mod canonical;
+mod edit;
 
+pub use edit::{StyleError, StyleKind, StyleLimits, StylesEdit};
 pub use number_format::{DATE, DATE_TIME, ELAPSED, TIME};
 pub use value::{
     Alignment, Border, BorderSide, BorderStyle, Color, Fill, Font, HorizontalAlignment,
