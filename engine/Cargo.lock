@@ -927,6 +927,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "xlsx-graft-style"
+version = "0.0.0"
+dependencies = [
+ "xlsx-graft-diagnostics",
+ "xlsx-graft-package",
+ "xlsx-graft-read",
+ "xlsx-graft-spool",
+ "xlsx-graft-write",
+ "xlsx-graft-xml",
+]
+
+[[package]]
 name = "xlsx-graft-verify"
 version = "0.0.0"
 dependencies = [

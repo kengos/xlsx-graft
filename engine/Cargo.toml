@@ -15,6 +15,7 @@ members = [
     "read",
     "reference",
     "spool",
+    "style",
     "verify",
     "write",
     "xml",
@@ -48,6 +49,9 @@ xlsx-graft-package = { path = "package", version = "0.0.0" }
 xlsx-graft-spool = { path = "spool", version = "0.0.0" }
 # A zip written deterministically, copying entries as they are (engine/write).
 xlsx-graft-write = { path = "write", version = "0.0.0" }
+# The values of a cell's style and the canonical form of the styles part's
+# items, written as XML (engine/style).
+xlsx-graft-style = { path = "style", version = "0.0.0" }
 # A workbook's shared strings, read on the package (engine/read).
 xlsx-graft-read = { path = "read", version = "0.0.0" }
 # The reference pages compiled into the binary (engine/reference).
