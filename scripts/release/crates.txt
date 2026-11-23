@@ -12,6 +12,7 @@ xlsx-graft-package
 xlsx-graft-spool
 xlsx-graft-write
 xlsx-graft-read
+xlsx-graft-style
 xlsx-graft-reference
 xlsx-graft-compat
 xlsx-graft-verify

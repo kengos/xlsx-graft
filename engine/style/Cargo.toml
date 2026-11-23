@@ -1,0 +1,24 @@
+[package]
+name = "xlsx-graft-style"
+description = "xlsx-graft style: the values of a cell's style (font, fill, border, number format, alignment, protection), and how the styles part of a workbook holds and writes them"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dev-dependencies]
+# Reads the diagnostics of the workbooks the read-back test opens.
+xlsx-graft-diagnostics = { workspace = true }
+# The package the read-back test opens.
+xlsx-graft-package = { workspace = true }
+# Reads the number formats this crate writes back (src/tests/read_back.rs).
+xlsx-graft-read = { workspace = true }
+# Holds the new content of the zip the read-back test writes.
+xlsx-graft-spool = { workspace = true }
+# Reads the XML this crate writes into the canonical form, to compare it.
+xlsx-graft-xml = { workspace = true }
+# Writes the zip the read-back test builds.
+xlsx-graft-write = { workspace = true }
+
+[lints]
+workspace = true
