@@ -266,7 +266,7 @@ fn run_refuses_a_command_line_without_a_directory() {
     assert_eq!(err.exit_status(), 2);
     assert_eq!(
         err.to_string(),
-        "usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir>"
+        "usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir> | cells <dir>"
     );
 }
 
@@ -318,7 +318,7 @@ fn run_returns_an_xlsx_error_when_the_workbook_cannot_be_written() {
 }
 
 /// An output whose every write returns an error.
-struct Refuses;
+pub(crate) struct Refuses;
 
 impl Write for Refuses {
     fn write(&mut self, _: &[u8]) -> io::Result<usize> {

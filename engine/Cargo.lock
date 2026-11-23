@@ -841,6 +841,7 @@ dependencies = [
  "rust_xlsxwriter",
  "tempfile",
  "thiserror",
+ "xlsx-graft-cell",
  "xlsx-graft-diagnostics",
  "xlsx-graft-package",
  "xlsx-graft-read",
