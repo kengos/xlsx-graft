@@ -952,6 +952,7 @@ dependencies = [
  "xlsx-graft-diagnostics",
  "xlsx-graft-package",
  "xlsx-graft-spool",
+ "xlsx-graft-xml",
 ]
 
 [[package]]

@@ -6,6 +6,7 @@
 use crate::encoding::check_decl;
 use crate::guard::Guard;
 use crate::{XmlLimits, malformed};
+use decoder::Decoder;
 use quick_xml::NsReader;
 use quick_xml::events::Event;
 use quick_xml::name::{LocalName, Namespace, QName, ResolveResult};
@@ -152,6 +153,12 @@ impl<R: BufRead> XmlStreamReader<R> {
     #[must_use]
     pub fn offset(&self) -> u64 {
         self.offset
+    }
+
+    /// The decoder the part is read through, to ask whether the part began
+    /// with a UTF-8 byte order mark.
+    pub(crate) fn decoder(&self) -> &Decoder {
+        self.reader.get_ref().decoder()
     }
 
     /// The reader the part is read from, to ask it why it failed after an
