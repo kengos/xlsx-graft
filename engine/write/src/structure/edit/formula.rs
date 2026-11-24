@@ -22,13 +22,13 @@ use crate::structure::sheet_prefix;
 use xlsx_graft_formula::{Formula, SheetPrefix, Span, analyze};
 
 /// What happened to a sheet.
-pub(super) enum Change<'a> {
+pub(super) enum Change {
     /// The sheet `old` is now named `new`.
     Rename {
         /// The old name.
-        old: &'a str,
+        old: String,
         /// The new name.
-        new: &'a str,
+        new: String,
     },
     /// The sheet at `position` of `order` (the names of the sheets in the
     /// order they had before the delete) is deleted.
@@ -36,14 +36,14 @@ pub(super) enum Change<'a> {
         /// The deleted sheet's position in `order`.
         position: usize,
         /// The sheets' names, before the delete.
-        order: &'a [String],
+        order: Vec<String>,
     },
 }
 
 impl State<'_> {
     /// Rewrites each defined name's formula for `change`, setting
     /// `ref_written` when a `#REF!` is written.
-    pub(super) fn rewrite_formulas(&mut self, change: &Change<'_>) {
+    pub(super) fn rewrite_formulas(&mut self, change: &Change) {
         let mut ref_written = false;
         for entry in &mut self.names {
             ref_written |= rewrite(entry, change);
@@ -53,10 +53,21 @@ impl State<'_> {
 }
 
 /// Rewrites `entry`'s formula for `change`. Whether it wrote a `#REF!`.
-fn rewrite(entry: &mut NameEntry, change: &Change<'_>) -> bool {
-    let formula = read(&entry.text);
-    if !formula.facts.malformed.is_empty() {
+fn rewrite(entry: &mut NameEntry, change: &Change) -> bool {
+    let Some((text, ref_written)) = rewrite_text(&read(&entry.text), change) else {
         return false;
+    };
+    entry.text = Text::Changed(text);
+    ref_written
+}
+
+/// `formula` with the sheet prefixes `change` touches replaced: the text,
+/// with its `_xHHHH_` escapes undone as [`Formula::text`] has it, and
+/// whether a `#REF!` was written. `None` when `formula` is malformed or
+/// has no prefix to replace.
+pub(super) fn rewrite_text(formula: &Formula, change: &Change) -> Option<(String, bool)> {
+    if !formula.facts.malformed.is_empty() {
+        return None;
     }
     let mut replacements: Vec<(Span, String)> = (formula.facts.sheet_prefixes.iter())
         .filter(|prefix| prefix.book.is_none())
@@ -69,7 +80,7 @@ fn rewrite(entry: &mut NameEntry, change: &Change<'_>) -> bool {
         .filter_map(|prefix| Some((prefix.span, replacement(prefix, change)?)))
         .collect();
     if replacements.is_empty() {
-        return false;
+        return None;
     }
     replacements.sort_by_key(|(span, _)| span.start);
     let mut text = String::new();
@@ -82,8 +93,7 @@ fn rewrite(entry: &mut NameEntry, change: &Change<'_>) -> bool {
         at = span.end;
     }
     text.push_str(formula.text.get(at..).unwrap_or_default());
-    entry.text = Text::Changed(text);
-    ref_written
+    Some((text, ref_written))
 }
 
 /// `text` read, its escapes undone once: what is changed is already undone,
@@ -96,7 +106,7 @@ fn read(text: &Text) -> Formula {
 }
 
 /// What replaces `prefix` (with its `!`), `None` to leave it.
-fn replacement(prefix: &SheetPrefix, change: &Change<'_>) -> Option<String> {
+fn replacement(prefix: &SheetPrefix, change: &Change) -> Option<String> {
     match change {
         Change::Rename { old, new } => renamed(prefix, old, new),
         Change::Delete { position, order } => deleted(prefix, *position, order),

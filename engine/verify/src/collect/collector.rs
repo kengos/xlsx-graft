@@ -3,24 +3,7 @@
 //!
 //! A formula is the text of an element, found by local name in any
 //! namespace, or the value of an unprefixed attribute of one, whatever the
-//! part:
-//!
-//! - every place SpreadsheetML types a formula (`ST_Formula`,
-//!   ECMA-376-1:2016, `sml.xsd`): the text of `f` (also a chart's `c:f` and
-//!   an extension's `xm:f`), `definedName`, `calculatedColumnFormula` and
-//!   `totalsRowFormula` (a table column's), `formula1` and `formula2` (a data
-//!   validation's), `formula` and `oldFormula` (a conditional format's, a
-//!   revision's), and the `macro` of an `objectPr` and the `macro`,
-//!   `linkedCell` and `listFillRange` of a `controlPr` (an embedded object's
-//!   and a control's);
-//! - the places that hold a formula as a string: the `val` of a `cfvo` (a
-//!   conditional format's value), the `formula` of a `cacheField` and of a
-//!   `calculatedItem` (a pivot cache's), the `link` of an `oleObject` (a
-//!   linked object's source), the `refersTo` of a `definedName` (an
-//!   external workbook's), the `textlink` of an `sp` (a drawing's text box
-//!   linked to cells), the `macro` of a drawing's `sp`, `cxnSp`, `pic` and
-//!   `graphicFrame` (`dml-spreadsheetDrawing.xsd`), and the `cellRange` of
-//!   a `cameraTool` (a linked picture's source).
+//! part: the places are the tables of `xlsx_graft_formula::places`.
 //!
 //! The text is every run of text, CDATA section and reference inside the
 //! element, joined across the comments and processing instructions between
@@ -55,19 +38,8 @@ use super::{FormulaSink, TableTag};
 pub(crate) use attributes::attribute;
 use attributes::{bytes, value};
 use std::borrow::Cow;
+use xlsx_graft_formula::places::FORMULA_ELEMENTS;
 use xlsx_graft_xml::events::BytesStart;
-
-/// The elements whose text is a formula.
-const ELEMENTS: [&str; 8] = [
-    "f",
-    "oldFormula",
-    "definedName",
-    "formula1",
-    "formula2",
-    "formula",
-    "calculatedColumnFormula",
-    "totalsRowFormula",
-];
 
 /// The formulas of one part, found as it is read.
 pub(crate) struct Collector<'a> {
@@ -143,7 +115,7 @@ impl<'a> Collector<'a> {
             }
             _ => self.attributes(local, start),
         }
-        if !opened || !ELEMENTS.contains(&local) {
+        if !opened || !FORMULA_ELEMENTS.contains(&local) {
             return;
         }
         let defines = (local == "definedName").then(|| {

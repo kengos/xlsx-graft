@@ -62,7 +62,10 @@ impl<'r> State<'r> {
                 sheet.name = new.to_owned();
                 sheet.renamed = true;
             });
-        self.rewrite_formulas(&Change::Rename { old: &old, new });
+        self.rewrite_formulas(&Change::Rename {
+            old,
+            new: new.to_owned(),
+        });
         Ok(())
     }
 
@@ -89,10 +92,7 @@ impl<'r> State<'r> {
         }
         self.names = kept;
         let order: Vec<String> = self.sheets.iter().map(|sheet| sheet.name.clone()).collect();
-        self.rewrite_formulas(&Change::Delete {
-            position,
-            order: &order,
-        });
+        self.rewrite_formulas(&Change::Delete { position, order });
         self.retarget_views(position);
         let deleted = self.sheets.remove(position);
         self.deleted.push(deleted);

@@ -6,6 +6,7 @@
 //! no decoy for the real one.
 
 use super::{Collector, Open};
+use xlsx_graft_formula::places::FORMULA_ATTRIBUTES;
 use xlsx_graft_xml::XmlVersion;
 use xlsx_graft_xml::events::BytesStart;
 
@@ -17,27 +18,10 @@ impl Collector<'_> {
     /// Reads the formulas the attributes of `start`, of local name `local`,
     /// keep.
     pub(super) fn attributes(&mut self, local: &str, start: &BytesStart<'_>) {
-        match local {
-            "sp" => {
-                self.formula_in(start, "textlink", "sp@textlink");
-                self.formula_in(start, "macro", "sp@macro");
+        for place in &FORMULA_ATTRIBUTES {
+            if place.element == local {
+                self.formula_in(start, place.attribute, place.place);
             }
-            "cxnSp" => self.formula_in(start, "macro", "cxnSp@macro"),
-            "pic" => self.formula_in(start, "macro", "pic@macro"),
-            "graphicFrame" => self.formula_in(start, "macro", "graphicFrame@macro"),
-            "objectPr" => self.formula_in(start, "macro", "objectPr@macro"),
-            "controlPr" => {
-                self.formula_in(start, "macro", "controlPr@macro");
-                self.formula_in(start, "linkedCell", "controlPr@linkedCell");
-                self.formula_in(start, "listFillRange", "controlPr@listFillRange");
-            }
-            "cameraTool" => self.formula_in(start, "cellRange", "cameraTool@cellRange"),
-            "cfvo" => self.formula_in(start, "val", "cfvo@val"),
-            "cacheField" => self.formula_in(start, "formula", "cacheField@formula"),
-            "calculatedItem" => self.formula_in(start, "formula", "calculatedItem@formula"),
-            "oleObject" => self.formula_in(start, "link", "oleObject@link"),
-            "definedName" => self.formula_in(start, "refersTo", "definedName@refersTo"),
-            _ => {}
         }
     }
 
