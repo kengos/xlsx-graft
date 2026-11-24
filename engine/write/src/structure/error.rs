@@ -1,10 +1,10 @@
-//! [`StructureError`]: why a name a structure edit was given cannot be
-//! written.
+//! [`StructureError`]: why a name, a position or a formula a structure edit
+//! was given cannot be written.
 
 use thiserror::Error;
 
-/// A name the caller gave that the workbook cannot hold: the caller's
-/// mistake, never a problem in the workbook.
+/// A name, a position or a formula the caller gave that the workbook cannot
+/// hold: the caller's mistake, never a problem in the workbook.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum StructureError {
     /// A sheet name Excel does not take.
@@ -38,6 +38,61 @@ pub enum StructureError {
         name: String,
         /// The table's name.
         table: String,
+    },
+    /// No sheet has the name, letter case aside.
+    #[error("the workbook has no sheet {name:?}")]
+    SheetMissing {
+        /// The name as the caller gave it.
+        name: String,
+    },
+    /// A position past the end of the sheets: after the last one when a
+    /// sheet is added, the last one's when a sheet is moved.
+    #[error("the position {at} is past the end of the {sheets} sheets")]
+    PositionOutOfRange {
+        /// The position the caller gave.
+        at: usize,
+        /// How many sheets the workbook has.
+        sheets: usize,
+    },
+    /// The only sheet of the workbook cannot be deleted.
+    #[error("the sheet {name:?} is the only sheet of the workbook")]
+    LastSheet {
+        /// The sheet's name.
+        name: String,
+    },
+    /// The workbook would have no visible sheet left.
+    #[error("the sheet {name:?} is the only visible sheet of the workbook")]
+    LastVisibleSheet {
+        /// The sheet's name.
+        name: String,
+    },
+    /// The largest `sheetId` of the workbook is `u32::MAX`, so a new sheet
+    /// has no `sheetId` that is one past it.
+    #[error("no sheetId is left for a new sheet")]
+    SheetIdExhausted,
+    /// No defined name of the scope has the name, letter case aside.
+    #[error("the workbook has no defined name {name:?} in that scope")]
+    DefinedNameMissing {
+        /// The name as the caller gave it.
+        name: String,
+    },
+    /// The workbook already holds as many defined names as it can.
+    #[error("the workbook cannot hold more than 65,536 defined names")]
+    DefinedNamesTooMany,
+    /// A formula the formula reader cannot read whole.
+    #[error("the formula {formula:?} cannot be read")]
+    FormulaMalformed {
+        /// The formula as the caller gave it.
+        formula: String,
+    },
+    /// A formula has a sheet prefix of this workbook (no external book)
+    /// whose sheet the workbook does not have.
+    #[error("the formula {formula:?} names the sheet {sheet:?}, which the workbook does not have")]
+    FormulaSheetMissing {
+        /// The formula as the caller gave it.
+        formula: String,
+        /// The sheet's name, as the formula writes it.
+        sheet: String,
     },
 }
 

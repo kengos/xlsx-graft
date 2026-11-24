@@ -88,6 +88,17 @@ fn defined_name(
     }
 }
 
+/// The spelling a built-in name is written with: `_xlnm.` and the name of
+/// [`BUILT_IN`] it is, however `name` writes its letters (`_XLNM.print_area`
+/// is `_xlnm.Print_Area`). `None` for a name that is not a built-in one.
+pub(crate) fn builtin_spelling(name: &str) -> Option<String> {
+    let rest = after_prefix(name, "_xlnm.")?;
+    BUILT_IN
+        .iter()
+        .find(|known| known.eq_ignore_ascii_case(rest))
+        .map(|known| format!("_xlnm.{known}"))
+}
+
 /// What follows `prefix` at the start of `name`, ASCII letter case aside.
 fn after_prefix<'a>(name: &'a str, prefix: &str) -> Option<&'a str> {
     name.get(..prefix.len())
