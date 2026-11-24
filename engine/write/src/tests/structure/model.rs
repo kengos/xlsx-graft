@@ -392,6 +392,25 @@ fn the_workbook_views_are_read_with_the_attributes_written() {
 }
 
 #[test]
+fn defined_names_element_is_true_only_for_a_defined_names_child_of_the_root() {
+    for body in [
+        "<definedNames/>",
+        "<definedNames><definedName name=\"N\">1</definedName></definedNames>",
+        "<calcPr/><definedNames></definedNames>",
+    ] {
+        assert!(clean(&one_sheet(body)).defined_names_element(), "{body}");
+    }
+    for other in [
+        "",
+        "<calcPr/>",
+        "<x:definedNames xmlns:x=\"urn:x\"/>",
+        "<extLst><definedNames/></extLst>",
+    ] {
+        assert!(!clean(&one_sheet(other)).defined_names_element(), "{other}");
+    }
+}
+
+#[test]
 fn calc_pr_is_true_only_for_a_calc_pr_child_of_the_root() {
     assert!(clean(&one_sheet("<calcPr calcId=\"1\"/>")).calc_pr());
     assert!(clean(&one_sheet("<calcPr></calcPr>")).calc_pr());

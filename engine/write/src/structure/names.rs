@@ -5,6 +5,7 @@
 
 mod defined;
 
+pub(super) use defined::builtin_spelling;
 pub use defined::check_defined_name;
 
 use super::{SheetNameFault, StructureError};

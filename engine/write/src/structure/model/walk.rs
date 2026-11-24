@@ -51,7 +51,7 @@ const NAMESPACES: [&str; 2] = [
 /// counted, ones with no text included, which `xlsx-graft-verify` does not
 /// count, so a workbook it accepts may be refused for having more. A later
 /// change may move the limit into [`WriteLimits`](crate::WriteLimits).
-const MAX_DEFINED_NAMES: u64 = 65_536;
+pub(crate) const MAX_DEFINED_NAMES: u64 = 65_536;
 
 /// A sheet as `sheets` lists it, before its `r:id` is tied to a part.
 #[derive(Debug)]
@@ -67,7 +67,7 @@ pub(super) struct Listed {
 }
 
 /// What the XML of the workbook part says: the sheets, the defined names,
-/// the views and whether it has a `calcPr`.
+/// the views, whether it has a `calcPr` and whether it has `definedNames`.
 #[derive(Debug)]
 pub(super) struct Walked {
     /// The root is in the Strict namespace.
@@ -80,6 +80,8 @@ pub(super) struct Walked {
     pub(super) views: Vec<BookView>,
     /// There is a `calcPr`.
     pub(super) calc_pr: bool,
+    /// There is a `definedNames` element, with or without names.
+    pub(super) defined_names_element: bool,
 }
 
 /// The state of the walk through the workbook part: the elements open, how
@@ -133,6 +135,9 @@ pub(super) fn read(bytes: &[u8], limits: &XmlLimits) -> Result<Walked, Diagnosti
     loop {
         let event = reader.read_event_into(&mut buf)?;
         let offset = reader.offset();
+        if matches!(event, Event::Eof) {
+            break;
+        }
         match event {
             Event::Start(start) => walk.start(&reader, &start, offset, true)?,
             Event::Empty(start) => walk.start(&reader, &start, offset, false)?,
@@ -140,24 +145,23 @@ pub(super) fn read(bytes: &[u8], limits: &XmlLimits) -> Result<Walked, Diagnosti
             Event::Text(text) => walk.text(&text.xml10_content()),
             Event::CData(data) => walk.text(&data.xml10_content()),
             Event::GeneralRef(reference) => walk.text(&resolve(&reference)),
-            Event::Eof if walk.defined_name_count > MAX_DEFINED_NAMES => {
-                return Err(Diagnostic::DefinedNamesTooMany {
-                    count: walk.defined_name_count,
-                    limit: Limit::default_of(MAX_DEFINED_NAMES),
-                });
-            }
-            Event::Eof => {
-                return Ok(Walked {
-                    strict: walk.flavor == 1,
-                    sheets: walk.sheets,
-                    defined_names: walk.defined_names,
-                    views: walk.views,
-                    calc_pr: walk.calc_pr,
-                });
-            }
             _ => {}
         }
     }
+    if walk.defined_name_count > MAX_DEFINED_NAMES {
+        return Err(Diagnostic::DefinedNamesTooMany {
+            count: walk.defined_name_count,
+            limit: Limit::default_of(MAX_DEFINED_NAMES),
+        });
+    }
+    Ok(Walked {
+        strict: walk.flavor == 1,
+        sheets: walk.sheets,
+        defined_names: walk.defined_names,
+        views: walk.views,
+        calc_pr: walk.calc_pr,
+        defined_names_element: walk.seen.defined_names,
+    })
 }
 
 impl Walk {

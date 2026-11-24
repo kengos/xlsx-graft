@@ -44,6 +44,7 @@ use xlsx_graft_diagnostics::{Diagnostics, Location};
 use xlsx_graft_package::{Package, Relationship};
 
 pub use parts::{BookView, DefinedName, Sheet, SheetKind, SheetState, Table};
+pub(crate) use walk::MAX_DEFINED_NAMES;
 
 /// The workbook part of a package, as a structure edit reads it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,6 +55,7 @@ pub struct Workbook {
     defined_names: Vec<DefinedName>,
     views: Vec<BookView>,
     calc_pr: bool,
+    defined_names_element: bool,
     relationships: Vec<Relationship>,
     tables: Vec<Table>,
 }
@@ -131,6 +133,7 @@ impl Workbook {
             defined_names: walked.defined_names,
             views: walked.views,
             calc_pr: walked.calc_pr,
+            defined_names_element: walked.defined_names_element,
             relationships,
             tables,
         }))
@@ -171,6 +174,12 @@ impl Workbook {
     #[must_use]
     pub fn calc_pr(&self) -> bool {
         self.calc_pr
+    }
+
+    /// Whether the part has a `definedNames` element, empty or not.
+    #[must_use]
+    pub fn defined_names_element(&self) -> bool {
+        self.defined_names_element
     }
 
     /// The relationships of the workbook part, in the order its
