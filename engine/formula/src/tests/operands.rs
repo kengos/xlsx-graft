@@ -93,8 +93,9 @@ fn a_spill_operator_right_after_the_operand_is_part_of_it() {
     check(&[
         ("Sheet1!A2#", &[Some("A2#")]),
         ("Sheet1!A2#+1", &[Some("A2#")]),
-        // Only the first `#` is part of the operand; `Sheet1!A2##` is not a
-        // correct formula to begin with.
+        // Only the first `#` is part of the operand: `run` takes `ended`
+        // before each token, so a `#` extends only the operand that the token
+        // right before it ended, and the second `#` follows a `#`.
         ("Sheet1!A2##", &[Some("A2#")]),
         ("Sheet1!A1:B2#", &[Some("A1:B2#")]),
         ("SUM(Sheet1!A1:B2#)", &[Some("A1:B2#")]),

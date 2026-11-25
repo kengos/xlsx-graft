@@ -24,24 +24,6 @@ impl Walker<'_> {
         self.ended = Some(index);
     }
 
-    /// The cell being read ends a range that starts with the cell right
-    /// after a prefix (`Sheet1!A1:B2`): the operand of that prefix, the last
-    /// one read, ends with this cell.
-    pub(super) fn extend_range(&mut self, end: usize) {
-        let first = self.behind(2).map(|token| token.span.end);
-        let index = self.facts.sheet_prefixes.len().saturating_sub(1);
-        if let Some(operand) = self
-            .facts
-            .sheet_prefixes
-            .get_mut(index)
-            .and_then(|prefix| prefix.operand.as_mut())
-            .filter(|operand| Some(operand.end) == first)
-        {
-            operand.end = end;
-            self.ended = Some(index);
-        }
-    }
-
     /// The call `token` starts, with a `(` after it, is the operand of the
     /// prefix before it, up to the `)` that closes that `(`.
     pub(super) fn callee(&mut self, token: Token) {
