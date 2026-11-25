@@ -25,7 +25,8 @@ pub struct Facts {
     /// The other workbooks it refers to.
     pub external_books: Vec<ExternalBook>,
     /// Each prefix that names a sheet (`Sheet1!`, `[1]S1:S3!`), where it
-    /// is and what it names.
+    /// is and what it names, and the operand it qualifies
+    /// ([`SheetPrefix::operand`]).
     pub sheet_prefixes: Vec<SheetPrefix>,
     /// Where it could not be read.
     pub malformed: Vec<Malformed>,
@@ -125,6 +126,18 @@ pub struct SheetPrefix {
     pub first: String,
     /// The last sheet of a 3-D reference.
     pub last: Option<String>,
+    /// The operand the prefix qualifies, from its first token to its last,
+    /// with nothing but whitespace between the `!` and its start: a cell, a
+    /// range of cells (`A1:B2`), of columns or of rows, a table reference, a
+    /// name, an error value, or a call up to its closing `)`, and the spill
+    /// operator `#` when it follows the operand directly. `None` when the
+    /// token after the prefix is none of those (a number, a string, `TRUE`, a
+    /// parenthesis, a function name with no `(` after it (`_xlfn.X`), a call
+    /// of a LAMBDA parameter (`_xlpm.x(1)`), a call whose `(` is never
+    /// closed), when nothing follows the prefix, and for the `Sheet1!` of
+    /// `Sheet1!A1:Sheet1!B2`, whose `A1:Sheet1!` is read as a prefix of its
+    /// own.
+    pub operand: Option<Span>,
 }
 
 /// A DDE link: `app|topic!item`.

@@ -18,18 +18,25 @@
 //!   **`ns.rs`** (the namespaces and types they use).
 //! - **`sheets.rs`**: add, rename, delete and move a sheet.
 //! - **`names.rs`**: set and remove a defined name.
+//! - **`change.rs`**: a rename or a delete of a sheet, as it is applied to a
+//!   formula.
 //! - **`formula.rs`**: the sheets a defined name's formula names, rewritten
 //!   when a sheet is renamed or deleted.
+//! - **`parts.rs`**: the formulas of the other parts of the package,
+//!   rewritten the same way, and what `apply` leaves as it was
+//!   ([`StructureReport`](super::StructureReport)).
 //! - **`views.rs`**: the views, pointed at another sheet when theirs is
 //!   deleted.
 
 mod app;
 mod apply;
+mod change;
 mod cleanup;
 mod formula;
 mod names;
 mod new_sheet;
 mod ns;
+mod parts;
 mod rewrite;
 mod sheets;
 mod snapshot;

@@ -2,7 +2,9 @@
 //! out. A sheet or book prefix (`Sheet1!`, `[1]`, `'C:\d\[b.xlsx]S'!`) is
 //! held for the token after it; nothing is held across a `:`, and the cell
 //! that ends a range looks back for the location of the one that starts it.
+//! The tokens after a prefix give the operand it qualifies.
 
+mod operand;
 mod prefix;
 mod sheet;
 
@@ -22,6 +24,11 @@ pub(super) fn walk(text: &str, tokens: &[Token], facts: &mut Facts) {
         at: 0,
         pending: Location::default(),
         book_start: None,
+        next_prefix: None,
+        prefix: None,
+        callee: None,
+        open: Vec::new(),
+        ended: None,
         facts,
     };
     walker.run();
@@ -37,6 +44,19 @@ struct Walker<'a> {
     pending: Location,
     /// Where the `[1]` that gave `pending` its book starts.
     book_start: Option<usize>,
+    /// The prefix just read, whose operand, if it has one, starts at the next
+    /// token.
+    next_prefix: Option<usize>,
+    /// The prefix before the token being read: its operand starts there.
+    prefix: Option<usize>,
+    /// The prefix a call is the operand of and where the call starts, until
+    /// the `(` after the call's name.
+    callee: Option<(usize, usize)>,
+    /// For each `(` not yet closed, what it opens: the prefix a call is the
+    /// operand of and where that call starts.
+    open: Vec<Option<(usize, usize)>>,
+    /// The prefix whose operand ends with the token just read.
+    ended: Option<usize>,
     facts: &'a mut Facts,
 }
 
@@ -46,12 +66,18 @@ impl<'a> Walker<'a> {
         while let Some(token) = self.peek(0) {
             let location = std::mem::take(&mut self.pending);
             let from = self.book_start.take();
+            self.prefix = self.next_prefix.take();
+            let ended = self.ended.take();
             let used = match token.kind {
                 TokenKind::Word => self.word(token, location, from),
                 TokenKind::Number => self.range(token, location).unwrap_or(1),
                 TokenKind::SheetName => self.sheet_name(token, location, from),
                 TokenKind::Bracket => self.bracket(token, location),
                 TokenKind::Pipe => self.dde(None, 0),
+                TokenKind::ErrorValue => self.error_value(token),
+                TokenKind::OpenParen => self.open_paren(),
+                TokenKind::CloseParen => self.close_paren(token),
+                TokenKind::Operator => self.spill(token, ended),
                 _ => 1,
             };
             // At least one: no handler uses none today, and this keeps a future
@@ -124,9 +150,14 @@ impl<'a> Walker<'a> {
         if !split_prefix(text).0.is_empty() {
             self.call(token, true, location);
         } else if is_cell(text) {
-            let location = self.range_start().unwrap_or(location);
+            let started = self.range_start();
+            if started.is_some() {
+                self.extend_range(token.span.end);
+            }
+            let location = started.unwrap_or(location);
             self.reference(ReferenceKind::Cell, location, text, token.span.start, token);
         } else if !boolean {
+            self.qualify(token.span);
             self.facts.names.push(Name {
                 name: text.to_ascii_uppercase(),
                 location,
@@ -145,6 +176,9 @@ impl<'a> Walker<'a> {
                 span: token.span,
             });
             return;
+        }
+        if !passed {
+            self.callee(token);
         }
         self.facts.calls.push(Call {
             name: base.to_ascii_uppercase(),
@@ -190,14 +224,16 @@ impl<'a> Walker<'a> {
         start: usize,
         last: Token,
     ) {
+        let span = Span {
+            start,
+            end: last.span.end,
+        };
+        self.qualify(span);
         self.facts.references.push(Reference {
             kind,
             location,
             target: target.to_owned(),
-            span: Span {
-                start,
-                end: last.span.end,
-            },
+            span,
         });
     }
 

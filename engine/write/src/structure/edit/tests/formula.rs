@@ -99,14 +99,58 @@ fn a_delete_writes_ref_for_a_reference_to_the_sheet_alone() {
     assert_eq!(
         formulas(&edit),
         [
-            "#REF!$A$1+Gamma!B2",
-            "#REF!$A$1:$B$2",
+            "#REF!+Gamma!B2",
+            "#REF!",
             "[1]Alpha!A1",
-            "#REF!X1",
-            "SUM(#REF!A1,Gamma!A1)",
+            "#REF!",
+            "SUM(#REF!,Gamma!A1)",
         ]
     );
     assert!(original(&edit, 2));
+    assert!(edit.state.ref_written);
+}
+
+#[test]
+fn a_delete_writes_one_ref_in_place_of_the_whole_operand_the_prefix_qualifies() {
+    let cases = [
+        ("Sheet1!$A$1", "#REF!"),
+        ("Sheet1!A1+1", "#REF!+1"),
+        ("SUM(Sheet1!A1:B2)", "SUM(#REF!)"),
+        ("Sheet1!A:C", "#REF!"),
+        ("Sheet1!1:3", "#REF!"),
+        ("'a b'!$A$1", "#REF!"),
+        ("Sheet1!MyName", "#REF!"),
+        ("Sheet1!MyName+Sheet1!A1:B2", "#REF!+#REF!"),
+        ("Sheet1!#REF!+1", "#REF!+1"),
+        // Only a cell right after the `:` is part of the operand.
+        ("Sheet1!A1:MyName", "#REF!:MyName"),
+        ("Sheet1!A1:B2:C3", "#REF!:C3"),
+        ("Sheet1!A1 + Sheet1!B2", "#REF! + #REF!"),
+        ("Sheet1!A1+B2", "#REF!+B2"),
+        ("Sheet1!A:C:D1", "#REF!:D1"),
+        ("Sheet1!T[a]", "#REF!"),
+        ("Sheet1!T[a]+Sheet1!T[[#Headers],[b]]", "#REF!+#REF!"),
+    ];
+    for (text, expected) in cases {
+        let mut edit = with(&["Sheet1", "a b", "Keep"], &[text]);
+        edit.delete_sheet("Sheet1").unwrap();
+        edit.delete_sheet("a b").unwrap();
+        assert_eq!(formulas(&edit), [expected], "{text}");
+        assert!(edit.state.ref_written, "{text}");
+    }
+}
+
+#[test]
+fn a_delete_writes_ref_for_the_whole_operand_of_a_3d_reference_whose_both_ends_are_deleted() {
+    let mut edit = with(&["Sheet1", "Sheet3", "Keep"], &["Sheet1:Sheet3!A1"]);
+    edit.delete_sheet("Sheet1").unwrap();
+    assert_eq!(formulas(&edit), ["Sheet3!A1"]);
+    edit.delete_sheet("Sheet3").unwrap();
+    assert_eq!(formulas(&edit), ["#REF!"]);
+    assert!(edit.state.ref_written);
+    let mut edit = with(&["Sheet1", "Keep"], &["Sheet1:sheet1!A1:B2"]);
+    edit.delete_sheet("Sheet1").unwrap();
+    assert_eq!(formulas(&edit), ["#REF!"]);
     assert!(edit.state.ref_written);
 }
 

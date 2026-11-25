@@ -43,7 +43,7 @@ fn the_binary_exits_2_with_the_usage_for_a_command_line_without_a_directory() {
     assert_eq!(text(&output.stdout), "");
     assert_eq!(
         text(&output.stderr),
-        "xlsx-graft-fixtures-gen: usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir> | cells <dir> | styles <fixtures-dir> <dir>\n"
+        "xlsx-graft-fixtures-gen: usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir> | cells <dir> | styles <fixtures-dir> <dir> | structure <fixtures-dir> <dir>\n"
     );
 }
 

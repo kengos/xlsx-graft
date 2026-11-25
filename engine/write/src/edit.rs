@@ -230,6 +230,14 @@ impl<'r, R: Read + Seek> PackageEdit<'r, R> {
         Ok(())
     }
 
+    /// The package the edit is of, to read a part of it: every `&mut self`
+    /// function of [`Package`] is a read (`open_part`, `read_xml_part`,
+    /// `read_stream`), so reading through it changes nothing the edit
+    /// holds: not the names, the rewriters, the parts added nor the links.
+    pub fn package_mut(&mut self) -> &mut Package<R> {
+        &mut self.package
+    }
+
     /// The part `name` of the package, unless it was removed.
     fn live_part(&self, name: &PartName) -> Result<&Part, WriteError> {
         let live =

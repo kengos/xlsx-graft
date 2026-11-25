@@ -11,11 +11,11 @@ use thiserror::Error;
 /// stopped stay written.
 #[derive(Debug, Error)]
 pub enum FixturesGenError {
-    /// The command line gives no directory, `repack` or `styles` is not
-    /// followed by two directories, or `cells` is not followed by exactly
+    /// The command line gives no directory, `repack`, `styles` or `structure`
+    /// is not followed by two directories, or `cells` is not followed by exactly
     /// one directory.
     #[error(
-        "usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir> | cells <dir> | styles <fixtures-dir> <dir>"
+        "usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir> | cells <dir> | styles <fixtures-dir> <dir> | structure <fixtures-dir> <dir>"
     )]
     Usage,
     /// A book on the command line is not `rows-<n>` or `shared-<n>` with

@@ -61,6 +61,13 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   worksheet (engine/fixtures-gen, in Docker) into
   `fixtures/generated/styles/`, for
   `make excel:check F='fixtures/generated/styles/*'` to open on a Mac.
+- `make fixtures:structure` is not a gate and not a member of `make verify`
+  either: it writes each workbook of `fixtures/` twice with engine/write's
+  `StructureEdit` (engine/fixtures-gen, in Docker) into
+  `fixtures/generated/structure/`: `<stem>-rename` (the first sheet renamed,
+  a sheet added first, the last sheet moved, a defined name set) and
+  `<stem>-delete` (a sheet added last, the first sheet deleted), for
+  `make excel:check F='fixtures/generated/structure/*'` to open on a Mac.
 - `make bench:memory` is the one bench target that is a gate and a member of
   `make verify`: it runs the CLI's `read` and `verify` on
   `shared-100000.xlsx` and `shared-1000000.xlsx` (bench/ruby/compare.rb,

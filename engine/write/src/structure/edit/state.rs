@@ -9,10 +9,12 @@
 //! (`sheets.rs`, `names.rs`, `formula.rs`, `views.rs`) change this state as
 //! they are made; `apply` only writes it out.
 
+use super::change::{Change, SheetIds};
 use crate::PartWriter;
 use crate::structure::model::{SheetKind, SheetState, Workbook};
 use std::collections::BTreeSet;
 use std::convert::Infallible;
+use std::sync::Arc;
 use xlsx_graft_cell::escape;
 
 /// Where a sheet's part is.
@@ -43,6 +45,8 @@ pub(super) struct SheetEntry {
     pub(super) key: usize,
     /// Its name, its `_xHHHH_` escapes undone.
     pub(super) name: String,
+    /// The number of its name in [`State::sheet_ids`].
+    pub(super) name_id: u32,
     /// Whether the name was changed after `open`.
     pub(super) renamed: bool,
     /// Its `sheetId`.
@@ -91,6 +95,10 @@ pub(super) struct NameEntry {
     pub(super) origin: Option<usize>,
     /// Whether a replacement changed how the name is spelled.
     pub(super) name_changed: bool,
+    /// The sheet of the first delete that left a prefix of its sheet in
+    /// the formula as written, because the prefix has no operand
+    /// (`KeptReason::UnknownOperand`).
+    pub(super) unresolved: Option<Arc<str>>,
 }
 
 /// Which sheet a view points at.
@@ -139,16 +147,26 @@ pub(super) struct State<'r> {
     pub(super) tables: Vec<String>,
     /// Whether a delete wrote `#REF!` into a formula.
     pub(super) ref_written: bool,
+    /// The renames and deletes made, in the order of the calls, each as the
+    /// `Change` that rewrote the defined names' formulas: what `apply` writes
+    /// into the formulas of the other parts. A move and an add are no change
+    /// to a formula.
+    pub(super) changes: Vec<Change>,
+    /// The names the sheets have had, which a delete in `changes` numbers
+    /// the sheets by.
+    pub(super) sheet_ids: SheetIds,
 }
 
 impl State<'_> {
     /// The state of `book`, before any call.
     pub(super) fn new(book: &Workbook) -> Self {
         let len = book.sheets().len();
+        let mut sheet_ids = SheetIds::default();
         let sheets = (book.sheets().iter().enumerate())
             .map(|(key, sheet)| SheetEntry {
                 key,
                 name: sheet.name().to_owned(),
+                name_id: sheet_ids.id(sheet.name()),
                 renamed: false,
                 sheet_id: sheet.sheet_id(),
                 state: sheet.state(),
@@ -168,6 +186,7 @@ impl State<'_> {
                 text: Text::Original(name.text().to_owned()),
                 origin: Some(index),
                 name_changed: false,
+                unresolved: None,
             })
             .collect();
         let views = (book.views().iter())
@@ -193,6 +212,8 @@ impl State<'_> {
             views,
             tables,
             ref_written: false,
+            changes: Vec::new(),
+            sheet_ids,
         }
     }
 }

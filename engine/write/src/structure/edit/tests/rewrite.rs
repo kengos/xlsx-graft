@@ -128,7 +128,7 @@ fn a_root_with_a_prefix_gets_elements_with_that_prefix() {
             r#"<x:workbook xmlns:x="{}" xmlns:r="{}"><x:sheets>"#,
             r#"<x:sheet name="New" sheetId="2" r:id="rId2"/>"#,
             r#"<x:sheet name="Other" sheetId="3" r:id="rId3"/></x:sheets>"#,
-            r#"<x:definedNames><x:definedName name="N">#REF!$A$1</x:definedName></x:definedNames>"#,
+            r#"<x:definedNames><x:definedName name="N">#REF!</x:definedName></x:definedNames>"#,
             r#"<z xmlns=""/><x:calcPr fullCalcOnLoad="1"/></x:workbook>"#,
         ),
         NS, R
@@ -321,7 +321,7 @@ fn the_views_are_pointed_at_the_sheets_again_and_the_attributes_they_lacked_are_
 #[test]
 fn calc_pr_gets_full_calc_on_load_when_a_delete_wrote_ref() {
     let names = r#"<definedNames><definedName name="N">Beta!$A$1</definedName></definedNames>"#;
-    let rewritten = r#"<definedNames><definedName name="N">#REF!$A$1</definedName></definedNames>"#;
+    let rewritten = r#"<definedNames><definedName name="N">#REF!</definedName></definedNames>"#;
     let one = r#"<sheets><sheet name="Alpha" sheetId="1" r:id="rId1"/></sheets>"#;
     for (calc, expected) in [
         (
@@ -490,8 +490,7 @@ fn calc_pr_is_added_before_the_first_element_that_follows_it_and_after_defined_n
             r#"{two}<definedNames><definedName name="N">Beta!$A$1</definedName></definedNames>{after}"#
         );
         let got = run(&body, 2, |edit| edit.delete_sheet("Beta").unwrap());
-        let rewritten =
-            r#"<definedNames><definedName name="N">#REF!$A$1</definedName></definedNames>"#;
+        let rewritten = r#"<definedNames><definedName name="N">#REF!</definedName></definedNames>"#;
         assert_eq!(got, workbook(&format!("{one}{rewritten}{calc}{tail}")));
         // Both elements added in one edit: definedNames first.
         let body = format!("{two}{after}");

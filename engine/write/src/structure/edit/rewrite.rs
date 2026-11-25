@@ -24,6 +24,8 @@ mod names;
 mod plan;
 mod sheets;
 
+pub(super) use insert::{text_of, with_attributes};
+
 use crate::{PartRewriter, WriteError, WriteLimits};
 use sheets::Collected;
 use std::collections::{BTreeMap, BTreeSet};

@@ -49,7 +49,9 @@ use xlsx_graft_package::{Limits, Package, RelationshipSource, Target, ZipArchive
 use xlsx_graft_read::{ReadLimits, Workbook, WorkbookPart};
 use xlsx_graft_spool::MemorySpools;
 use xlsx_graft_verify::{DefaultFunctions, Rules, Targets};
-use xlsx_graft_write::structure::{StructureEdit, StructureError, model, sheet_prefix};
+use xlsx_graft_write::structure::{
+    KeptReason, StructureEdit, StructureError, StructureReport, model, sheet_prefix,
+};
 use xlsx_graft_write::{DeflateWriter, PackageEdit, WriteLimits, ZipWriter};
 
 /// The repository's `fixtures/` folder.
@@ -124,6 +126,7 @@ impl Op {
 /// What a call left, read back.
 struct Written {
     bytes: Vec<u8>,
+    report: StructureReport,
 }
 
 /// Applies `op` to the workbook in `bytes`, `None` when the edit refuses it.
@@ -142,7 +145,7 @@ fn apply(bytes: &[u8], op: &Op) -> Option<Written> {
         .unwrap();
     op.call(&mut edit).ok()?;
     let mut package_edit = PackageEdit::new(package);
-    edit.apply(&mut package_edit).unwrap();
+    let report = edit.apply(&mut package_edit).unwrap();
     let written = package_edit
         .finish(Vec::new(), &mut MemorySpools, &limits, &mut diagnostics)
         .unwrap()
@@ -152,7 +155,10 @@ fn apply(bytes: &[u8], op: &Op) -> Option<Written> {
         "{:?}",
         diagnostics.records()
     );
-    Some(Written { bytes: written })
+    Some(Written {
+        bytes: written,
+        report,
+    })
 }
 
 /// The sheets' names and whether each is visible, as the reader reads them.
@@ -253,6 +259,36 @@ fn calls(bytes: &[u8], name: &str) -> bool {
                 .contains(&wanted)
         })
     })
+}
+
+/// The text of the XML part `name` (`/xl/workbook.xml`) of `bytes`.
+fn part_text(bytes: &[u8], name: &str) -> String {
+    let mut diagnostics = Diagnostics::new();
+    let mut package = Package::open(
+        Cursor::new(bytes.to_vec()),
+        &Limits::default(),
+        &mut diagnostics,
+    )
+    .unwrap()
+    .unwrap();
+    let index = (package.parts().iter())
+        .position(|part| part.name().as_str() == name)
+        .unwrap_or_else(|| panic!("no part {name}"));
+    let limit = xlsx_graft_diagnostics::Limit::default_of(1 << 28);
+    let text = package
+        .read_xml_part(index, limit, &mut diagnostics)
+        .unwrap()
+        .unwrap();
+    String::from_utf8(text).unwrap()
+}
+
+/// Whether the XML entry `entry` of `bytes` holds `sheet`, letter case aside.
+fn mentions(bytes: &[u8], entry: &str, sheet: &str) -> bool {
+    let name = format!("/{entry}");
+    entry.ends_with(".xml")
+        && part_text(bytes, &name)
+            .to_lowercase()
+            .contains(&sheet.to_lowercase())
 }
 
 /// The entries of the zip `bytes`: name to (method, CRC-32, compressed bytes).
@@ -582,12 +618,20 @@ fn check_entries(label: &str, before: &[u8], op: &Op, written: &[u8]) {
         gone, expected,
         "{label}: the entries that are removed after {op:?}"
     );
+    // A rename and a delete rewrite the formulas of the other parts: the
+    // parts that hold the sheet's name, and no others.
+    let sheet = match op {
+        Op::Rename(old, _) => Some(old),
+        Op::Delete(gone) => Some(gone),
+        _ => None,
+    };
     for (name, entry) in &old {
-        if let Some(other) = new.get(name)
-            && !rewritten(name, op, before)
-        {
-            assert_eq!(entry, other, "{label}: {name} after {op:?}");
+        let Some(other) = new.get(name) else { continue };
+        if rewritten(name, op, before) || entry == other {
+            continue;
         }
+        let holds = sheet.is_some_and(|sheet| mentions(before, name, sheet));
+        assert!(holds, "{label}: {name} changed after {op:?}");
     }
 }
 
@@ -619,6 +663,23 @@ fn every_workbook_of_fixtures_is_edited_and_read_back() {
         for op in &ops {
             let written = apply(&before, op).unwrap_or_else(|| panic!("{label}: {op:?} refused"));
             check(&label, &before, op, &written);
+        }
+        // The formulas of the other parts name the new name.
+        let rename = Op::Rename(first.clone(), "Renamed 1".into());
+        let renamed = apply(&before, &rename).unwrap();
+        let file = path.file_name().and_then(|name| name.to_str()).unwrap();
+        let chart = "/xl/charts/chart1.xml";
+        match file {
+            "chart.xlsx" => {
+                let text = part_text(&renamed.bytes, chart);
+                assert!(text.contains("<c:f>'Renamed 1'!$A$2:$A$4</c:f>"), "{text}");
+                assert!(!text.contains("Sheet1!"), "{text}");
+            }
+            "formulas.xlsx" => {
+                let text = part_text(&renamed.bytes, "/xl/worksheets/sheet1.xml");
+                assert!(text.contains("<f>SUM('Renamed 1:Sheet2'!A1)</f>"), "{text}");
+            }
+            _ => {}
         }
         // The first sheet the edit deletes: a workbook whose only visible
         // sheet is its only deletable one has none.
@@ -652,8 +713,9 @@ const R: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relations
 const REL: &str = "http://schemas.openxmlformats.org/package/2006/relationships";
 
 /// A workbook of the sheets Alpha to Delta, three defined names, an active
-/// tab on Gamma, a `calcPr`, a calcChain part and an app part that lists the
-/// sheets.
+/// tab on Gamma, a `calcPr`, a calcChain part, an app part that lists the
+/// sheets, a chart of Alpha's cells, a pivot cache of Beta's, and formulas of
+/// Beta's that name Alpha and Gamma.
 fn crafted() -> Vec<u8> {
     let sheet_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
     let overrides: String = (1..=4)
@@ -664,7 +726,7 @@ fn crafted() -> Vec<u8> {
         })
         .collect();
     let types = format!(
-        r#"<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/><Override PartName="/xl/calcChain.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml"/>{overrides}</Types>"#
+        r#"<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/><Override PartName="/xl/calcChain.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml"/><Override PartName="/xl/charts/chart1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/><Override PartName="/xl/pivotCache/pivotCacheDefinition1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheDefinition+xml"/>{overrides}</Types>"#
     );
     let root = format!(
         r#"<Relationships xmlns="{REL}"><Relationship Id="rId1" Type="{R}/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="{R}/extended-properties" Target="docProps/app.xml"/></Relationships>"#
@@ -679,9 +741,21 @@ fn crafted() -> Vec<u8> {
         .map(|n| format!(r#"<Relationship Id="rId{n}" Type="{R}/worksheet" Target="worksheets/sheet{n}.xml"/>"#))
         .collect();
     let chain = format!(r#"<Relationship Id="rId9" Type="{R}/calcChain" Target="calcChain.xml"/>"#);
-    let rels = format!(r#"<Relationships xmlns="{REL}">{links}{chain}</Relationships>"#);
+    let more = format!(
+        r#"<Relationship Id="rId10" Type="{R}/chart" Target="charts/chart1.xml"/><Relationship Id="rId11" Type="{R}/pivotCacheDefinition" Target="pivotCache/pivotCacheDefinition1.xml"/>"#
+    );
+    let rels = format!(r#"<Relationships xmlns="{REL}">{links}{chain}{more}</Relationships>"#);
     let app = r#"<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>Test</Application><HeadingPairs><vt:vector size="2" baseType="variant"><vt:variant><vt:lpstr>Worksheets</vt:lpstr></vt:variant><vt:variant><vt:i4>4</vt:i4></vt:variant></vt:vector></HeadingPairs><TitlesOfParts><vt:vector size="4" baseType="lpstr"><vt:lpstr>Alpha</vt:lpstr><vt:lpstr>Beta</vt:lpstr><vt:lpstr>Gamma</vt:lpstr><vt:lpstr>Delta</vt:lpstr></vt:vector></TitlesOfParts></Properties>"#;
     let sheet = format!(r#"<worksheet xmlns="{NS}"><sheetData/></worksheet>"#);
+    // Beta's cells name Alpha and Gamma, and a color scale names Alpha at a
+    // place outside the list of those the edit rewrites.
+    let beta = format!(
+        r#"<worksheet xmlns="{NS}"><sheetData><row r="1"><c r="A1"><f>Alpha!A1+Gamma!B2</f></c></row></sheetData><conditionalFormatting sqref="C1:C3"><cfRule type="colorScale" priority="1"><colorScale><cfvo type="num" val="0"/><cfvo type="formula" val="Alpha!$A$1"/><color rgb="FFFF0000"/><color rgb="FF00FF00"/></colorScale></cfRule></conditionalFormatting></worksheet>"#
+    );
+    let chart = r#"<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart><c:plotArea><c:barChart><c:ser><c:val><c:numRef><c:f>Alpha!$A$1:$A$3</c:f></c:numRef></c:val></c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>"#;
+    let cache = format!(
+        r#"<pivotCacheDefinition xmlns="{NS}"><cacheSource type="worksheet"><worksheetSource ref="A1:C9" sheet="Beta"/></cacheSource></pivotCacheDefinition>"#
+    );
     let mut entries: Vec<(String, String)> = vec![
         ("[Content_Types].xml".into(), types),
         ("_rels/.rels".into(), root),
@@ -693,7 +767,12 @@ fn crafted() -> Vec<u8> {
             format!(r#"<calcChain xmlns="{NS}"/>"#),
         ),
     ];
-    entries.extend((1..=4).map(|n| (format!("xl/worksheets/sheet{n}.xml"), sheet.clone())));
+    entries.extend((1..=4).map(|n| {
+        let content = if n == 2 { &beta } else { &sheet };
+        (format!("xl/worksheets/sheet{n}.xml"), content.clone())
+    }));
+    entries.push(("xl/charts/chart1.xml".into(), chart.to_owned()));
+    entries.push(("xl/pivotCache/pivotCacheDefinition1.xml".into(), cache));
     let pairs: Vec<(&str, String)> = entries
         .iter()
         .map(|(n, c)| (n.as_str(), c.clone()))
@@ -733,13 +812,43 @@ fn a_crafted_workbook_is_edited_and_the_names_and_views_are_read_back() {
             (text("Span"), None, text("'Sales Q1:Gamma'!$A$1")),
         ]
     );
+    // The formulas of the other parts follow the rename; the color scale's
+    // `cfvo` is outside the list and is kept and reported.
+    let sheet2 = |written: &Written| part_text(&written.bytes, "/xl/worksheets/sheet2.xml");
+    assert!(sheet2(&renamed).contains("<f>'Sales Q1'!A1+Gamma!B2</f>"));
+    assert!(sheet2(&renamed).contains(r#"val="Alpha!$A$1""#));
+    let chart = part_text(&renamed.bytes, "/xl/charts/chart1.xml");
+    assert!(chart.contains("<c:f>'Sales Q1'!$A$1:$A$3</c:f>"), "{chart}");
+    let kept = |written: &Written| {
+        let report = &written.report;
+        (report.kept().iter())
+            .map(|k| {
+                (
+                    k.part().to_owned(),
+                    k.place().to_owned(),
+                    k.table().map(str::to_owned),
+                    k.reason(),
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    let outside = (
+        "/xl/worksheets/sheet2.xml".to_owned(),
+        "cfvo@val".to_owned(),
+        None,
+        KeptReason::Outside,
+    );
+    assert_eq!(kept(&renamed), std::slice::from_ref(&outside));
     let op = Op::Delete("Alpha".into());
     let deleted = apply(&before, &op).unwrap();
     check("crafted", &before, &op, &deleted);
+    assert!(sheet2(&deleted).contains("<f>#REF!+Gamma!B2</f>"));
+    assert!(part_text(&deleted.bytes, "/xl/workbook.xml").contains(r#"fullCalcOnLoad="1""#));
+    assert_eq!(kept(&deleted), [outside]);
     assert_eq!(
         defined(&deleted.bytes),
         [
-            (text("Total"), None, text("#REF!$A$1:$A$3")),
+            (text("Total"), None, text("#REF!")),
             (text("OfBeta"), Some(0), text("Beta!$B$1")),
             (text("Span"), None, text("Beta:Gamma!$A$1")),
         ]
@@ -756,6 +865,27 @@ fn a_crafted_workbook_is_edited_and_the_names_and_views_are_read_back() {
         (text("OfBeta"), Some(3), text("Beta!$B$1"))
     );
     assert!(entries(&moved.bytes).contains_key("xl/calcChain.xml"));
+    // The pivot cache's source follows its sheet's rename, and a delete keeps
+    // the source and reports it.
+    let op = Op::Rename("Beta".into(), "Beta 2".into());
+    let beta = apply(&before, &op).unwrap();
+    check("crafted", &before, &op, &beta);
+    let cache = part_text(&beta.bytes, "/xl/pivotCache/pivotCacheDefinition1.xml");
+    assert!(cache.contains(r#"sheet="Beta 2""#), "{cache}");
+    let op = Op::Delete("Beta".into());
+    let gone_beta = apply(&before, &op).unwrap();
+    check("crafted", &before, &op, &gone_beta);
+    let cache = part_text(&gone_beta.bytes, "/xl/pivotCache/pivotCacheDefinition1.xml");
+    assert!(cache.contains(r#"sheet="Beta""#), "{cache}");
+    assert_eq!(
+        kept(&gone_beta),
+        [(
+            "/xl/pivotCache/pivotCacheDefinition1.xml".to_owned(),
+            "worksheetSource@sheet".to_owned(),
+            None,
+            KeptReason::DeletedSource
+        )]
+    );
     // The sheet the view points at is deleted: the next one is active.
     let op = Op::Delete("Gamma".into());
     let gone = apply(&before, &op).unwrap();
