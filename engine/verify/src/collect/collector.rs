@@ -38,7 +38,7 @@ use super::{FormulaSink, TableTag};
 pub(crate) use attributes::attribute;
 use attributes::{bytes, value};
 use std::borrow::Cow;
-use xlsx_graft_formula::places::FORMULA_ELEMENTS;
+use xlsx_graft_formula::places::formula_element;
 use xlsx_graft_xml::events::BytesStart;
 
 /// The formulas of one part, found as it is read.
@@ -115,7 +115,7 @@ impl<'a> Collector<'a> {
             }
             _ => self.attributes(local, start),
         }
-        if !opened || !FORMULA_ELEMENTS.contains(&local) {
+        if !opened || formula_element(local).is_none() {
             return;
         }
         let defines = (local == "definedName").then(|| {

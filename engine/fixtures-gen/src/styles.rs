@@ -26,10 +26,9 @@ mod catalog;
 mod sheet;
 
 use crate::FixturesGenError;
-use crate::repack::{codes, io_error, workbooks};
+use crate::repack::{Refusal, codes, io_error, workbooks};
 use sheet::SheetCells;
 use std::ffi::OsString;
-use std::fmt::Display;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
@@ -56,16 +55,6 @@ pub(crate) fn run(args: &[OsString], out: &mut dyn Write) -> Result<(), Fixtures
         }
     }
     Ok(())
-}
-
-/// Why a workbook is refused, as text: the error of any step of [`give`],
-/// or the diagnostics the engine pushed.
-struct Refusal(String);
-
-impl<E: Display> From<E> for Refusal {
-    fn from(error: E) -> Self {
-        Self(error.to_string())
-    }
 }
 
 /// Writes the workbook `source` to `target` as the module says. `Ok(false)`

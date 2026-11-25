@@ -166,6 +166,7 @@ fn the_name_that_would_be_the_65537th_is_refused_and_a_replacement_is_not() {
         text: Text::Changed("1".into()),
         origin: None,
         name_changed: false,
+        unresolved: None,
     };
     edit.state.names.extend((1..65_536).map(|_| entry()));
     assert_eq!(edit.state.names.len(), 65_536);

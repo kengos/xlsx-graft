@@ -39,7 +39,8 @@
 //!    as `_xleta.SUM`), the LAMBDA [`Param`]s (`_xlpm.x`), the
 //!    [`Reference`]s, the [`Name`]s, the [`DdeLink`]s, the
 //!    [`ExternalBook`]s, the [`SheetPrefix`]es and the [`Malformed`]
-//!    places.
+//!    places. Each [`SheetPrefix`] gives the span of the operand it
+//!    qualifies ([`SheetPrefix::operand`]), when the reader finds one.
 //! 4. **A safety net**: a second scan that ignores every quote finds each
 //!    `NAME(` in the text; one the lexer did not see as a call is an
 //!    [`UnseenCall`]. A string holding `"SUM("` is one too: the net is for a

@@ -117,6 +117,28 @@ template is reported, not rewritten (below).
     system, with no time zone, and `t="d"` is never written.
   - What it carries over from a template is never rewritten: it is
     reported as verifying would report it.
+  - Rewriting the references of formulas when the caller renames or deletes a
+    sheet is part of what the caller asked for. It rewrites a closed list of
+    places: defined names, and in worksheet, macrosheet, dialogsheet, chart
+    and table parts a sheet's `f`, a data validation's `formula1` and
+    `formula2`, a conditional format's `formula` and `xm:f`, a chart's `c:f`,
+    and a table's `calculatedColumnFormula` and `totalsRowFormula`, and in a
+    pivot cache definition the `worksheetSource@sheet`. A formula anywhere
+    else that verify reads as a formula (any other part, such as a chartex
+    part's `cx:f`, which is only reported, or a place such as `cfvo@val`,
+    `sp@textlink` and a revision's `oldFormula`; not an external workbook's
+    `definedName@refersTo`) is left as it is and reported in the
+    `StructureReport` when it names the renamed or deleted sheet. A delete
+    writes one `#REF!` in place of a prefix of the deleted sheet and the
+    operand it qualifies (`Sheet1!A1:B2`, `Sheet1!A2#`; Excel saves
+    `Sheet1!A2#` as `_xlfn.ANCHORARRAY(Sheet1!A2)`, which a delete of
+    `Sheet1` writes as `_xlfn.ANCHORARRAY(#REF!)`, and the `#` form is
+    written by other applications); a prefix with no operand (the token
+    after it is none of a cell, a range, a table reference, a name, an
+    error value, or a call with its `)`, as in `Sheet1!(A1)`, `Sheet1!1` or
+    `Sheet1!A1:Sheet1!B2`, or a call whose `(` never closes) is left as
+    written and reported, because it still names the deleted sheet.
+    The report holds at most 16,384 references and counts the others.
   - Valid under ECMA-376 does not mean that Google Sheets, LibreOffice or
     Numbers opens it: name them in `targets:` to have it checked.
 

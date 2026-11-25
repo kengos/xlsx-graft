@@ -4,18 +4,25 @@
 //! `names` set and remove of a defined name, `formula` how a rename and a
 //! delete rewrite the formulas of the defined names, `views` where the
 //! views point after a delete, `apply` what `apply` does to the parts of the
-//! package, and `rewrite` the workbook part it writes.
+//! package, `parts` the formulas of the other parts it rewrites and the
+//! report it returns, and `rewrite` the workbook part it writes.
 
 mod apply;
+mod change;
 mod cleanup;
 mod formula;
+mod limits;
 mod names;
+mod operand;
+mod parts;
 mod rewrite;
+mod sharing;
 mod sheets;
 mod views;
 
 use super::StructureEdit;
 use super::state::{Scope, Text};
+use crate::structure::StructureReport;
 use crate::tests::stored;
 use crate::{PackageEdit, WriteLimits};
 use std::io::Cursor;
@@ -44,6 +51,16 @@ pub(super) fn package(
     after: &str,
     extra: &[(&str, &str, &str)],
 ) -> Package<Cursor<Vec<u8>>> {
+    open_zip(zip(before, sheets, after, extra))
+}
+
+/// The zip of [`package`], before it is opened.
+pub(super) fn zip(
+    before: &str,
+    sheets: &[Sheet<'_>],
+    after: &str,
+    extra: &[(&str, &str, &str)],
+) -> Vec<u8> {
     let list: String = (sheets.iter().zip(1..))
         .map(|((name, attributes), n)| {
             let id = if attributes.contains("sheetId") {
@@ -64,7 +81,7 @@ pub(super) fn package(
             )
         })
         .collect();
-    package_raw(&workbook, &rels, sheets.len(), extra, "")
+    zip_raw(&workbook, &rels, sheets.len(), extra, "")
 }
 
 /// The package of the workbook part `workbook`, the relationships `rels`
@@ -80,6 +97,17 @@ pub(super) fn package_raw(
     extra: &[(&str, &str, &str)],
     root_rels: &str,
 ) -> Package<Cursor<Vec<u8>>> {
+    open_zip(zip_raw(workbook, rels, sheets, extra, root_rels))
+}
+
+/// The zip of [`package_raw`], before it is opened.
+pub(super) fn zip_raw(
+    workbook: &str,
+    rels: &str,
+    sheets: usize,
+    extra: &[(&str, &str, &str)],
+    root_rels: &str,
+) -> Vec<u8> {
     let mut entries: Vec<(String, String, String)> = vec![
         (
             "xl/workbook.xml".into(),
@@ -93,6 +121,11 @@ pub(super) fn package_raw(
         ),
     ];
     for n in 1..=sheets {
+        // A part of `extra` with the name takes the worksheet's place.
+        let name = format!("xl/worksheets/sheet{n}.xml");
+        if extra.iter().any(|(extra, _, _)| *extra == name) {
+            continue;
+        }
         entries.push((
             format!("xl/worksheets/sheet{n}.xml"),
             "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml".into(),
@@ -125,12 +158,13 @@ pub(super) fn package_raw(
     let pairs: Vec<(&[u8], &[u8])> = (all.iter())
         .map(|(name, content)| (name.as_bytes(), content.as_bytes()))
         .collect();
+    stored(&pairs)
+}
+
+/// The package of the zip `bytes`.
+pub(super) fn open_zip(bytes: Vec<u8>) -> Package<Cursor<Vec<u8>>> {
     let mut diagnostics = Diagnostics::new();
-    let package = Package::open(
-        Cursor::new(stored(&pairs)),
-        &Limits::default(),
-        &mut diagnostics,
-    );
+    let package = Package::open(Cursor::new(bytes), &Limits::default(), &mut diagnostics);
     package.unwrap().unwrap()
 }
 
@@ -201,7 +235,7 @@ pub(super) fn formulas(edit: &StructureEdit<'_>) -> Vec<String> {
 pub(super) fn fingerprint(edit: &StructureEdit<'_>) -> String {
     let state = &edit.state;
     format!(
-        "{:?}|{:?}|{}|{:?}|{}|{:?}|{:?}|{:?}|{}",
+        "{:?}|{:?}|{}|{:?}|{}|{:?}|{:?}|{:?}|{}|{:?}|{:?}",
         state.sheets,
         state.deleted,
         state.next_key,
@@ -211,6 +245,8 @@ pub(super) fn fingerprint(edit: &StructureEdit<'_>) -> String {
         state.removed_names,
         state.views,
         state.ref_written,
+        state.changes,
+        state.sheet_ids,
     )
 }
 
@@ -309,9 +345,17 @@ impl Output {
 /// Opens `package` as an edit, lets `act` call it, applies it to a
 /// `PackageEdit` of `package` and writes that.
 pub(super) fn applied(
-    mut package: Package<Cursor<Vec<u8>>>,
+    package: Package<Cursor<Vec<u8>>>,
     act: impl FnOnce(&mut StructureEdit<'static>),
 ) -> Output {
+    applied_with_report(package, act).0
+}
+
+/// As [`applied`], with the report `apply` returned.
+pub(super) fn applied_with_report(
+    mut package: Package<Cursor<Vec<u8>>>,
+    act: impl FnOnce(&mut StructureEdit<'static>),
+) -> (Output, StructureReport) {
     let mut diagnostics = Diagnostics::new();
     let limits = WriteLimits::default();
     let mut edit = StructureEdit::open(&mut package, &limits, &mut diagnostics)
@@ -319,11 +363,11 @@ pub(super) fn applied(
         .unwrap();
     act(&mut edit);
     let mut package_edit = PackageEdit::new(package);
-    edit.apply(&mut package_edit).unwrap();
+    let report = edit.apply(&mut package_edit).unwrap();
     let bytes = package_edit
         .finish(Vec::new(), &mut MemorySpools, &limits, &mut diagnostics)
         .unwrap()
         .unwrap();
     assert!(diagnostics.records().is_empty());
-    Output { bytes }
+    (Output { bytes }, report)
 }

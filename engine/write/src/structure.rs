@@ -33,6 +33,9 @@
 //!   tables. It is read the way `xlsx-graft-read` reads the sheets, and
 //!   pushes the same diagnostics for a sheet it cannot tie to a part. It
 //!   is not re-exported: call it as `structure::model::Workbook`.
+//! - **What a structure edit left as it was** (`report.rs`):
+//!   [`StructureReport`], the formulas it did not rewrite and the parts it
+//!   could not read.
 //! - **A structure edit** (`edit.rs`): [`StructureEdit`] adds, renames,
 //!   deletes and moves sheets and sets and removes defined names on the
 //!   model, rewriting the defined names' formulas and the views' sheet
@@ -44,9 +47,11 @@ mod edit;
 mod error;
 mod names;
 mod prefix;
+mod report;
 
 pub use edit::StructureEdit;
 pub use error::{DefinedNameFault, SheetNameFault, StructureError};
 use names::builtin_spelling;
 pub use names::{check_defined_name, check_sheet_name};
 pub use prefix::{needs_quotes, sheet_prefix};
+pub use report::{KeptReason, KeptReference, StructureReport};

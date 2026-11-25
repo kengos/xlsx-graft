@@ -45,7 +45,7 @@ const CALC_BEFORE: [&str; 9] = [
 /// when it does not; every other attribute keeps its value. The values are
 /// written through `xml_attribute`, so one that is a value of ST_Xstring has
 /// been through `escape` already.
-pub(super) fn with_attributes(
+pub(in crate::structure::edit) fn with_attributes(
     start: &BytesStart<'_>,
     set: &[(&str, Option<&str>)],
 ) -> BytesStart<'static> {
@@ -91,7 +91,7 @@ fn push(content: &mut String, key: &str, value: Option<&str>) {
 }
 
 /// `text` escaped for XML text.
-pub(super) fn text_of(text: &str) -> String {
+pub(in crate::structure::edit) fn text_of(text: &str) -> String {
     let mut out = String::new();
     xml_text::<Infallible>(text, |piece| {
         out.push_str(piece);

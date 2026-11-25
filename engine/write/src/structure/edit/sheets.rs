@@ -3,7 +3,7 @@
 //! Each call checks everything first and changes the state only when every
 //! check passed, so a call that returns an `Err` changes nothing.
 
-use super::formula::Change;
+use super::change::{Change, Deleted};
 use super::state::{Origin, Scope, SheetEntry, State};
 use crate::PartWriter;
 use crate::structure::model::SheetState;
@@ -27,6 +27,7 @@ impl<'r> State<'r> {
             });
         }
         let sheet_id = self.next_sheet_id.ok_or(StructureError::SheetIdExhausted)?;
+        let name_id = self.sheet_ids.id(name);
         self.next_sheet_id = sheet_id.checked_add(1);
         let key = self.next_key;
         self.next_key = key.saturating_add(1);
@@ -35,6 +36,7 @@ impl<'r> State<'r> {
             SheetEntry {
                 key,
                 name: name.to_owned(),
+                name_id,
                 renamed: false,
                 sheet_id,
                 state: SheetState::Visible,
@@ -56,14 +58,16 @@ impl<'r> State<'r> {
             .filter(|(index, _)| *index != position)
             .map(|(_, sheet)| sheet.name.as_str());
         check_sheet_name(new, others)?;
+        let name_id = self.sheet_ids.id(new);
         (self.sheets.iter_mut())
             .filter(|sheet| sheet.key == key)
             .for_each(|sheet| {
                 sheet.name = new.to_owned();
+                sheet.name_id = name_id;
                 sheet.renamed = true;
             });
-        self.rewrite_formulas(&Change::Rename {
-            old,
+        self.rewrite_formulas(Change::Rename {
+            old: old.into(),
             new: new.to_owned(),
         });
         Ok(())
@@ -91,8 +95,8 @@ impl<'r> State<'r> {
             }
         }
         self.names = kept;
-        let order: Vec<String> = self.sheets.iter().map(|sheet| sheet.name.clone()).collect();
-        self.rewrite_formulas(&Change::Delete { position, order });
+        let deleted = Deleted::new(&self.sheets, position, &self.sheet_ids);
+        self.rewrite_formulas(Change::Delete(deleted));
         self.retarget_views(position);
         let deleted = self.sheets.remove(position);
         self.deleted.push(deleted);

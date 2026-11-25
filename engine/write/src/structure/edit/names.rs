@@ -36,6 +36,7 @@ impl State<'_> {
                 entry.name_changed |= entry.written != written;
                 entry.written = written;
                 entry.text = Text::Changed(formula.to_owned());
+                entry.unresolved = None;
             }
             None => {
                 let count = u64::try_from(self.names.len()).unwrap_or(u64::MAX);
@@ -48,6 +49,7 @@ impl State<'_> {
                     text: Text::Changed(formula.to_owned()),
                     origin: None,
                     name_changed: false,
+                    unresolved: None,
                 });
             }
         }

@@ -14,6 +14,7 @@ mod application;
 use crate::FixturesGenError;
 use application::Application;
 use std::ffi::{OsStr, OsString};
+use std::fmt::Display;
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -126,6 +127,16 @@ impl Book<'_> {
             return Err(refused(codes(&diagnostics)));
         }
         Ok(true)
+    }
+}
+
+/// Why a workbook is refused, as text: the error of any step of writing it,
+/// or the diagnostics the engine pushed.
+pub(crate) struct Refusal(pub(crate) String);
+
+impl<E: Display> From<E> for Refusal {
+    fn from(error: E) -> Self {
+        Self(error.to_string())
     }
 }
 

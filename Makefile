@@ -209,6 +209,18 @@
 #                               F='fixtures/generated/styles/*' tells whether
 #                               Excel opens them without a repair
 #                               (engine/fixtures-gen styles)
+#     make fixtures:structure   write each workbook of fixtures/ twice with
+#                               engine/write's StructureEdit, into
+#                               fixtures/generated/structure/ (gitignored):
+#                               <stem>-rename (first sheet renamed, a sheet
+#                               added first, the last sheet moved, a defined
+#                               name set) and <stem>-delete (a sheet added
+#                               last, the first sheet deleted); prints the
+#                               references kept as they were; then, on a Mac,
+#                               make excel:check
+#                               F='fixtures/generated/structure/*' tells
+#                               whether Excel opens them without a repair
+#                               (engine/fixtures-gen structure)
 #
 #   Benchmarks (in Docker; not a gate, not in verify: the result changes with
 #   the machine and the day; the one exception is bench:memory, a gate in

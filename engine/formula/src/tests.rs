@@ -6,6 +6,7 @@ mod bypass;
 mod excel;
 mod facts;
 mod lexing;
+mod operands;
 mod places;
 mod prefixes;
 mod properties;

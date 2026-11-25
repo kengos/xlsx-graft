@@ -150,3 +150,29 @@ fixtures\:cells: ## Write three workbooks of cell values with the engine's cell 
 fixtures\:styles: ## Write each workbook of fixtures/ again with a cell format on each of A1 to A18 of its first worksheet into fixtures/generated/styles/ (gitignored), for make excel:check
 	$(CARGO_IN_DOCKER) 'cd /repo && cargo run --manifest-path engine/Cargo.toml -p xlsx-graft-fixtures-gen \
 		--release --locked $(CARGO_JOBS) -- styles fixtures fixtures/generated/styles'
+
+# fixtures:structure — writes each workbook of fixtures/ twice with the
+# engine's structure edit (engine/write's StructureEdit) into
+# fixtures/generated/structure/, which git ignores, for `make excel:check` to
+# open on a Mac and show that Excel accepts the sheets and the formulas the
+# edit writes: <stem>-rename.<ext>, its first sheet renamed to `Graft 名前 1`,
+# a sheet `Graft added` added at position 0, its last sheet moved to position
+# 1 and the workbook's defined name graft_name set to 'Graft 名前 1'!$A$1;
+# and <stem>-delete.<ext>, a sheet `Graft added` added after the last sheet
+# and the first sheet deleted. The formulas of the other parts (the sheets',
+# the charts', the tables', the pivot caches') follow the rename and the
+# delete as the edit rewrites them. The extension is the workbook's own, so
+# macro.xlsm and python-in-excel.xlsm give .xlsm files. Standard output has
+# the path of each workbook written and a line for each reference the edit
+# kept as it was (a StructureReport); a workbook, or one of its two variants,
+# the edit refuses or cannot read is skipped, with `skipped`, its path and why
+# on a line, and the others are written. Runs in the toolchain image like
+# fixtures:styles, and is not a gate and not a member of verify: it prints the
+# release build's output, and proves nothing. A workbook already there under
+# the same name is replaced.
+
+.PHONY: fixtures\:structure
+
+fixtures\:structure: ## Write each workbook of fixtures/ with a sheet renamed, added and moved, and with the first sheet deleted, into fixtures/generated/structure/ (gitignored), for make excel:check
+	$(CARGO_IN_DOCKER) 'cd /repo && cargo run --manifest-path engine/Cargo.toml -p xlsx-graft-fixtures-gen \
+		--release --locked $(CARGO_JOBS) -- structure fixtures fixtures/generated/structure'

@@ -181,6 +181,7 @@ fn a_sheet_is_deleted_with_its_names_and_its_part_is_kept_for_apply() {
         text: super::super::state::Text::Changed("C!A1".into()),
         origin: None,
         name_changed: false,
+        unresolved: None,
     });
     edit.delete_sheet("a").unwrap();
     assert_eq!(sheet_names(&edit), ["B", "C"]);
