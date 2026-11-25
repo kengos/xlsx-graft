@@ -108,16 +108,21 @@ release\:dry-run\:crates: ## cargo publish --dry-run of the crates published to 
 # - when a fingerprint of a workspace crate built from an earlier commit is in
 #   the target directory of the verify builds, cargo uses that build without
 #   compiling the crate of this commit (on CI, engine/target is restored from
-#   the cache of an earlier run);
+#   the cache of an earlier run). cargo 1.100 (RUST_VERSION in the Makefile)
+#   keeps the fingerprint and the rlib of a crate under
+#   `build/<crate>/<hash>/`; cargo before that layout kept the fingerprint
+#   under `.fingerprint/<crate>-<hash>/`, which a cache or a volume written by
+#   an older toolchain still holds;
 # - when a workspace crate unpacked from an earlier commit's .crate is under
 #   $CARGO_HOME/registry/src, cargo uses that directory without unpacking the
 #   new .crate (on a local run, the named volume that CARGO_VOLUME names keeps
 #   that directory; on CI the volume starts empty).
-# The recipe therefore removes, before the dry run, the fingerprints of the
-# workspace crates in the target directory of the verify builds and the
-# unpacked workspace crates under $CARGO_HOME/registry/src. Cargo writes the
-# verify builds to a target directory of their own, target/publish-verify, so
-# that removing those fingerprints does not make the other gates
+# The recipe therefore removes, before the dry run, the builds of the
+# workspace crates in the target directory of the verify builds
+# (`build/xlsx-graft-*` and `.fingerprint/xlsx-graft-*`) and the unpacked
+# workspace crates under $CARGO_HOME/registry/src. Cargo writes the verify
+# builds to a target directory of their own, target/publish-verify, so that
+# removing those builds does not make the other gates
 # (target/debug, target/release, target/llvm-cov-target) compile the workspace
 # crates again; the next dry run reuses the dependencies' builds in
 # target/publish-verify. target/publish-verify/package holds the temporary
@@ -131,6 +136,7 @@ _release-dry-run-crates:
 	$(CARGO_IN_DOCKER) 'rm -rf target/package target/publish-verify/package; \
 		mkdir -p target/publish-verify; \
 		find target/publish-verify -path "*/.fingerprint/xlsx-graft-*" -prune -exec rm -rf {} +; \
+		find target/publish-verify -path "*/build/xlsx-graft-*" -prune -exec rm -rf {} +; \
 		rm -rf "$$CARGO_HOME"/registry/src/*/xlsx-graft-*; \
 		cargo publish --workspace --dry-run --locked --allow-dirty --target-dir target/publish-verify $(CARGO_JOBS); \
 		cargo package --workspace $(CRATES_NOT_PUBLISHED) --no-verify --locked --allow-dirty $(CARGO_JOBS); \
