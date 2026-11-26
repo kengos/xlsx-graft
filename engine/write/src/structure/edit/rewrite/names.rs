@@ -3,9 +3,17 @@
 //! left or written in full when it was an empty element.
 
 use super::insert::{text_of, with_attributes};
-use super::{NameOut, Run, Section};
+use super::{Run, Section};
 use crate::WriteError;
 use xlsx_graft_xml::events::{BytesEnd, BytesStart, BytesText, Event};
+
+/// A defined name to write: the `name` and the text as ST_Xstring values
+/// (their `_xHHHH_` escapes made), and its `localSheetId`.
+pub(super) struct NameOut {
+    pub(super) name: String,
+    pub(super) local: Option<u32>,
+    pub(super) text: String,
+}
 
 /// `start` with `out`'s name and `localSheetId` (left out when `out` has
 /// none), the other attributes as they are.

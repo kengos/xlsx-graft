@@ -6,8 +6,10 @@
 //! target through relationships are removed (`cleanup.rs`), and the calcChain
 //! part with them when a sheet that the opened workbook had is deleted; the
 //! formulas of the other parts are rewritten for the renames and deletes made,
-//! and what is left as it was goes in the report (`parts.rs`); the app part is
-//! rewritten without its sheet lists when the sheets changed (`app.rs`); and
+//! the `tabSelected` of their sheet views follows the active sheet and the
+//! sheets hidden, and what is left as it was goes in the report (`parts.rs`);
+//! the app part is rewritten without its sheet lists when sheets are added,
+//! deleted, renamed or moved, not when only a state changes (`app.rs`); and
 //! the workbook part is rewritten when anything in it changed (`rewrite.rs`),
 //! with `fullCalcOnLoad` when a `#REF!` was written in any part.
 
@@ -19,6 +21,7 @@ use super::ns::{RELATIONSHIPS, WORKSHEET_MEDIA, flavor};
 use super::parts;
 use super::rewrite::{Plan, WorkbookRewriter};
 use super::state::Origin;
+use super::tabs::tab_changes;
 use crate::structure::StructureReport;
 use crate::{Link, LinkSource, PackageEdit, PartWriter, WriteError};
 use std::collections::{BTreeMap, BTreeSet};
@@ -33,14 +36,31 @@ impl<'r> StructureEdit<'r> {
     /// written again for what changed in them.
     ///
     /// The formulas of the places `xlsx_graft_formula::places` marks
-    /// `Rewrite` get their sheet prefixes changed as a defined name's do; the
-    /// parts are read only when a sheet was renamed or deleted, and a part
-    /// with no formula changed is not rewritten. What it does not rewrite is
-    /// kept as it is and is in the report that is returned.
+    /// `Rewrite` get their sheet prefixes changed as a defined name's do. The
+    /// parts are read only when a sheet was renamed or deleted, or the
+    /// `tabSelected` of a sheet may change: when the active sheet of a view
+    /// changed, every sheet part of the opened workbook still in the edit is
+    /// read (and only those whose `tabSelected` changes are rewritten), and
+    /// the parts of the sheets hidden in this edit are read too. When no sheet
+    /// was renamed or deleted those parts are read for their `sheetView`s
+    /// alone: formulas are not looked at and nothing is reported of them; a
+    /// part that cannot be read is reported as `Unreadable`. A part with
+    /// nothing changed is not rewritten. What it does not
+    /// rewrite is kept as it is and is in the report that is returned.
     ///
-    /// A sheet renamed or deleted makes `apply` replace the parts of the
-    /// package that hold a formula it rewrites (worksheet, macrosheet,
-    /// dialogsheet, chart, table and pivot cache definition parts), through
+    /// When the active sheet of a workbook view changed (`set_active_sheet`,
+    /// or a hide or a delete that points the view at another sheet), the
+    /// `sheetView` of that workbook view (its `workbookViewId`) in the new
+    /// active sheet gets `tabSelected="1"` and the `sheetView` of that view
+    /// in every other sheet of the opened workbook loses it. A sheet hidden
+    /// loses `tabSelected` in every `sheetView` whose `workbookViewId` can be
+    /// read. A sheet with no `sheetView` is not given one, and a sheet added is not changed.
+    ///
+    /// A sheet renamed or deleted, or a `tabSelected` changed, makes `apply`
+    /// replace the parts of the package that hold a formula it rewrites or a
+    /// `sheetView` it changes (worksheet, macrosheet, dialogsheet, chart,
+    /// table and pivot cache definition parts, and the sheet parts of
+    /// `tabSelected`), through
     /// `PackageEdit::replace`. When the caller replaces one of them too, only
     /// the replace made last stays, as `PackageEdit::replace` says.
     ///
@@ -105,10 +125,11 @@ impl<'r> StructureEdit<'r> {
         }
         let changes = std::mem::take(&mut state.changes);
         let ids = std::mem::take(&mut state.sheet_ids);
-        let found = parts::rewrite(edit, &snapshot, &state, (changes, ids), &removed)?;
+        let tabs = tab_changes(&state, &snapshot.workbook);
+        let found = parts::rewrite(edit, &snapshot, &state, (changes, ids), tabs, &removed)?;
         state.ref_written |= found.ref_written;
         let plan = Plan::build(&state, &snapshot.workbook, &rids);
-        let titles = (snapshot.app.as_ref()).filter(|app| plan.sheets_changed() && app.has_titles);
+        let titles = (snapshot.app.as_ref()).filter(|app| plan.titles_changed() && app.has_titles);
         if let Some(app) = titles {
             let limits = snapshot.limits;
             edit.replace(&app.name, Box::new(AppRewriter { limits }))?;

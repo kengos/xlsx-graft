@@ -3,6 +3,7 @@
 //! and deleted, and the parts an edit does not touch.
 
 use super::{NS, R, applied, package_raw};
+use crate::structure::model::SheetState;
 
 const REL: &str = "http://schemas.openxmlformats.org/package/2006/relationships";
 const EXTENDED: &str = "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties";
@@ -242,6 +243,13 @@ fn the_app_part_is_written_without_its_sheet_lists_when_the_sheets_change_and_no
         edit.set_defined_name("N", None, "1").unwrap();
     });
     assert!(output.holds(&app));
+    // Hiding a sheet changes the workbook part but not the sheets the app
+    // part lists, so the app part is not written again.
+    let output = applied(package(), |edit| {
+        edit.set_sheet_state("Beta", SheetState::Hidden).unwrap();
+    });
+    assert!(output.holds(&app));
+    assert!(!output.holds(&workbook()));
 }
 
 #[test]

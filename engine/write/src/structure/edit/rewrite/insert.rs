@@ -11,6 +11,25 @@ use xlsx_graft_cell::{xml_attribute, xml_text};
 use xlsx_graft_xml::XmlVersion;
 use xlsx_graft_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 
+/// The children of the root `bookViews` is written before, when the part
+/// has none: the ones that follow it (ECMA-376-1:2016 §18.2.27).
+const VIEWS_BEFORE: [&str; 14] = [
+    "sheets",
+    "functionGroups",
+    "externalReferences",
+    "definedNames",
+    "calcPr",
+    "oleSize",
+    "customWorkbookViews",
+    "pivotCaches",
+    "smartTagPr",
+    "smartTagTypes",
+    "webPublishing",
+    "fileRecoveryPr",
+    "webPublishObjects",
+    "extLst",
+];
+
 /// The children of the root `definedNames` is written before, when the part
 /// has none: the ones that follow it (ECMA-376-1:2016 §18.2.27).
 const NAMES_BEFORE: [&str; 10] = [
@@ -121,6 +140,11 @@ impl Run<'_> {
     /// when `before` is `None` (the end of the root) or names a child they
     /// are written before.
     pub(super) fn insert_pending(&mut self, before: Option<&str>) -> Result<(), WriteError> {
+        let views = before.is_none_or(|local| VIEWS_BEFORE.contains(&local));
+        if self.plan.views_block && self.pending_views && views {
+            self.views_block()?;
+            self.pending_views = false;
+        }
         let names = before.is_none_or(|local| NAMES_BEFORE.contains(&local));
         if self.pending_names && names {
             self.names_block()?;

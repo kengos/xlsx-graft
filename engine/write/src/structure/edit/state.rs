@@ -118,6 +118,10 @@ pub(super) struct ViewEntry {
     pub(super) active: Pointer,
     /// Its `firstSheet`.
     pub(super) first: Pointer,
+    /// The sheet its `activeTab` named when the workbook was opened, which
+    /// no call changes: the view's active sheet changed when `active` is
+    /// another one.
+    pub(super) opened_active: Pointer,
 }
 
 /// What the calls of a [`StructureEdit`](super::StructureEdit) have made of
@@ -190,9 +194,13 @@ impl State<'_> {
             })
             .collect();
         let views = (book.views().iter())
-            .map(|view| ViewEntry {
-                active: pointer(view.active_tab(), len),
-                first: pointer(view.first_sheet(), len),
+            .map(|view| {
+                let active = pointer(view.active_tab(), len);
+                ViewEntry {
+                    active,
+                    first: pointer(view.first_sheet(), len),
+                    opened_active: active,
+                }
             })
             .collect();
         let tables = (book.tables().iter())
@@ -226,7 +234,7 @@ fn scope_of(id: u32, len: usize) -> Scope {
 
 /// The pointer of an `activeTab` or `firstSheet` of `value` (0 when not
 /// written) among `len` sheets.
-fn pointer(value: Option<u32>, len: usize) -> Pointer {
+pub(super) fn pointer(value: Option<u32>, len: usize) -> Pointer {
     let index = usize::try_from(value.unwrap_or(0))
         .ok()
         .filter(|&index| index < len);

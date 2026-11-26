@@ -66,6 +66,12 @@ pub enum StructureError {
         /// The sheet's name.
         name: String,
     },
+    /// The sheet is hidden or very hidden, so it cannot be the active sheet.
+    #[error("the sheet {name:?} is hidden, so it cannot be the active sheet")]
+    SheetHidden {
+        /// The sheet's name.
+        name: String,
+    },
     /// The largest `sheetId` of the workbook is `u32::MAX`, so a new sheet
     /// has no `sheetId` that is one past it.
     #[error("no sheetId is left for a new sheet")]

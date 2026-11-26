@@ -6,7 +6,7 @@
 use super::super::change::{Change, Deleted, SheetIds};
 use super::classify;
 use super::text::Context;
-use super::walk::{Outcome, Rules, walk};
+use super::walk::{Mode, Outcome, Rules, walk};
 use crate::{WriteError, WriteLimits};
 use std::collections::BTreeMap;
 use std::io;
@@ -58,8 +58,11 @@ fn renaming() -> Context {
 /// references, and what it writes.
 fn walked(xml: &str, remaining: usize) -> (Outcome, String) {
     let rules = Rules {
-        formulas: true,
-        pivot: false,
+        mode: Mode::Formulas {
+            rewrite: true,
+            pivot: false,
+        },
+        tabs: None,
     };
     let mut out = Vec::new();
     let mut rw = XmlRewriter::new(xml.as_bytes(), &mut out, &WriteLimits::default().xml);

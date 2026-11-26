@@ -9,7 +9,9 @@
 //! the operand of a deleted sheet's prefix is unknown, or one in a part that
 //! cannot be read) is kept as it is, and each is a [`KeptReference`] with
 //! the [`KeptReason`] it was kept for. The report adds no diagnostic
-//! (the diagnostic codes are closed): a caller that wants one reads this.
+//! (the diagnostic codes are closed): a caller that wants one reads this. An
+//! edit that renamed and deleted no sheet looks at no formula, so it reports
+//! only the sheet parts it could not read.
 //!
 //! What a report holds is bounded by [`MAX_KEPT`] references and, for each,
 //! by [`MAX_AT_BYTES`] bytes of its `at`. Every other field of a reference

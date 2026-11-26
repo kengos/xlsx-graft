@@ -1,5 +1,6 @@
 //! The sheets the workbook views point at (`activeTab`, `firstSheet`),
-//! pointed at another sheet when the one they name is deleted.
+//! pointed at another sheet when the one they name is deleted or stops being
+//! visible.
 
 use super::state::{Pointer, State};
 use crate::structure::model::SheetState;
@@ -7,8 +8,10 @@ use crate::structure::model::SheetState;
 impl State<'_> {
     /// Points each view that names the sheet at `position` at the first
     /// visible sheet after it, or else the last visible one before it
-    /// (the sheets as they are before the delete). A view stays as it is when
-    /// no visible sheet is left, which a delete does not allow.
+    /// (the sheets as they are before the delete or the hide). A view stays as
+    /// it is when no visible sheet is left; `delete_sheet` and
+    /// `set_sheet_state` refuse that with `LastVisibleSheet` before they call
+    /// this.
     pub(super) fn retarget_views(&mut self, position: usize) {
         let visible = |sheet: &&super::state::SheetEntry| sheet.state == SheetState::Visible;
         let (before, from) = self.sheets.split_at(position);

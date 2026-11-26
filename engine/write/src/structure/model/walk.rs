@@ -82,6 +82,8 @@ pub(super) struct Walked {
     pub(super) calc_pr: bool,
     /// There is a `definedNames` element, with or without names.
     pub(super) defined_names_element: bool,
+    /// There is a `bookViews` element, with or without views.
+    pub(super) book_views_element: bool,
 }
 
 /// The state of the walk through the workbook part: the elements open, how
@@ -161,6 +163,7 @@ pub(super) fn read(bytes: &[u8], limits: &XmlLimits) -> Result<Walked, Diagnosti
         views: walk.views,
         calc_pr: walk.calc_pr,
         defined_names_element: walk.seen.defined_names,
+        book_views_element: walk.seen.book_views,
     })
 }
 

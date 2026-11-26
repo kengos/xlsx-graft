@@ -131,6 +131,15 @@ struct Written {
 
 /// Applies `op` to the workbook in `bytes`, `None` when the edit refuses it.
 fn apply(bytes: &[u8], op: &Op) -> Option<Written> {
+    edited(bytes, |edit| op.call(edit))
+}
+
+/// Opens the workbook in `bytes`, lets `act` call the edit, and writes it;
+/// `None` when `act` returns an error.
+fn edited(
+    bytes: &[u8],
+    act: impl FnOnce(&mut StructureEdit<'_>) -> Result<(), StructureError>,
+) -> Option<Written> {
     let mut diagnostics = Diagnostics::new();
     let limits = WriteLimits::default();
     let mut package = Package::open(
@@ -143,7 +152,7 @@ fn apply(bytes: &[u8], op: &Op) -> Option<Written> {
     let mut edit = StructureEdit::open(&mut package, &limits, &mut diagnostics)
         .unwrap()
         .unwrap();
-    op.call(&mut edit).ok()?;
+    act(&mut edit).ok()?;
     let mut package_edit = PackageEdit::new(package);
     let report = edit.apply(&mut package_edit).unwrap();
     let written = package_edit
@@ -491,6 +500,22 @@ fn escaped_written(name: &str) -> String {
     out
 }
 
+/// `text` with every `tabSelected` attribute (`tabSelected="1"`, either
+/// quote) taken out.
+fn without_tab(text: &str) -> String {
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(at) = rest.find(" tabSelected=") {
+        out.push_str(&rest[..at]);
+        let value = &rest[at + " tabSelected=".len()..];
+        let quote = value.chars().next().unwrap();
+        let end = value[1..].find(quote).unwrap();
+        rest = &value[end + 2..];
+    }
+    out.push_str(rest);
+    out
+}
+
 /// Whether the engine may rewrite the entry `name` for `op` on the workbook
 /// in `before`.
 fn rewritten(name: &str, op: &Op, before: &[u8]) -> bool {
@@ -619,7 +644,9 @@ fn check_entries(label: &str, before: &[u8], op: &Op, written: &[u8]) {
         "{label}: the entries that are removed after {op:?}"
     );
     // A rename and a delete rewrite the formulas of the other parts: the
-    // parts that hold the sheet's name, and no others.
+    // parts that hold the sheet's name, and no others. A delete also moves
+    // `tabSelected` when the sheet deleted was active, so a part that has a
+    // `tabSelected` may change too, in that attribute only.
     let sheet = match op {
         Op::Rename(old, _) => Some(old),
         Op::Delete(gone) => Some(gone),
@@ -631,7 +658,13 @@ fn check_entries(label: &str, before: &[u8], op: &Op, written: &[u8]) {
             continue;
         }
         let holds = sheet.is_some_and(|sheet| mentions(before, name, sheet));
-        assert!(holds, "{label}: {name} changed after {op:?}");
+        let tab = matches!(op, Op::Delete(_)) && name.ends_with(".xml") && {
+            let part = format!("/{name}");
+            let (was, now) = (part_text(before, &part), part_text(written, &part));
+            let mentioned = was.contains("tabSelected") || now.contains("tabSelected");
+            mentioned && without_tab(&was) == without_tab(&now)
+        };
+        assert!(holds || tab, "{label}: {name} changed after {op:?}");
     }
 }
 
@@ -910,4 +943,63 @@ fn a_crafted_workbook_is_edited_and_the_names_and_views_are_read_back() {
     let removed = apply(&before, &op).unwrap();
     check("crafted", &before, &op, &removed);
     assert_eq!(defined(&removed.bytes).len(), 2);
+}
+
+#[test]
+fn sheets_hidden_and_an_active_sheet_are_read_back_by_the_reader_and_the_verifier() {
+    let before = crafted();
+    let written = edited(&before, |edit| {
+        edit.set_sheet_state("Alpha", model::SheetState::Hidden)?;
+        edit.set_sheet_state("Beta", model::SheetState::VeryHidden)?;
+        edit.set_active_sheet("Delta")
+    })
+    .unwrap();
+    let state = |name: &str, state: &str| (name.to_owned(), state.to_owned());
+    assert_eq!(
+        sheets(&written.bytes),
+        [
+            state("Alpha", "Hidden"),
+            state("Beta", "VeryHidden"),
+            state("Gamma", "Visible"),
+            state("Delta", "Visible"),
+        ]
+    );
+    let views = book(&written.bytes).views().to_vec();
+    assert_eq!(views.len(), 1);
+    assert_eq!(views[0].active_tab(), Some(3));
+    assert_eq!(errors(&written.bytes), errors(&before));
+    // A hidden sheet cannot be the active one, and the last visible sheet
+    // cannot be hidden.
+    let mut error = None;
+    let refused = edited(&before, |edit| {
+        edit.set_sheet_state("Alpha", model::SheetState::Hidden)
+            .unwrap();
+        let result = edit.set_active_sheet("Alpha");
+        error = result.clone().err();
+        result
+    });
+    assert!(refused.is_none());
+    assert_eq!(
+        error,
+        Some(StructureError::SheetHidden {
+            name: "Alpha".into()
+        })
+    );
+    let mut error = None;
+    let refused = edited(&before, |edit| {
+        for name in ["Alpha", "Beta", "Gamma"] {
+            edit.set_sheet_state(name, model::SheetState::Hidden)
+                .unwrap();
+        }
+        let result = edit.set_sheet_state("Delta", model::SheetState::Hidden);
+        error = result.clone().err();
+        result
+    });
+    assert!(refused.is_none());
+    assert_eq!(
+        error,
+        Some(StructureError::LastVisibleSheet {
+            name: "Delta".into()
+        })
+    );
 }

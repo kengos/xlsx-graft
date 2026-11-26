@@ -13,6 +13,8 @@
 //!   or written as it was, and the names added are written last.
 //! - **`rewrite/insert.rs`**: the workbook views, `calcPr`, and the
 //!   `definedNames` and `calcPr` elements the part did not have.
+//! - **`rewrite/views.rs`**: the `workbookView` a workbook that has none is
+//!   given, in its `bookViews` or in a new one.
 //!
 //! Names, attribute values and text are written through
 //! [`escape`](xlsx_graft_cell::escape) first when they are values, and then
@@ -23,48 +25,45 @@ mod insert;
 mod names;
 mod plan;
 mod sheets;
+mod views;
 
 pub(super) use insert::{text_of, with_attributes};
 
 use crate::{PartRewriter, WriteError, WriteLimits};
+use names::NameOut;
 use sheets::Collected;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{BufRead, Write};
+use views::ViewOut;
 use xlsx_graft_xml::events::{BytesStart, Event};
 use xlsx_graft_xml::name::{Namespace, ResolveResult};
 use xlsx_graft_xml::{XmlLimits, XmlRewriter};
 
-/// A defined name to write: the `name` and the text as ST_Xstring values
-/// (their `_xHHHH_` escapes made), and its `localSheetId`.
-pub(super) struct NameOut {
-    name: String,
-    local: Option<u32>,
-    text: String,
-}
-
 /// A sheet to write, in its place in the list.
 pub(super) enum SheetOut {
     /// A sheet of the workbook that was opened: the position of its
-    /// element among the original `sheet`s, and its new name when renamed.
-    Original { index: usize, name: Option<String> },
-    /// A sheet added.
+    /// element among the original `sheet`s, its new name when renamed, and
+    /// its new `state` when that changed (`Some(None)` removes it).
+    Original {
+        index: usize,
+        name: Option<String>,
+        state: Option<Option<&'static str>>,
+    },
+    /// A sheet added, with its `state` attribute when it is not visible.
     Added {
         name: String,
         sheet_id: u32,
         rid: String,
+        state: Option<&'static str>,
     },
-}
-
-/// The new values of the attributes of a `workbookView`.
-pub(super) struct ViewOut {
-    active: Option<String>,
-    first: Option<String>,
 }
 
 /// What to write of the workbook part.
 pub(super) struct Plan {
     /// The sheets in their order, when they changed.
     sheets: Option<Vec<SheetOut>>,
+    /// Whether the sheets or their names or order changed (not a state).
+    titles: bool,
     /// Whether a defined name was removed, written again or added.
     names_changed: bool,
     /// How many defined names are written.
@@ -77,6 +76,14 @@ pub(super) struct Plan {
     added: Vec<NameOut>,
     /// The workbook views, by position among them.
     views: Vec<ViewOut>,
+    /// Whether a view gets an attribute written.
+    views_changed: bool,
+    /// The `workbookView` to add when the part has none, `None` when it
+    /// is not to be written (the first sheet is the active one).
+    insert_views: Option<ViewOut>,
+    /// Whether a `bookViews` is written to hold `insert_views`, the part
+    /// having none (else the view goes in the one it has, wherever it is).
+    views_block: bool,
     /// Whether `calcPr` gets `fullCalcOnLoad`.
     ref_written: bool,
     /// Whether the part has no `calcPr` to give it to.
@@ -129,6 +136,9 @@ struct Run<'a> {
     skipping: Option<usize>,
     /// Whether `definedNames` is still to be added.
     pending_names: bool,
+    /// Whether the `workbookView` of the plan is still to be written, in a
+    /// `bookViews` the part has or one written before `sheets`.
+    pending_views: bool,
     /// Whether `calcPr` is still to be added.
     pending_calc: bool,
     /// The position of the next `definedName` among the original ones.
@@ -154,6 +164,7 @@ fn run(
         section: Section::None,
         skipping: None,
         pending_names: plan.insert_names,
+        pending_views: plan.insert_views.is_some(),
         pending_calc: plan.insert_calc,
         name_index: 0,
         view_index: 0,
@@ -268,7 +279,7 @@ impl Run<'_> {
             // and the section ends at the next end of a child of the root.
             "bookViews" => {
                 self.section = Section::Views;
-                Ok(false)
+                self.views_start(start, opened)
             }
             "calcPr" if self.plan.ref_written => self.calc(start, opened),
             _ => Ok(false),

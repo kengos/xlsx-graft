@@ -9,7 +9,7 @@ const STRICT_NS: &str = "http://purl.oclc.org/ooxml/spreadsheetml/main";
 const STRICT_R: &str = "http://purl.oclc.org/ooxml/officeDocument/relationships";
 
 /// The worksheet relationships `rId1` to `rId<n>`.
-fn rels(n: usize) -> String {
+pub(super) fn rels(n: usize) -> String {
     (1..=n)
         .map(|i| {
             format!(
@@ -20,12 +20,12 @@ fn rels(n: usize) -> String {
 }
 
 /// A sheet element of the sheet number `n`, named `name`.
-fn sheet(n: usize, name: &str) -> String {
+pub(super) fn sheet(n: usize, name: &str) -> String {
     format!(r#"<sheet name="{name}" sheetId="{n}" r:id="rId{n}"/>"#)
 }
 
 /// The sheets `Alpha`, `Beta` and `Gamma`, the first `count` of them.
-fn sheets(count: usize) -> String {
+pub(super) fn sheets(count: usize) -> String {
     let names = ["Alpha", "Beta", "Gamma"];
     let list: String = (names.iter().zip(1..=count))
         .map(|(name, n)| sheet(n, name))
@@ -34,12 +34,12 @@ fn sheets(count: usize) -> String {
 }
 
 /// A Transitional workbook part of `body`.
-fn workbook(body: &str) -> String {
+pub(super) fn workbook(body: &str) -> String {
     format!(r#"<workbook xmlns="{NS}" xmlns:r="{R}">{body}</workbook>"#)
 }
 
 /// The workbook part `body` of `count` sheets, after `act`.
-fn run(
+pub(super) fn run(
     body: &str,
     count: usize,
     act: impl FnOnce(&mut crate::structure::StructureEdit<'static>),

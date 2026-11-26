@@ -1,5 +1,10 @@
 //! [`walk`]: one part read as XML and written again with the formulas the
-//! changes touch rewritten, every other event as it came.
+//! changes touch rewritten and the `tabSelected` of its `sheetView`s set or
+//! removed, every other event as it came.
+//!
+//! In [`Mode::TabsOnly`] (the edit renamed and deleted no sheet) the walk
+//! looks only at `sheetView`: it rewrites `tabSelected`, looks at no formula
+//! and reports nothing of formulas. What follows is [`Mode::Formulas`].
 //!
 //! The same walk runs twice over a part: written to `io::sink()`, to learn
 //! what it changes and which formulas it keeps as they were, and written to
@@ -10,7 +15,7 @@
 //! in any namespace), and what a rename or a delete does to it is the
 //! row's `on_sheet_change`:
 //!
-//! - **`Rewrite`**: in a part of a kind [`Rules::formulas`] allows, the text
+//! - **`Rewrite`**: in a part of a kind [`Rules::rewrites`] allows, the text
 //!   of the element is replaced by the formula with its sheet prefixes
 //!   changed, as one text event. In any other part it is `Report`.
 //! - **`Report`**: the formula is written as it was, and kept in the report
@@ -39,7 +44,10 @@
 //! still hold, which the caller gives (`parts/keeper.rs`):
 //! past it a reference is counted and nothing of it is held.
 //!
-//! What a walk keeps and reports is in `walk/kept.rs`.
+//! What a walk keeps and reports is in `walk/kept.rs`; the rules it runs by
+//! and the outcome it gives are in `walk/outcome.rs`; the start tags it
+//! changes (a pivot source, a sheet view's `tabSelected`) are in
+//! `walk/retag.rs`.
 //!
 //! `at` is the cell reference (`B2`) of the `c` the formula is in, the
 //! `sqref` of the `dataValidation` or `conditionalFormatting` it is in, or
@@ -49,7 +57,7 @@ use super::super::rewrite::text_of;
 use super::super::state::escaped;
 use super::keeper::Keeper;
 use super::text::{Context, attribute, clipped, defined_at};
-use crate::structure::{KeptReason, KeptReference};
+use crate::structure::KeptReason;
 use held::{Held, Open};
 use std::io::{BufRead, Write};
 use std::sync::Arc;
@@ -59,28 +67,10 @@ use xlsx_graft_xml::{XmlRewriter, XmlStreamError};
 
 mod held;
 mod kept;
+mod outcome;
+mod retag;
 
-/// What a walk may change in a part, by the part's kind.
-#[derive(Debug, Clone, Copy)]
-pub(super) struct Rules {
-    /// Whether the text of a `Rewrite` element is rewritten.
-    pub(super) formulas: bool,
-    /// Whether a `worksheetSource`'s `sheet` is rewritten.
-    pub(super) pivot: bool,
-}
-
-/// What walking a part found.
-#[derive(Default)]
-pub(super) struct Outcome {
-    /// Whether the part's text is not what was read.
-    pub(super) changed: bool,
-    /// Whether a `#REF!` was written.
-    pub(super) ref_written: bool,
-    /// What was left as it was, up to `MAX_KEPT`.
-    pub(super) kept: Vec<KeptReference>,
-    /// How many more were left as they were.
-    pub(super) omitted: u64,
-}
+pub(super) use outcome::{Mode, Outcome, Rules};
 
 /// The walk of one part.
 struct Walk<'a> {
@@ -172,13 +162,15 @@ impl Walk<'_> {
             }
             _ => {}
         }
-        self.attributes(local, &start);
-        let renamed = self.pivot(rw, local, &start);
+        if self.rules.looks() {
+            self.attributes(local, &start);
+        }
+        let renamed = self.retag(rw, local, &start);
         let written = match &renamed {
             Some(renamed) => renamed.borrow(),
             None => start.borrow(),
         };
-        match formula_element(local) {
+        match formula_element(local).filter(|_| self.rules.looks()) {
             Some(row) if opened => {
                 let at = self.at_of(local, &written);
                 let held = Held::holding(written.into_owned());
@@ -231,7 +223,7 @@ impl Walk<'_> {
         end: BytesEnd<'_>,
     ) -> Result<(), XmlStreamError> {
         let Open { row, at, held } = open;
-        let rewrite = row.on_sheet_change == OnSheetChange::Rewrite && self.rules.formulas;
+        let rewrite = row.on_sheet_change == OnSheetChange::Rewrite && self.rules.rewrites();
         match held {
             Held::Holding { events, text, .. } => {
                 let mut replaced = None;

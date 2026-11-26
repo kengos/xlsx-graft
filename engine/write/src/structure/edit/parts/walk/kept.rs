@@ -43,7 +43,7 @@ impl Walk<'_> {
         local: &str,
         start: &BytesStart<'_>,
     ) -> Option<BytesStart<'static>> {
-        if local != "worksheetSource" || !self.rules.pivot {
+        if local != "worksheetSource" || !self.rules.pivot() {
             return None;
         }
         match source(rw, start, self.context) {
