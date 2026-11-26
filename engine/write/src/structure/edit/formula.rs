@@ -19,9 +19,14 @@
 //!   `Sheet1!A2#` as `_xlfn.ANCHORARRAY(Sheet1!A2)`: the operand of
 //!   `Sheet1!` is `A2`, the call has no prefix, and a delete writes
 //!   `_xlfn.ANCHORARRAY(#REF!)`. The `#` form is written by other
-//!   applications. A prefix with no operand (`Sheet1!A1:Sheet1!B2`, which
-//!   `analyze` reads as a 3-D prefix `A1:Sheet1!`, a `(`, a call that never
-//!   closes, a number) is left as written and reported as
+//!   applications. A range whose second cell has a prefix of its own
+//!   (`Sheet1!A1:Sheet1!B2`) is the whole operand of the first prefix, so
+//!   it becomes one `#REF!`; when only the second prefix names the deleted
+//!   sheet, the second prefix and its cell become `#REF!`
+//!   (`Keep!A1:#REF!`). A call of the value a call returns
+//!   (`Sheet1!MyFn(1)(2)`) is also part of the operand and becomes one
+//!   `#REF!`. A prefix with no operand (a `(`, a call that never closes, a
+//!   number) is left as written and reported as
 //!   `KeptReason::UnknownOperand`, because it still names the deleted sheet,
 //!   and a sheet added later with that name would be the sheet it names.
 //! - A delete moves the end of a 3-D prefix that names the sheet one sheet

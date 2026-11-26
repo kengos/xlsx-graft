@@ -6,9 +6,10 @@
 
 mod operand;
 mod prefix;
+mod range;
 mod sheet;
 
-use super::word::{is_cell, is_column, is_param, is_row, split_prefix, unquote};
+use super::word::{is_cell, is_param, split_prefix, unquote};
 use crate::{Call, Facts, Location, Name, Param, Reference, ReferenceKind, Span, Token, TokenKind};
 
 /// Adds to `facts` what `tokens` of `text` state.
@@ -75,7 +76,7 @@ impl<'a> Walker<'a> {
                 TokenKind::Bracket => self.bracket(token, location),
                 TokenKind::Pipe => self.dde(None, 0),
                 TokenKind::ErrorValue => self.error_value(token),
-                TokenKind::OpenParen => self.open_paren(),
+                TokenKind::OpenParen => self.open_paren(token, ended),
                 TokenKind::CloseParen => self.close_paren(token),
                 TokenKind::Operator => self.spill(token, ended),
                 _ => 1,
@@ -107,9 +108,15 @@ impl<'a> Walker<'a> {
             }
             _ => {}
         }
+        // A word right after a sheet prefix does not start a 3-D prefix: in
+        // `Sheet1!A1:Sheet1!B2`, `A1`, `:` and `Sheet1!` are a cell, the
+        // range operator and a sheet prefix. A word with no prefix before it
+        // starts a 3-D prefix when `:`, a word and `!` follow it, in the form
+        // of a cell or not: `S1:S3!A1` names the sheets `S1` to `S3`.
+        let three_d = location.sheet.is_none();
         if let Some(last) = self
             .peek(2)
-            .filter(|_| self.kind(1) == Some(TokenKind::Colon))
+            .filter(|_| three_d && self.kind(1) == Some(TokenKind::Colon))
             && last.kind == TokenKind::Word
             && self.kind(3) == Some(TokenKind::Bang)
         {
@@ -153,6 +160,8 @@ impl<'a> Walker<'a> {
             let started = self.range_start();
             if started.is_some() {
                 self.extend_range(token.span.end);
+            } else {
+                self.extend_prefixed_range(token.span.end);
             }
             let location = started.unwrap_or(location);
             self.reference(ReferenceKind::Cell, location, text, token.span.start, token);
@@ -189,31 +198,6 @@ impl<'a> Walker<'a> {
         });
     }
 
-    /// Columns (`A:C`) or rows (`1:3`), when `first` starts either; the
-    /// number of tokens they take. Not when a `(` follows: `A:T(1)` calls
-    /// `T`.
-    fn range(&mut self, first: Token, location: Location) -> Option<usize> {
-        let last = self.peek(2).filter(|_| {
-            self.kind(1) == Some(TokenKind::Colon) && self.kind(3) != Some(TokenKind::OpenParen)
-        })?;
-        let (from, to) = (self.text(first), self.text(last));
-        let kind = if is_column(from) && is_column(to) {
-            ReferenceKind::Columns
-        } else if is_row(from) && is_row(to) {
-            ReferenceKind::Rows
-        } else {
-            return None;
-        };
-        self.reference(
-            kind,
-            location,
-            &format!("{from}:{to}"),
-            first.span.start,
-            last,
-        );
-        Some(3)
-    }
-
     /// A reference of `kind` at `location`, written `target`, from `start`
     /// to the end of `last`.
     fn reference(
@@ -245,24 +229,6 @@ impl<'a> Walker<'a> {
     /// The kind of the token `ahead` of the one being read.
     fn kind(&self, ahead: usize) -> Option<TokenKind> {
         self.peek(ahead).map(|token| token.kind)
-    }
-
-    /// The location of the cell that starts the range the cell being read
-    /// ends, when that one came right after its prefix: `Sheet2` for `B2`
-    /// in `Sheet2!A1:B2`. Looked up from the end, so only a cell gets it,
-    /// and a sheet name is copied twice at most, however long the chain.
-    fn range_start(&self) -> Option<Location> {
-        let colon = self.behind(1).filter(|t| t.kind == TokenKind::Colon)?;
-        self.behind(3).filter(|t| t.kind == TokenKind::Bang)?;
-        let start = self.facts.references.last()?;
-        (start.kind == ReferenceKind::Cell && start.span.end == colon.span.start)
-            .then(|| start.location.clone())
-    }
-
-    /// The token `back` before the one being read.
-    fn behind(&self, back: usize) -> Option<Token> {
-        let at = self.at.checked_sub(back)?;
-        self.tokens.get(at).copied()
     }
 
     /// The token `ahead`, if it can be a DDE topic or item: a word, a

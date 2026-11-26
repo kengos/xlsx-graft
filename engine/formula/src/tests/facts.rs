@@ -82,6 +82,25 @@ fn references_carry_the_sheet_and_book_before_them() {
 }
 
 #[test]
+fn a_cell_after_a_prefix_and_before_a_colon_and_a_prefix_is_a_cell() {
+    use ReferenceKind::Cell;
+    let sheet = || Some("Sheet1".to_owned());
+    assert_eq!(
+        references("Sheet1!A1:Sheet1!B2"),
+        [
+            (Cell, None, sheet(), "A1".to_owned()),
+            (Cell, None, sheet(), "B2".to_owned()),
+        ]
+    );
+    let read = analyze("Sheet1!A1:Sheet1!B2");
+    assert_eq!(read.facts.sheet_prefixes.len(), 2);
+    assert!(
+        (read.facts.sheet_prefixes.iter())
+            .all(|prefix| prefix.first == "Sheet1" && prefix.last.is_none())
+    );
+}
+
+#[test]
 fn a_prefix_holds_through_a_range_and_no_further() {
     let (book, sheet) = at(None, Some("S"));
     assert_eq!(

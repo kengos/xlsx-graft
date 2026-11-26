@@ -128,15 +128,17 @@ pub struct SheetPrefix {
     pub last: Option<String>,
     /// The operand the prefix qualifies, from its first token to its last,
     /// with nothing but whitespace between the `!` and its start: a cell, a
-    /// range of cells (`A1:B2`), of columns or of rows, a table reference, a
-    /// name, an error value, or a call up to its closing `)`, and the spill
-    /// operator `#` when it follows the operand directly. `None` when the
-    /// token after the prefix is none of those (a number, a string, `TRUE`, a
-    /// parenthesis, a function name with no `(` after it (`_xlfn.X`), a call
-    /// of a LAMBDA parameter (`_xlpm.x(1)`), a call whose `(` is never
-    /// closed), when nothing follows the prefix, and for the `Sheet1!` of
-    /// `Sheet1!A1:Sheet1!B2`, whose `A1:Sheet1!` is read as a prefix of its
-    /// own.
+    /// range of cells (`A1:B2`, and `A1:Sheet1!B2` when the second cell has
+    /// a prefix of its own, whose operand is then that cell and what follows
+    /// it in the range), of columns or of rows, a table reference, a name, an
+    /// error value, or a call up to its closing `)` (with each call of the
+    /// value a call returns, when its `(` follows the `)` with no whitespace
+    /// between them, `MyFn(1)(2)`), and the spill operator `#` when it
+    /// follows the operand directly. `None` when the token after the prefix
+    /// is none of those (a number, a string, `TRUE`, a parenthesis, a
+    /// function name with no `(` after it (`_xlfn.X`), a call of a LAMBDA
+    /// parameter (`_xlpm.x(1)`), a call whose `(` is never closed), and when
+    /// nothing follows the prefix.
     pub operand: Option<Span>,
 }
 

@@ -3,7 +3,7 @@
 //! call or a `#` after the operand moves the end the prefix has.
 
 use super::Walker;
-use crate::{Span, Token};
+use crate::{Span, Token, TokenKind};
 
 impl Walker<'_> {
     /// `span` is the operand of `prefix`, the prefix read just before the
@@ -24,34 +24,25 @@ impl Walker<'_> {
         self.ended = Some(index);
     }
 
-    /// The cell being read ends a range that starts with the cell right
-    /// after a prefix (`Sheet1!A1:B2`): the operand of that prefix, the last
-    /// one read, ends with this cell.
-    pub(super) fn extend_range(&mut self, end: usize) {
-        let first = self.behind(2).map(|token| token.span.end);
-        let index = self.facts.sheet_prefixes.len().saturating_sub(1);
-        if let Some(operand) = self
-            .facts
-            .sheet_prefixes
-            .get_mut(index)
-            .and_then(|prefix| prefix.operand.as_mut())
-            .filter(|operand| Some(operand.end) == first)
-        {
-            operand.end = end;
-            self.ended = Some(index);
-        }
-    }
-
     /// The call `token` starts, with a `(` after it, is the operand of the
     /// prefix before it, up to the `)` that closes that `(`.
     pub(super) fn callee(&mut self, token: Token) {
         self.callee = self.prefix.map(|index| (index, token.span.start));
     }
 
-    /// A `(`: the one a call gave `callee` for opens an operand, any other
-    /// opens none.
-    pub(super) fn open_paren(&mut self) -> usize {
-        let callee = self.callee.take();
+    /// A `(` opens an operand in two cases: it follows the name of a call
+    /// that is the operand of a prefix (`callee`), or it follows, with no
+    /// whitespace between them, the `)` that ended the operand of a prefix
+    /// (`ended`), as in `Sheet1!MyFn(1)(2)`, where `(2)` calls the value
+    /// `MyFn(1)` returns. The operand then ends with the `)` that closes the
+    /// `(`. Any other `(` opens no operand.
+    pub(super) fn open_paren(&mut self, token: Token, ended: Option<usize>) -> usize {
+        let callee = self.callee.take().or_else(|| {
+            let closed = self.behind(1).map(|before| before.kind) == Some(TokenKind::CloseParen);
+            let index = ended.filter(|_| closed)?;
+            let operand = self.facts.sheet_prefixes.get(index)?.operand?;
+            (operand.end == token.span.start).then_some((index, operand.start))
+        });
         self.open.push(callee);
         1
     }
@@ -77,18 +68,24 @@ impl Walker<'_> {
 
     /// An operator: a `#` right after an operand that ended with the token
     /// before this one (`ended`) is the spill operator, and is part of that
-    /// operand. `run` takes `ended` before each token, so a `#` extends only
-    /// an operand that the token right before it ended: in `Sheet1!A2##` the
-    /// operand is `A2#`, and the second `#` is not part of it (`spill` moves
-    /// the end but does not set `ended`).
+    /// operand, and of the operand of the previous prefix when that operand
+    /// ends at the same token (`Sheet1!A1:Sheet1!B2#`, whose first operand
+    /// holds the second prefix). `run` takes `ended` before each token, so a
+    /// `#` extends only an operand that the token right before it ended: in
+    /// `Sheet1!A2##` the operand is `A2#`, and the second `#` is not part of
+    /// it (`spill` moves the end but does not set `ended`).
     pub(super) fn spill(&mut self, token: Token, ended: Option<usize>) -> usize {
-        let hash = self.text(token) == "#";
-        let operand = ended
-            .and_then(|index| self.facts.sheet_prefixes.get_mut(index))
-            .and_then(|prefix| prefix.operand.as_mut())
-            .filter(|operand| hash && operand.end == token.span.start);
-        if let Some(operand) = operand {
-            operand.end = token.span.end;
+        if self.text(token) != "#" {
+            return 1;
+        }
+        let previous = ended.and_then(|index| index.checked_sub(1));
+        for index in ended.into_iter().chain(previous) {
+            let operand = (self.facts.sheet_prefixes.get_mut(index))
+                .and_then(|prefix| prefix.operand.as_mut())
+                .filter(|operand| operand.end == token.span.start);
+            if let Some(operand) = operand {
+                operand.end = token.span.end;
+            }
         }
         1
     }
