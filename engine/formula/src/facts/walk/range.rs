@@ -1,6 +1,8 @@
-//! Ranges: columns (`A:C`) or rows (`1:3`), and the cell that ends a range
+//! Ranges: columns (`A:C`) or rows (`1:3`), the cell that ends a range
 //! started by a cell right after a prefix (`Sheet1!A1:B2`), whose location
-//! and operand it takes from that cell.
+//! and operand it takes from that cell, and the cell with a prefix of its
+//! own that ends a range (`Sheet1!A1:Sheet1!B2`), which extends the operand
+//! of the previous prefix.
 
 use super::Walker;
 use crate::facts::word::{is_column, is_row};
@@ -66,5 +68,39 @@ impl Walker<'_> {
             operand.end = end;
             self.ended = Some(index);
         }
+    }
+
+    /// When the cell being read has a prefix of its own and ends a range
+    /// whose first cell is the whole operand of the previous prefix, with
+    /// the `:` right after that first cell (`Sheet1!A1:Sheet1!B2`), the
+    /// operand of the previous prefix is extended to the end of the cell
+    /// being read, so the operand holds the second prefix.
+    pub(super) fn extend_prefixed_range(&mut self, end: usize) {
+        if let Some(operand) = self
+            .prefixed_range_start()
+            .and_then(|index| self.facts.sheet_prefixes.get_mut(index))
+            .and_then(|prefix| prefix.operand.as_mut())
+        {
+            operand.end = end;
+        }
+    }
+
+    /// The index of the previous prefix, when its operand is a cell with a
+    /// `:` right after the cell, and the `:` is the token before the prefix
+    /// of the cell being read.
+    fn prefixed_range_start(&self) -> Option<usize> {
+        let current = self.prefix?;
+        let start = self.facts.sheet_prefixes.get(current)?.span.start;
+        // A prefix is at most five tokens (`[1]Sheet1:Sheet2!`), so the
+        // search reads at most six tokens back.
+        let colon = (self.tokens.get(..self.at)?.iter().rev())
+            .find(|token| token.span.end <= start)
+            .filter(|token| token.kind == TokenKind::Colon)?;
+        let cell = (self.facts.references.last())
+            .filter(|cell| cell.kind == ReferenceKind::Cell && cell.span.end == colon.span.start)?
+            .span;
+        let before = current.checked_sub(1)?;
+        let operand = self.facts.sheet_prefixes.get(before)?.operand?;
+        (operand == cell).then_some(before)
     }
 }

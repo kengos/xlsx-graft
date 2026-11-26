@@ -50,6 +50,26 @@ fn a_cell_or_a_range_is_the_operand() {
         // A union: the outer parenthesis is no operand, each prefix inside
         // has its own.
         ("(Sheet1!$A$1,Sheet1!$B$2)", &[Some("$A$1"), Some("$B$2")]),
+        // Both cells of a range may have a prefix: the operand of the first
+        // prefix is the whole range, and the operand of the second prefix is
+        // the second cell. A `#` right after the range is part of both.
+        ("Sheet1!A1:Sheet1!B2", &[Some("A1:Sheet1!B2"), Some("B2")]),
+        (
+            "Sheet1!A1:Sheet1!B2#",
+            &[Some("A1:Sheet1!B2#"), Some("B2#")],
+        ),
+        (
+            "Sheet1!$A$1:'Sheet 2'!B2+1",
+            &[Some("$A$1:'Sheet 2'!B2"), Some("B2")],
+        ),
+        // The operand of the first prefix is not extended when the second
+        // operand is a name, when the first operand is not a cell alone, when
+        // the cell before the `:` is not the first operand, or when the `:`
+        // does not follow the first cell.
+        ("Sheet1!A1:Sheet1!MyName", &[Some("A1"), Some("MyName")]),
+        ("Sheet1!A:C:Sheet1!B2", &[Some("A:C"), Some("B2")]),
+        ("Sheet1!X1+B2:'Sheet 2'!C3", &[Some("X1"), Some("C3")]),
+        ("(Sheet1!A1):Sheet1!B2", &[Some("A1"), Some("B2")]),
     ]);
 }
 
@@ -73,6 +93,18 @@ fn a_call_is_the_operand_up_to_its_closing_parenthesis() {
         ("Sheet1!MyFn (1)+2", &[Some("MyFn (1)")]),
         ("Sheet1!MyFn(A1,(B2))+1", &[Some("MyFn(A1,(B2))")]),
         ("Sheet1!MyFn(1)+(2)", &[Some("MyFn(1)")]),
+        // A call of the value a call returns (a LAMBDA) is part of the
+        // operand, when its `(` follows the `)` directly; after whitespace,
+        // `(2)` is the operand of the intersection operator.
+        ("Sheet1!MyFn(1)(2)", &[Some("MyFn(1)(2)")]),
+        ("Sheet1!MyFn(1)(2)(A1)+1", &[Some("MyFn(1)(2)(A1)")]),
+        ("Sheet1!MyFn(1) (2)", &[Some("MyFn(1)")]),
+        // A `(` after an operand that does not end with a `)` is not part of
+        // it.
+        ("Sheet1!#REF!(1)", &[Some("#REF!")]),
+        ("Sheet1!T[a](1)", &[Some("T[a]")]),
+        // A word with a `(` after it is a call, in the form of a cell or not.
+        ("Sheet1!A1(2)", &[Some("A1(2)")]),
         ("SUM(Sheet1!MyFn(1),2)", &[Some("MyFn(1)")]),
         // A `)` with no `(` before it closes nothing.
         ("Sheet1!MyFn(1))+1", &[Some("MyFn(1)")]),
@@ -128,9 +160,6 @@ fn a_prefix_with_no_operand_gives_none() {
         ("Sheet1!_xlpm.x(1)", &[None]),
         ("Sheet1!MyFn(1", &[None]),
         ("Sheet1!(A1", &[None]),
-        // `A1:Sheet1!` is read as a prefix of two sheets, which takes the
-        // first prefix's operand.
-        ("Sheet1!A1:Sheet1!B2", &[None, Some("B2")]),
         ("Sheet1!Sheet2!A1", &[None, Some("A1")]),
         // A prefix inside a parenthesis has its own operand.
         (

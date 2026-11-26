@@ -76,7 +76,7 @@ impl<'a> Walker<'a> {
                 TokenKind::Bracket => self.bracket(token, location),
                 TokenKind::Pipe => self.dde(None, 0),
                 TokenKind::ErrorValue => self.error_value(token),
-                TokenKind::OpenParen => self.open_paren(),
+                TokenKind::OpenParen => self.open_paren(token, ended),
                 TokenKind::CloseParen => self.close_paren(token),
                 TokenKind::Operator => self.spill(token, ended),
                 _ => 1,
@@ -108,9 +108,15 @@ impl<'a> Walker<'a> {
             }
             _ => {}
         }
+        // A word right after a sheet prefix does not start a 3-D prefix: in
+        // `Sheet1!A1:Sheet1!B2`, `A1`, `:` and `Sheet1!` are a cell, the
+        // range operator and a sheet prefix. A word with no prefix before it
+        // starts a 3-D prefix when `:`, a word and `!` follow it, in the form
+        // of a cell or not: `S1:S3!A1` names the sheets `S1` to `S3`.
+        let three_d = location.sheet.is_none();
         if let Some(last) = self
             .peek(2)
-            .filter(|_| self.kind(1) == Some(TokenKind::Colon))
+            .filter(|_| three_d && self.kind(1) == Some(TokenKind::Colon))
             && last.kind == TokenKind::Word
             && self.kind(3) == Some(TokenKind::Bang)
         {
@@ -154,6 +160,8 @@ impl<'a> Walker<'a> {
             let started = self.range_start();
             if started.is_some() {
                 self.extend_range(token.span.end);
+            } else {
+                self.extend_prefixed_range(token.span.end);
             }
             let location = started.unwrap_or(location);
             self.reference(ReferenceKind::Cell, location, text, token.span.start, token);

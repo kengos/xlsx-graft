@@ -49,6 +49,8 @@ fn a_delete_writes_one_ref_for_a_prefix_and_its_operand_and_keeps_a_prefix_with_
         ("Sheet1!MyFn (1)+2", "#REF!+2"),
         ("SUM(Sheet1!MyFn(1),2)", "SUM(#REF!,2)"),
         ("Sheet1!MyFn(1)+(2)", "#REF!+(2)"),
+        ("Sheet1!MyFn(1)(2)+1", "#REF!+1"),
+        ("Sheet1!MyFn(1) (2)", "#REF! (2)"),
         ("Sheet1!MyFn(Sheet1!A1)#+1", "#REF!+1"),
         // A `)` with no `(` before it closes nothing.
         ("Sheet1!MyFn(1))+1", "#REF!)+1"),
@@ -56,9 +58,16 @@ fn a_delete_writes_one_ref_for_a_prefix_and_its_operand_and_keeps_a_prefix_with_
         // written as a second `#REF!`.
         ("Sheet1!MyFn(Sheet1!A1,2)+Sheet1!B2", "#REF!+#REF!"),
         ("Sheet1!MyFn(Sheet1!A1:Sheet1!B2)", "#REF!"),
+        // When the first prefix of a range with a prefix on both cells names
+        // the deleted sheet, the range is replaced by one `#REF!`; when only
+        // the second prefix does, only the second prefix and its cell are
+        // replaced.
+        ("Sheet1!A1:Sheet1!B2", "#REF!"),
+        ("Sheet1!A1:Keep!B2", "#REF!"),
+        ("Sheet1!A1:Sheet1!B2#+1", "#REF!+1"),
+        ("Keep!A1:Sheet1!B2", "Keep!A1:#REF!"),
         // A prefix with no operand to give is kept as written, and the prefixes
         // inside what follows it are rewritten.
-        ("Sheet1!A1:Sheet1!B2", "Sheet1!A1:Sheet1!B2"),
         ("Sheet1!+1", "Sheet1!+1"),
         ("Sheet1!", "Sheet1!"),
         ("Sheet1!1", "Sheet1!1"),
@@ -77,7 +86,7 @@ fn a_delete_writes_one_ref_for_a_prefix_and_its_operand_and_keeps_a_prefix_with_
             "Sheet1!(Sheet1!MyFn(1)+Sheet1!A1)*2",
             "Sheet1!(#REF!+#REF!)*2",
         ),
-        ("Sheet1!A1:Sheet1!B2+Sheet1!C3", "Sheet1!A1:Sheet1!B2+#REF!"),
+        ("Sheet1!(A1)+Sheet1!C3", "Sheet1!(A1)+#REF!"),
     ];
     for (text, expected) in cases {
         let (after, ref_written) = deleted(text);
@@ -88,7 +97,7 @@ fn a_delete_writes_one_ref_for_a_prefix_and_its_operand_and_keeps_a_prefix_with_
 
 #[test]
 fn a_formula_kept_for_an_unknown_operand_is_as_the_workbook_has_it() {
-    let texts = ["Sheet1!A1:Sheet1!B2", "Sheet1!(A1", "Sheet1!(A1)"];
+    let texts = ["Sheet1!1", "Sheet1!(A1", "Sheet1!(A1)"];
     let names: Vec<(String, &str, &str)> = (texts.iter().enumerate())
         .map(|(index, text)| (format!("n{index}"), "", *text))
         .collect();
@@ -104,7 +113,7 @@ fn a_formula_kept_for_an_unknown_operand_is_as_the_workbook_has_it() {
 #[test]
 fn a_prefix_kept_for_an_unknown_operand_is_reported_for_a_name_and_for_the_other_parts() {
     let sheet = format!(
-        r#"<worksheet xmlns="{}"><sheetData><row r="1"><c r="A1"><f>Alpha!A1:Alpha!B2+Alpha!C3</f></c><c r="B1"><f>Beta!A1</f></c></row></sheetData><conditionalFormatting sqref="F1:F3"><cfRule type="dataBar"><dataBar><cfvo type="formula" val="Alpha!A1:Alpha!B2+Alpha!C3"/><cfvo type="num" val="5"/></dataBar></cfRule></conditionalFormatting><conditionalFormatting sqref="G1:G3"><cfRule type="dataBar"><dataBar><cfvo type="formula" val="Alpha!D1:Alpha!D2"/><cfvo type="num" val="5"/></dataBar></cfRule></conditionalFormatting></worksheet>"#,
+        r#"<worksheet xmlns="{}"><sheetData><row r="1"><c r="A1"><f>Alpha!(A1)+Alpha!C3</f></c><c r="B1"><f>Beta!A1</f></c></row></sheetData><conditionalFormatting sqref="F1:F3"><cfRule type="dataBar"><dataBar><cfvo type="formula" val="Alpha!(A1)+Alpha!C3"/><cfvo type="num" val="5"/></dataBar></cfRule></conditionalFormatting><conditionalFormatting sqref="G1:G3"><cfRule type="dataBar"><dataBar><cfvo type="formula" val="Alpha!(D1)"/><cfvo type="num" val="5"/></dataBar></cfRule></conditionalFormatting></worksheet>"#,
         super::NS
     );
     let extra = [("xl/worksheets/sheet2.xml", WORKSHEET, &sheet[..])];
@@ -170,9 +179,9 @@ fn a_prefix_kept_for_an_unknown_operand_is_reported_for_a_name_and_for_the_other
     );
     // The prefix that has an operand is written, and so is the other part's.
     let written = output.part(part).unwrap();
-    assert!(written.contains("<f>Alpha!A1:Alpha!B2+#REF!</f>"));
-    assert!(written.contains(r#"val="Alpha!A1:Alpha!B2+Alpha!C3""#));
-    assert!(written.contains(r#"val="Alpha!D1:Alpha!D2""#));
+    assert!(written.contains("<f>Alpha!(A1)+#REF!</f>"));
+    assert!(written.contains(r#"val="Alpha!(A1)+Alpha!C3""#));
+    assert!(written.contains(r#"val="Alpha!(D1)""#));
     let names = output.part(workbook).unwrap();
     assert!(names.contains("#REF!+Beta!A1"));
     assert!(names.contains(r#"name="Inner" comment="c">#REF!</definedName>"#));
@@ -181,7 +190,7 @@ fn a_prefix_kept_for_an_unknown_operand_is_reported_for_a_name_and_for_the_other
 #[test]
 fn a_delete_that_keeps_every_prefix_does_not_set_the_workbook_to_calculate_on_load() {
     let sheet = format!(
-        r#"<worksheet xmlns="{}"><c r="A1"><f>Alpha!A1:Alpha!B2</f></c></worksheet>"#,
+        r#"<worksheet xmlns="{}"><c r="A1"><f>Alpha!(A1)</f></c></worksheet>"#,
         super::NS
     );
     let extra = [("xl/worksheets/sheet2.xml", WORKSHEET, &sheet[..])];
@@ -213,7 +222,8 @@ fn a_name_set_again_after_a_delete_is_not_reported() {
 fn a_sheet_added_with_the_name_of_the_deleted_one_is_not_named_by_a_rewritten_formula() {
     let names = defined(&[
         ("Call", "", "Alpha!MyFn(1)"),
-        ("Pair", "", "Alpha!A1:Alpha!B2"),
+        ("Pair", "", "Alpha!(A1)"),
+        ("Range", "", "Alpha!A1:Alpha!B2"),
         ("Cell", "", "Alpha!A1"),
     ]);
     let (output, report) = applied_with_report(book(&names, &[]), |edit| {
@@ -221,7 +231,8 @@ fn a_sheet_added_with_the_name_of_the_deleted_one_is_not_named_by_a_rewritten_fo
         edit.add_sheet("Alpha", None, None).unwrap();
     });
     let workbook = output.part("/xl/workbook.xml").unwrap();
-    assert!(workbook.contains(">#REF!</definedName>"));
+    assert!(workbook.contains(r#"name="Range" comment="c">#REF!</definedName>"#));
+    assert!(workbook.contains(r#"name="Cell" comment="c">#REF!</definedName>"#));
     assert!(!workbook.contains("MyFn"));
     // What still names `Alpha` is in the report.
     assert_eq!(
@@ -245,12 +256,12 @@ fn a_delete_of_a_formula_with_20000_prefixes_replaces_each_with_its_operand() {
     assert!(ref_written);
     let text = format!(
         "{}1",
-        "Sheet1!MyName+Sheet1!A1:B2*Sheet1!MyFn(1)+".repeat(count / 4)
+        "Sheet1!MyName+Sheet1!A1:B2*Sheet1!MyFn(1)(2)+Sheet1!A1:Sheet1!B2+".repeat(count / 5)
     );
     let (after, _) = deleted(&text);
     assert_eq!(
         after,
-        format!("{}1", "#REF!+#REF!*#REF!+".repeat(count / 4))
+        format!("{}1", "#REF!+#REF!*#REF!+#REF!+".repeat(count / 5))
     );
 }
 
@@ -269,7 +280,7 @@ fn deleted_in_turn(names: &str, chart: &str) -> StructureReport {
 
 #[test]
 fn a_kept_prefix_is_reported_with_the_sheet_of_the_first_delete_that_kept_one() {
-    let text = "Alpha!A1:Alpha!B2+Beta!A1:Beta!B2";
+    let text = "Alpha!(A1)+Beta!(A1)";
     let chart = format!(
         r#"<c:chartSpace xmlns:c="{CHART_NS}"><c:chart><c:ser><c:val><c:numRef><c:f>{text}</c:f></c:numRef></c:val></c:ser></c:chart></c:chartSpace>"#
     );

@@ -179,13 +179,11 @@ pub enum KeptReason {
     /// reference, a name, an error value, or a call whose `(` is closed
     /// (`Sheet1!(A1)`, `Sheet1!1`, `Sheet1!TRUE`, `Sheet1!"x"`,
     /// `Sheet1!_xlfn.X` with no `(`), the formula ends or goes on with an
-    /// operator (`Sheet1!`, `Sheet1!+1`), the call or `(` is never closed
-    /// (`Sheet1!MyFn(1`), or `analyze` reads the prefix as the start of a
-    /// 3-D prefix (`Sheet1!A1:Sheet1!B2`, whose `A1:Sheet1!` it takes as the
-    /// prefix). The prefix is left as written, because `#REF!` in place of
-    /// the prefix alone would leave an operand Excel cannot read. It still
-    /// names the deleted sheet, so a sheet of the same name added later is
-    /// the sheet it names. The formula's other prefixes are rewritten as
+    /// operator (`Sheet1!`, `Sheet1!+1`), or the call or `(` is never closed
+    /// (`Sheet1!MyFn(1`). The prefix is left as written, because `#REF!` in
+    /// place of the prefix alone would leave an operand Excel cannot read. It
+    /// still names the deleted sheet, so a sheet of the same name added later
+    /// is the sheet it names. The formula's other prefixes are rewritten as
     /// usual. At a place outside the edit's list the formula is
     /// [`KeptReason::Outside`] instead.
     UnknownOperand,

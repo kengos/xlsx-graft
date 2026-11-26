@@ -30,6 +30,7 @@ fn a_rename_writes_the_new_name_with_the_quotes_it_needs() {
             "'Sheet _x0032_'!A1",
             "SUM(Data!A1:B2,Last!C3)",
             "Last!A1",
+            "Data!A1:Data!B2",
         ],
     );
     edit.rename_sheet("data", "A B").unwrap();
@@ -46,6 +47,7 @@ fn a_rename_writes_the_new_name_with_the_quotes_it_needs() {
             "Plain!A1",
             "SUM('A B'!A1:B2,Last!C3)",
             "Last!A1",
+            "'A B'!A1:'A B'!B2",
         ]
     );
     // What names no renamed sheet is as it was.
