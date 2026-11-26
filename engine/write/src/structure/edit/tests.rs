@@ -18,7 +18,9 @@ mod parts;
 mod rewrite;
 mod sharing;
 mod sheets;
+mod tabs;
 mod views;
+mod visibility;
 
 use super::StructureEdit;
 use super::state::{Scope, Text};

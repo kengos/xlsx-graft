@@ -121,17 +121,21 @@ impl Run<'_> {
         let plan = self.plan;
         for out in plan.sheets.iter().flatten() {
             match out {
-                SheetOut::Original { index, name } => {
+                SheetOut::Original { index, name, state } => {
+                    let mut set: Vec<(&str, Option<&str>)> = Vec::new();
+                    set.extend(name.as_deref().map(|name| ("name", Some(name))));
+                    set.extend(state.map(|state| ("state", state)));
                     let group = self.sheets.groups.get(*index).cloned().unwrap_or_default();
                     for (at, event) in group.into_iter().enumerate() {
-                        self.original(at, event, name.as_deref())?;
+                        self.original(at, event, &set)?;
                     }
                 }
                 SheetOut::Added {
                     name,
                     sheet_id,
                     rid,
-                } => self.added(name, *sheet_id, rid)?,
+                    state,
+                } => self.added(name, *sheet_id, rid, *state)?,
             }
         }
         for event in self.sheets.others.iter().flatten() {
@@ -143,28 +147,34 @@ impl Run<'_> {
     }
 
     /// Writes `event`, the `at`th of an original sheet's events: the first
-    /// one with `name` as the sheet's name when it has one.
+    /// one with the attributes `set` gives (`None` leaves one out).
     fn original(
         &mut self,
         at: usize,
         event: Event<'static>,
-        name: Option<&str>,
+        set: &[(&str, Option<&str>)],
     ) -> Result<(), WriteError> {
-        let renamed = match (&event, name) {
-            (Event::Start(start), Some(name)) if at == 0 => {
-                Event::Start(with_attributes(start, &[("name", Some(name))]))
+        let changed = match &event {
+            Event::Start(start) if at == 0 && !set.is_empty() => {
+                Event::Start(with_attributes(start, set))
             }
-            (Event::Empty(start), Some(name)) if at == 0 => {
-                Event::Empty(with_attributes(start, &[("name", Some(name))]))
+            Event::Empty(start) if at == 0 && !set.is_empty() => {
+                Event::Empty(with_attributes(start, set))
             }
             _ => event,
         };
-        Ok(self.rw.write(renamed)?)
+        Ok(self.rw.write(changed)?)
     }
 
     /// Writes an element for a sheet added, `r:id` written as the first
-    /// original sheet writes it.
-    fn added(&mut self, name: &str, sheet_id: u32, rid: &str) -> Result<(), WriteError> {
+    /// original sheet writes it, and `state` when it has one.
+    fn added(
+        &mut self,
+        name: &str,
+        sheet_id: u32,
+        rid: &str,
+        state: Option<&str>,
+    ) -> Result<(), WriteError> {
         let Rid { key, declaration } = self.sheets.rid.clone();
         let id = sheet_id.to_string();
         let start = BytesStart::new(format!("{}sheet", self.prefix));
@@ -175,6 +185,7 @@ impl Run<'_> {
                 .map(|(k, v)| (k.as_str(), Some(v.as_str()))),
         );
         set.push((key.as_str(), Some(rid)));
+        set.push(("state", state));
         Ok(self.rw.write(Event::Empty(with_attributes(&start, &set)))?)
     }
 }

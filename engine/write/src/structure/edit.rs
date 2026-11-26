@@ -1,6 +1,7 @@
 //! [`StructureEdit`]: adds, renames, deletes and moves the sheets of a
-//! workbook and sets and removes its defined names, rewriting the
-//! defined names' formulas and the views' sheet positions to match.
+//! workbook, hides and shows them, makes one the active sheet, and sets and
+//! removes its defined names, rewriting the defined names' formulas and the
+//! views' sheet positions to match.
 //!
 //! [`StructureEdit::open`] reads the workbook through
 //! [`Workbook::read`](super::model::Workbook::read) and copies what an edit
@@ -26,7 +27,11 @@
 //!   rewritten the same way, and what `apply` leaves as it was
 //!   ([`StructureReport`](super::StructureReport)).
 //! - **`views.rs`**: the views, pointed at another sheet when theirs is
-//!   deleted.
+//!   deleted or hidden.
+//! - **`visibility.rs`**: set the visibility of a sheet and make a sheet the
+//!   active one.
+//! - **`tabs.rs`**: which worksheets' `sheetView`s get `tabSelected` set or
+//!   removed.
 
 mod app;
 mod apply;
@@ -41,13 +46,15 @@ mod rewrite;
 mod sheets;
 mod snapshot;
 mod state;
+mod tabs;
 mod views;
+mod visibility;
 
 #[cfg(test)]
 mod tests;
 
 use super::StructureError;
-use super::model::Workbook;
+use super::model::{SheetState, Workbook};
 use crate::{PartWriter, WriteError, WriteLimits};
 use snapshot::Snapshot;
 use state::State;
@@ -180,5 +187,35 @@ impl<'r> StructureEdit<'r> {
         scope: Option<&str>,
     ) -> Result<(), StructureError> {
         self.state.remove_defined_name(name, scope)
+    }
+
+    /// Sets the visibility (`state`) of the sheet `name` (letter case
+    /// aside). A sheet already in `state` is left as it is. A view that
+    /// points at a visible sheet that is hidden or very hidden points at the
+    /// next visible sheet (else the last visible sheet before it), as it does
+    /// after a delete; a sheet that is hidden and made very hidden, or shown,
+    /// moves no view. A workbook with no `workbookView` gets one when its
+    /// first sheet is hidden, since a missing `activeTab` names that sheet.
+    ///
+    /// # Errors
+    ///
+    /// [`StructureError::SheetMissing`], and
+    /// [`StructureError::LastVisibleSheet`] when `state` hides the only
+    /// visible sheet.
+    pub fn set_sheet_state(&mut self, name: &str, state: SheetState) -> Result<(), StructureError> {
+        self.state.set_sheet_state(name, state)
+    }
+
+    /// Makes the sheet `name` (letter case aside) the active sheet of every
+    /// workbook view, and the first sheet shown in a view whose first sheet
+    /// is after it. A workbook with no `workbookView` gets one, written when
+    /// the sheet is not the first.
+    ///
+    /// # Errors
+    ///
+    /// [`StructureError::SheetMissing`], and [`StructureError::SheetHidden`]
+    /// for a sheet that is hidden or very hidden.
+    pub fn set_active_sheet(&mut self, name: &str) -> Result<(), StructureError> {
+        self.state.set_active_sheet(name)
     }
 }

@@ -56,6 +56,7 @@ pub struct Workbook {
     views: Vec<BookView>,
     calc_pr: bool,
     defined_names_element: bool,
+    book_views_element: bool,
     relationships: Vec<Relationship>,
     tables: Vec<Table>,
 }
@@ -134,6 +135,7 @@ impl Workbook {
             views: walked.views,
             calc_pr: walked.calc_pr,
             defined_names_element: walked.defined_names_element,
+            book_views_element: walked.book_views_element,
             relationships,
             tables,
         }))
@@ -180,6 +182,12 @@ impl Workbook {
     #[must_use]
     pub fn defined_names_element(&self) -> bool {
         self.defined_names_element
+    }
+
+    /// Whether the part has a `bookViews` element, empty or not.
+    #[must_use]
+    pub(crate) fn book_views_element(&self) -> bool {
+        self.book_views_element
     }
 
     /// The relationships of the workbook part, in the order its

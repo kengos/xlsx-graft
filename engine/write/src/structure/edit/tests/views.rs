@@ -2,12 +2,15 @@
 //! the pointers the workbook has.
 
 use super::{open, open_with};
-use crate::structure::edit::state::{Pointer, ViewEntry};
+use crate::structure::edit::state::Pointer;
 
 const HIDDEN: &str = r#"state="hidden""#;
 
-fn views(edit: &crate::structure::edit::StructureEdit<'_>) -> Vec<ViewEntry> {
-    edit.state.views.clone()
+/// The `activeTab` and `firstSheet` pointers of each view.
+fn views(edit: &crate::structure::edit::StructureEdit<'_>) -> Vec<(Pointer, Pointer)> {
+    (edit.state.views.iter())
+        .map(|view| (view.active, view.first))
+        .collect()
 }
 
 #[test]
@@ -18,14 +21,8 @@ fn a_pointer_past_the_sheets_or_not_written_is_kept_as_a_raw_pointer() {
     assert_eq!(
         views(&edit),
         [
-            ViewEntry {
-                active: Pointer::Raw,
-                first: Pointer::Key(2)
-            },
-            ViewEntry {
-                active: Pointer::Key(0),
-                first: Pointer::Key(0)
-            },
+            (Pointer::Raw, Pointer::Key(2)),
+            (Pointer::Key(0), Pointer::Key(0)),
         ]
     );
     assert!(views(&open(&["A"], "")).is_empty());
@@ -39,21 +36,9 @@ fn the_next_visible_sheet_after_a_deleted_one_is_pointed_at_else_the_previous_vi
     // visible sheet before it.
     let mut edit = open_with(books, &sheets, "");
     edit.delete_sheet("B").unwrap();
-    assert_eq!(
-        views(&edit),
-        [ViewEntry {
-            active: Pointer::Key(3),
-            first: Pointer::Key(3)
-        }]
-    );
+    assert_eq!(views(&edit), [(Pointer::Key(3), Pointer::Key(3))]);
     edit.delete_sheet("D").unwrap();
-    assert_eq!(
-        views(&edit),
-        [ViewEntry {
-            active: Pointer::Key(0),
-            first: Pointer::Key(0)
-        }]
-    );
+    assert_eq!(views(&edit), [(Pointer::Key(0), Pointer::Key(0))]);
 }
 
 #[test]
@@ -61,30 +46,18 @@ fn a_view_that_points_at_a_sheet_not_deleted_or_past_the_sheets_stays() {
     let books = r#"<bookViews><workbookView activeTab="0" firstSheet="9"/></bookViews>"#;
     let mut edit = open_with(books, &[("A", ""), ("B", "")], "");
     edit.delete_sheet("B").unwrap();
-    assert_eq!(
-        views(&edit),
-        [ViewEntry {
-            active: Pointer::Key(0),
-            first: Pointer::Raw
-        }]
-    );
+    assert_eq!(views(&edit), [(Pointer::Key(0), Pointer::Raw)]);
     // A move changes no pointer: it names the sheet by its key.
     let mut edit = open_with(books, &[("A", ""), ("B", "")], "");
     edit.move_sheet("A", 1).unwrap();
-    assert_eq!(views(&edit)[0].active, Pointer::Key(0));
+    assert_eq!(views(&edit)[0].0, Pointer::Key(0));
 }
 
 #[test]
 fn a_pointer_equal_to_the_number_of_sheets_is_kept_as_a_raw_pointer() {
     let books = r#"<bookViews><workbookView activeTab="2" firstSheet="2"/></bookViews>"#;
     let edit = open_with(books, &[("A", ""), ("B", "")], "");
-    assert_eq!(
-        views(&edit),
-        [ViewEntry {
-            active: Pointer::Raw,
-            first: Pointer::Raw
-        }]
-    );
+    assert_eq!(views(&edit), [(Pointer::Raw, Pointer::Raw)]);
 }
 
 #[test]
@@ -93,11 +66,5 @@ fn the_last_visible_sheet_before_the_deleted_one_is_pointed_at_when_none_is_afte
     let mut edit = open_with(books, &[("A", ""), ("B", ""), ("C", "")], "");
     edit.delete_sheet("C").unwrap();
     // B (key 1) is the nearest visible sheet before C, not A (key 0).
-    assert_eq!(
-        views(&edit),
-        [ViewEntry {
-            active: Pointer::Key(1),
-            first: Pointer::Key(1)
-        }]
-    );
+    assert_eq!(views(&edit), [(Pointer::Key(1), Pointer::Key(1))]);
 }

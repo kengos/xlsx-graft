@@ -4,11 +4,20 @@
 //! the `StructureReport`, and the defined names of the workbook part that
 //! are reported.
 //!
-//! Nothing is read when the edit made no rename or delete. Otherwise each
-//! candidate part is read once as a stream to learn whether anything in it
-//! changes; only the parts that change are replaced, with a rewriter that
-//! walks the part again, so every other part stays the compressed bytes the
-//! package has.
+//! Nothing is read when the edit made no rename or delete and `tabs.rs`
+//! gives no sheet part anything to do. With no rename or delete, the parts
+//! read are the ones `tabs.rs` gives a `Tabs`: when the active sheet of a view
+//! changed, every sheet part of the opened workbook still in the edit (only
+//! those whose `tabSelected` changes are rewritten), else only the parts of
+//! the sheets hidden in this edit; each of those is walked as sheet views
+//! alone (`Mode::TabsOnly`): formulas are not looked at and nothing is
+//! reported of them (a part that cannot be read is reported as `Unreadable`),
+//! and every other event is written as it came. Otherwise each candidate part is
+//! read once
+//! as a stream to learn whether anything in it changes; only the parts that
+//! change are replaced, with a rewriter that walks the part again, so every
+//! other part stays the compressed bytes the package has. A sheet part with a
+//! formula and a `tabSelected` to change is replaced once.
 //!
 //! Formulas are rewritten only in the parts of these media types: worksheet,
 //! macrosheet, dialogsheet, chart and table, and a pivot cache definition's
@@ -22,12 +31,15 @@
 //! so no part keeps more than the report can take; the second walk of a part,
 //! which writes it, keeps nothing.
 //!
-//! - **`parts/walk.rs`**: the walk of one part.
+//! - **`parts/walk.rs`**: the walk of one part (a sheet view's `tabSelected`
+//!   is in `parts/walk/retag.rs`).
 //! - **`parts/keeper.rs`**: the references a walk keeps.
+//! - **`parts/found.rs`**: what the parts' walks came to, in all.
 //! - **`parts/text.rs`**: what the changes do to one formula.
 //! - **`parts/pivot.rs`**: a pivot cache's `worksheetSource`.
 //! - **`parts/names.rs`**: the defined names that are reported.
 
+mod found;
 mod keeper;
 mod names;
 mod pivot;
@@ -39,9 +51,10 @@ mod walk;
 use super::change::{Change, SheetIds};
 use super::snapshot::Snapshot;
 use super::state::State;
-use crate::structure::report::MAX_KEPT;
-use crate::structure::{KeptReason, KeptReference};
+use super::tabs::Tabs;
+use crate::structure::KeptReason;
 use crate::{PackageEdit, PartRewriter, WriteError, WriteLimits};
+use found::Found;
 use keeper::Keeper;
 use names::names;
 use std::collections::{BTreeMap, BTreeSet};
@@ -49,7 +62,7 @@ use std::io::{self, BufRead, BufReader, Read, Seek, Write};
 use std::rc::Rc;
 use std::sync::Arc;
 use text::Context;
-use walk::{Outcome, Rules, walk};
+use walk::{Mode, Outcome, Rules, walk};
 use xlsx_graft_diagnostics::Diagnostics;
 use xlsx_graft_package::PartName;
 use xlsx_graft_xml::{XmlRewriter, XmlStreamError};
@@ -69,31 +82,6 @@ const REWRITTEN: [&str; 5] = [
 const PIVOT_CACHE: &str =
     "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotcachedefinition+xml";
 
-/// What the formulas of the other parts came to.
-#[derive(Default)]
-pub(super) struct Found {
-    /// Whether a `#REF!` was written.
-    pub(super) ref_written: bool,
-    /// What was left as it was, up to `MAX_KEPT`.
-    pub(super) kept: Vec<KeptReference>,
-    /// How many more were left as they were.
-    pub(super) omitted: u64,
-}
-
-impl Found {
-    /// Adds `kept`, which holds no more references than `MAX_KEPT` had left,
-    /// and the `omitted` that did not fit.
-    fn add(&mut self, kept: Vec<KeptReference>, omitted: u64) {
-        self.kept.extend(kept);
-        self.omitted = self.omitted.saturating_add(omitted);
-    }
-
-    /// The number of references the report can still hold.
-    fn remaining(&self) -> usize {
-        MAX_KEPT.saturating_sub(self.kept.len())
-    }
-}
-
 /// A part to read.
 struct Candidate {
     index: usize,
@@ -105,8 +93,11 @@ struct Candidate {
 /// it is read at all (an XML part).
 fn rules(essence: &str) -> Option<Rules> {
     is_xml(essence).then(|| Rules {
-        formulas: REWRITTEN.contains(&essence),
-        pivot: essence == PIVOT_CACHE,
+        mode: Mode::Formulas {
+            rewrite: REWRITTEN.contains(&essence),
+            pivot: essence == PIVOT_CACHE,
+        },
+        tabs: None,
     })
 }
 
@@ -126,18 +117,21 @@ impl PartRewriter for PartFormulas {
     ) -> Result<(), WriteError> {
         let mut rw = XmlRewriter::new(original, out, &self.limits.xml);
         // The first walk kept the references; this one keeps none.
-        walk(&mut rw, &self.name, &self.context, self.rules, 0)?;
+        walk(&mut rw, &self.name, &self.context, self.rules.clone(), 0)?;
         Ok(())
     }
 }
 
 /// Rewrites the formulas of the parts of `edit`'s package, for the
-/// `changes` (with the `ids` that number the sheet names of their deletes):
-/// each part but the workbook part, a Relationships part, one of `removed`
-/// and one whose media type is not XML (`+xml`, `application/xml` or
-/// `text/xml`), in the order of the package's parts. The workbook part's
-/// defined names, in `state`, are only reported, as
-/// `State::rewrite_formulas` rewrote them.
+/// `changes` (with the `ids` that number the sheet names of their deletes),
+/// and the `tabSelected` of the sheet parts `tabs` names: each part but the
+/// workbook part, a Relationships part, one of `removed` and one whose media
+/// type is not XML (`+xml`, `application/xml` or `text/xml`), in the order of
+/// the package's parts. With no `changes`, only the parts of `tabs` are
+/// read, and each walk looks at the sheet views alone ([`Mode::TabsOnly`]):
+/// no formula is held, judged or reported. The workbook part's defined
+/// names, in `state`, are only reported, as `State::rewrite_formulas`
+/// rewrote them.
 ///
 /// # Errors
 ///
@@ -148,11 +142,16 @@ pub(super) fn rewrite<'r, R: Read + Seek>(
     snapshot: &Snapshot,
     state: &State<'_>,
     (changes, ids): (Vec<Change>, SheetIds),
+    tabs: BTreeMap<usize, Tabs>,
     removed: &[&PartName],
 ) -> Result<Found, WriteError> {
-    if changes.is_empty() {
+    if changes.is_empty() && tabs.is_empty() {
         return Ok(Found::default());
     }
+    let formulas = !changes.is_empty();
+    let tabs: BTreeMap<usize, Rc<Tabs>> = (tabs.into_iter())
+        .map(|(index, tabs)| (index, Rc::new(tabs)))
+        .collect();
     let limits = snapshot.limits;
     let gone: BTreeSet<&str> = removed.iter().map(|name| name.key()).collect();
     let parts: Vec<(PartName, Option<Rules>)> = (edit.package_mut().parts().iter())
@@ -181,7 +180,18 @@ pub(super) fn rewrite<'r, R: Read + Seek>(
                 && Some(name) != app
                 && !gone.contains(name.key())
         })
-        .filter_map(|(index, (name, rules))| rules.map(|rules| Candidate { index, name, rules }));
+        .filter(|(index, _)| formulas || tabs.contains_key(index))
+        .filter_map(|(index, (name, rules))| {
+            let tabs = tabs.get(&index).cloned();
+            rules.map(|rules| Candidate {
+                index,
+                name,
+                rules: Rules {
+                    mode: if formulas { rules.mode } else { Mode::TabsOnly },
+                    tabs,
+                },
+            })
+        });
     let mut found = Found::default();
     for candidate in candidates {
         let name = candidate.name.as_str();
@@ -192,7 +202,7 @@ pub(super) fn rewrite<'r, R: Read + Seek>(
         if outcome.changed {
             let rewriter = PartFormulas {
                 name: name.to_owned(),
-                rules: candidate.rules,
+                rules: candidate.rules.clone(),
                 context: Rc::clone(&context),
                 limits,
             };
@@ -226,7 +236,7 @@ fn scan<R: Read + Seek>(
         return Ok(unreadable(name, remaining));
     };
     let mut rw = XmlRewriter::new(BufReader::new(entry), io::sink(), &limits.xml);
-    let walked = walk(&mut rw, name, context, candidate.rules, remaining);
+    let walked = walk(&mut rw, name, context, candidate.rules.clone(), remaining);
     classify(walked, rw.get_ref().get_ref().is_stopped(), name, remaining)
 }
 
