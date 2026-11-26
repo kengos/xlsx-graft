@@ -11,9 +11,12 @@
 # needs.
 #
 #   F      the .xlsx files to open, separated by spaces. The paths are split
-#          at spaces and a `*` in them is passed to the script as is; run
-#          python3 -I scripts/excel-check directly for a path that contains a
-#          space
+#          at spaces and each path is expanded as a shell glob, such as
+#          F='fixtures/generated/cells/*.xlsx'; a path that matches no file
+#          is passed to the script as is, and scripts/excel-check reports
+#          "no such file" for that path. Run python3 -I scripts/excel-check
+#          directly for a path that contains a space, or a `*`, `?` or `[`
+#          as a character rather than as a pattern
 #   CELLS  one range whose displayed text is read from every workbook, such
 #          as Sheet1!A1:C3 or 'a b'!A1; run the script directly to read more
 #          than one range
@@ -33,7 +36,7 @@ excel\:check: export EXCEL_CHECK_F = $(value F)
 excel\:check: export EXCEL_CHECK_CELLS = $(value CELLS)
 excel\:check: export EXCEL_CHECK_OUT = $(value OUT)
 excel\:check: ## Open F='<xlsx>...' in Excel for Mac and print the dialogs and CELLS='Sheet1!A1:C3' as JSON (OUT=<file>; macOS only, not in verify)
-	@set -f; set -- $$EXCEL_CHECK_F; \
+	@set -- $$EXCEL_CHECK_F; \
 	if [ $$# -eq 0 ]; then \
 		echo "usage: make excel:check F='<xlsx>...' [CELLS='Sheet1!A1:C3'] [OUT=<file>]" >&2; \
 		exit 2; \
@@ -45,10 +48,12 @@ excel\:check: ## Open F='<xlsx>...' in Excel for Mac and print the dialogs and C
 
 # fixtures:scrub — removes from each workbook in F the account's name and the
 # local paths Excel for Mac saves in it, in place (scripts/fixtures-scrub),
-# before it goes into fixtures/. Runs on the host with python3, not in
-# Docker; it is not a gate. scripts/check-fixtures.sh, run by engine:budget,
-# fails when a field it empties or removes still holds a value in a
-# workbook in fixtures/.
+# before it goes into fixtures/. The paths in F are not expanded as a shell
+# glob (set -f): scripts/fixtures-scrub rewrites each file in place, and a
+# pattern could rewrite a file the caller did not name.
+# Runs on the host with python3, not in Docker; it is not a gate.
+# scripts/check-fixtures.sh, run by engine:budget, fails when a field it
+# empties or removes still holds a value in a workbook in fixtures/.
 
 .PHONY: fixtures\:scrub
 
