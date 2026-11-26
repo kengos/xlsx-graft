@@ -51,7 +51,9 @@ workbook whose file is in the temporary folder, and leaves Excel running
 when it ends.
 
 Run it through `make excel:check`, or directly for a path that contains a
-space. It is not part of `make verify` and CI never runs it.
+space, or a `*`, `?` or `[` as a character rather than as a pattern
+(`make excel:check` expands a path in F that contains a `*`, `?` or `[` as
+a shell glob). It is not part of `make verify` and CI never runs it.
 """
 
 import argparse
