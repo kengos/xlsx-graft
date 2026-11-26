@@ -39,7 +39,8 @@
 //! still hold, which the caller gives (`parts/keeper.rs`):
 //! past it a reference is counted and nothing of it is held.
 //!
-//! What a walk keeps and reports is in `walk/kept.rs`.
+//! What a walk keeps and reports is in `walk/kept.rs`; the rules it runs by
+//! and the outcome it gives are in `walk/outcome.rs`.
 //!
 //! `at` is the cell reference (`B2`) of the `c` the formula is in, the
 //! `sqref` of the `dataValidation` or `conditionalFormatting` it is in, or
@@ -49,7 +50,7 @@ use super::super::rewrite::text_of;
 use super::super::state::escaped;
 use super::keeper::Keeper;
 use super::text::{Context, attribute, clipped, defined_at};
-use crate::structure::{KeptReason, KeptReference};
+use crate::structure::KeptReason;
 use held::{Held, Open};
 use std::io::{BufRead, Write};
 use std::sync::Arc;
@@ -59,28 +60,9 @@ use xlsx_graft_xml::{XmlRewriter, XmlStreamError};
 
 mod held;
 mod kept;
+mod outcome;
 
-/// What a walk may change in a part, by the part's kind.
-#[derive(Debug, Clone, Copy)]
-pub(super) struct Rules {
-    /// Whether the text of a `Rewrite` element is rewritten.
-    pub(super) formulas: bool,
-    /// Whether a `worksheetSource`'s `sheet` is rewritten.
-    pub(super) pivot: bool,
-}
-
-/// What walking a part found.
-#[derive(Default)]
-pub(super) struct Outcome {
-    /// Whether the part's text is not what was read.
-    pub(super) changed: bool,
-    /// Whether a `#REF!` was written.
-    pub(super) ref_written: bool,
-    /// What was left as it was, up to `MAX_KEPT`.
-    pub(super) kept: Vec<KeptReference>,
-    /// How many more were left as they were.
-    pub(super) omitted: u64,
-}
+pub(super) use outcome::{Outcome, Rules};
 
 /// The walk of one part.
 struct Walk<'a> {
