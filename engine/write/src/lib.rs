@@ -50,6 +50,33 @@
 //! and the values of `cols`, `row`, `sheetViews`, `mergeCells` and
 //! `sheetProtection`, each refused when made if Excel cannot hold it.
 //!
+//! # Writing rows
+//!
+//! [`RowsWriter`] writes the `<row>` elements of a worksheet's `<sheetData>`
+//! one row at a time, deflating each row when it is pushed, and
+//! [`finish`](RowsWriter::finish) returns them as [`SpooledRows`], which
+//! inflates and writes them on each call
+//! of [`write_sheet_data`](SpooledRows::write_sheet_data).
+//!
+//! - **Order**: the rows come in ascending row order and the cells of a row
+//!   in ascending column order, rows 1 to 1,048,576 and columns 1 to
+//!   16,384. A row or cell that does not follow the order above, or a
+//!   value `write_cell` refuses, is an error of the caller, and the writer
+//!   is as it was before the call: nothing of the row was written.
+//! - **Empty rows**: a row without cells writes nothing, and its number
+//!   still counts for the order.
+//! - **Cells**: each cell is written by `write_cell` without changing a
+//!   string into a shared string: a string is an inline string
+//!   (`inlineStr`), a shared string is written by its number.
+//!   A row has no attribute besides `r`.
+//! - **The range**: [`cells`](SpooledRows::cells) is the top-left and
+//!   bottom-right cell of every cell written, and `None` when there is no
+//!   cell. [`truncated`](SpooledRows::truncated) counts the cells whose
+//!   string `write_cell` cut at 32,767 UTF-16 code units.
+//! - **What is not written**: the worksheet part itself, from `<worksheet>`
+//!   to `</sheetData>` and after, is written by the caller:
+//!   `write_sheet_data` writes the rows only.
+//!
 //! # The zip it writes
 //!
 //! The same input gives the same bytes, and nothing in the zip comes from
@@ -97,6 +124,7 @@ mod edit;
 mod error;
 mod limits;
 mod part;
+mod rows;
 pub mod sheet;
 pub mod structure;
 mod zip;
@@ -108,6 +136,7 @@ pub use edit::{Link, LinkSource, PackageEdit};
 pub use error::WriteError;
 pub use limits::WriteLimits;
 pub use part::{PartRewriter, PartWriter};
+pub use rows::{Row, RowCell, RowsWriter, SpooledRows};
 pub use zip::ZipWriter;
 
 #[cfg(test)]

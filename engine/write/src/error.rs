@@ -3,6 +3,7 @@
 
 use std::io;
 use thiserror::Error;
+use xlsx_graft_cell::{CellError, CellRef};
 use xlsx_graft_diagnostics::Diagnostic;
 use xlsx_graft_package::PackageError;
 use xlsx_graft_spool::SpoolError;
@@ -20,9 +21,11 @@ pub enum WriteError {
     /// The scratch storage the deflated content is held in failed.
     #[error("the scratch storage of the zip failed: {0}")]
     Spool(#[from] SpoolError),
-    /// An earlier call failed or left a partial entry, so what was written
-    /// is not a zip, and this call writes nothing.
-    #[error("an earlier call failed or left a partial entry: the output is not a zip")]
+    /// An earlier call failed or left a partial entry, so this call writes
+    /// nothing. For a `ZipWriter` or a `PackageEdit`, what was written is not
+    /// a zip. For a [`RowsWriter`](crate::RowsWriter), the rows stored are
+    /// incomplete.
+    #[error("an earlier call failed or left a partial entry: the output is not whole")]
     Unusable,
     /// An entry name is longer than the 65,535 bytes a zip name field holds
     /// (APPNOTE 6.3.10 §4.4.10).
@@ -88,6 +91,65 @@ pub enum WriteError {
     RelationshipTypeInvalid {
         /// The type as the caller gave it.
         rel_type: String,
+    },
+    /// [`RowsWriter::push`](crate::RowsWriter::push) was given a row number
+    /// that is not after the number of the last row pushed (a row without
+    /// cells included). Nothing was written, and the writer is as it was
+    /// before the call. The caller made a mistake.
+    #[error("row {row} is not after row {last}, the last row pushed")]
+    RowOutOfOrder {
+        /// The row number given.
+        row: u32,
+        /// The number of the last row pushed.
+        last: u32,
+    },
+    /// [`RowsWriter::push`](crate::RowsWriter::push) was given a row number
+    /// that is 0 or past 1,048,576, the last row of a sheet. Nothing was
+    /// written, and the writer is as it was before the call. The caller made
+    /// a mistake.
+    #[error("row {row} is outside the sheet (1 to 1048576)")]
+    RowOutOfRange {
+        /// The row number given.
+        row: u32,
+    },
+    /// A cell given to [`RowsWriter::push`](crate::RowsWriter::push) is in
+    /// column 0 or past 16,384 (XFD), the last column of a sheet. Nothing was
+    /// written, and the writer is as it was before the call. The caller made
+    /// a mistake.
+    #[error("column {column} of row {row} is outside the sheet (1 to 16384)")]
+    ColumnOutOfRange {
+        /// The number of the row being pushed.
+        row: u32,
+        /// The column given.
+        column: u16,
+    },
+    /// A cell given to [`RowsWriter::push`](crate::RowsWriter::push) is in a
+    /// column that is not after the column of the cell before it in the row.
+    /// Nothing was written, and the writer is as it was before the call. The
+    /// caller made a mistake.
+    #[error(
+        "column {column} of row {row} is not after column {last}, the column of the cell before it"
+    )]
+    CellOutOfOrder {
+        /// The number of the row being pushed.
+        row: u32,
+        /// The column given.
+        column: u16,
+        /// The column of the cell before it.
+        last: u16,
+    },
+    /// `write_cell` refused the value of a cell given to
+    /// [`RowsWriter::push`](crate::RowsWriter::push): a number that is not
+    /// finite, an integer whose absolute value is past 2^53, or a date that
+    /// has no serial date-time in the date system. Nothing was written, and the writer is as it was before the
+    /// call. The caller made a mistake.
+    #[error("the cell {at} is refused: {source}")]
+    CellRefused {
+        /// The cell whose value was refused.
+        at: CellRef,
+        /// Why the value was refused.
+        #[source]
+        source: CellError,
     },
     /// A rewriter or writer refused the content of a part. The diagnostic
     /// says why, and `PackageEdit::finish` pushes it at the part and returns
