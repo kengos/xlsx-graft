@@ -119,6 +119,13 @@ tempfile = { version = "3", default-features = false }
 # `timeout` bring rusty-fork and wait-timeout, `regex-syntax` the regex
 # strategies, and the tests build their strings from a list of characters.
 proptest = { version = "1", default-features = false, features = ["std"] }
+# The SHA-512 of a sheet protection's password hash (engine/write): the
+# `algorithmName` attribute of `sheetProtection` (ECMA-376-1:2016
+# §18.3.1.85), no hand-written hash. Pure Rust. No default features: `std`
+# and `oid` are not needed; the `cpufeatures` it picks the CPU's SHA
+# instructions with is already in the lockfile at the same version
+# (chacha20).
+sha2 = { version = "0.11", default-features = false }
 # Each crate's error enum (docs/guidelines.md § Rust code rules).
 thiserror = "2"
 # The Node.js addon's N-API glue (engine/napi, behind its `shim` feature):

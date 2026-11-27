@@ -42,6 +42,14 @@
 //! until it passes a size the caller sets and then in scratch storage
 //! (`xlsx-graft-spool`).
 //!
+//! # Writing a worksheet
+//!
+//! [`sheet`] holds what a new worksheet and an edit of one write the same
+//! way: the order of the root's children ([`sheet::WorksheetChild`]) and
+//! where the kinds a caller writes go among them ([`sheet::ChildPlacer`]),
+//! and the values of `cols`, `row`, `sheetViews`, `mergeCells` and
+//! `sheetProtection`, each refused when made if Excel cannot hold it.
+//!
 //! # The zip it writes
 //!
 //! The same input gives the same bytes, and nothing in the zip comes from
@@ -89,6 +97,7 @@ mod edit;
 mod error;
 mod limits;
 mod part;
+pub mod sheet;
 pub mod structure;
 mod zip;
 
