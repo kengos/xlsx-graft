@@ -154,7 +154,7 @@ fn after_a_failure_the_writer_refuses_every_call() {
     let error = zip.finish().unwrap_err();
     assert_eq!(
         error.to_string(),
-        "an earlier call failed or left a partial entry: the output is not a zip"
+        "an earlier call failed or left a partial entry: the output is not whole"
     );
 }
 
