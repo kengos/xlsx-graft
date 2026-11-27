@@ -3,14 +3,12 @@
 
 use super::extent::Extent;
 use crate::error::WriteError;
-use miniz_oxide::inflate::stream::{InflateState, inflate};
-use miniz_oxide::{DataFormat, MZFlush, MZStatus};
-use std::io::{self, Write};
+use crate::inflate::Inflater;
+use std::io::Write;
 use xlsx_graft_cell::CellRef;
 use xlsx_graft_spool::SpillBuffer;
 
-/// How many deflated bytes are read from the buffer at once, and how many
-/// inflated bytes one call of the decompressor can fill.
+/// How many inflated bytes are written to `out` at once.
 const CHUNK: usize = 16_384;
 
 /// The `<row>` elements of a worksheet's `<sheetData>`, written by a
@@ -36,40 +34,20 @@ impl SpooledRows {
     ///
     /// [`WriteError::Spool`] when the scratch storage cannot be read.
     /// [`WriteError::Io`] when writing to `out` fails.
-    /// [`WriteError::Io`] of kind [`io::ErrorKind::InvalidData`] when the
+    /// [`WriteError::Io`] of kind [`std::io::ErrorKind::InvalidData`] when the
     /// stored bytes are not a whole deflate stream (the stored bytes differ from the bytes deflated only when the scratch
     /// storage returns other bytes than it was given); an `InvalidData` error
     /// returned by `out` itself is returned as the same variant and kind, so the
     /// caller cannot tell the two apart.
     pub fn write_sheet_data(&mut self, out: &mut dyn Write) -> Result<(), WriteError> {
-        let mut state = InflateState::new_boxed(DataFormat::Raw);
-        let mut input = vec![0; CHUNK];
+        let mut inflater = Inflater::new(&mut self.buffer);
         let mut output = vec![0; CHUNK];
-        let mut offset = 0_u64;
-        // `input[start..end]` is the part of the last read the inflater has not consumed.
-        let (mut start, mut end) = (0, 0);
-        // Each call of `inflate` is given the whole output chunk. When the stored bytes
-        // end (a read returns 0), the loop keeps calling the inflater with
-        // empty input: it writes any output still pending (`Ok`) and returns
-        // `StreamEnd` at the end of a whole stream, or returns
-        // `Err(MZError::Buf)` when no progress is possible (a stream cut
-        // short), which becomes `InvalidData`.
         loop {
-            if start == end {
-                end = self.buffer.read_at(offset, &mut input)?;
-                offset = offset.saturating_add(end as u64);
-                start = 0;
+            let written = inflater.fill(&mut output)?;
+            if written == 0 {
+                return Ok(());
             }
-            let pending = input.get(start..end).unwrap_or_default();
-            let result = inflate(&mut state, pending, &mut output, MZFlush::None);
-            out.write_all(output.get(..result.bytes_written).unwrap_or_default())?;
-            start = start.saturating_add(result.bytes_consumed);
-            match result.status {
-                Ok(MZStatus::StreamEnd) => return Ok(()),
-                Ok(_) => {}
-                // A stream that ends before its last block, or bytes that are not deflate.
-                Err(_) => return Err(io::Error::from(io::ErrorKind::InvalidData).into()),
-            }
+            out.write_all(output.get(..written).unwrap_or_default())?;
         }
     }
 
