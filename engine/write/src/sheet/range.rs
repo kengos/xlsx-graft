@@ -68,10 +68,6 @@ impl CellRange {
 
     /// Whether the two ranges share a cell; ranges that only touch at an
     /// edge do not.
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "PR 4's merge and table checks call it")
-    )]
     pub(crate) fn overlaps(self, other: Self) -> bool {
         self.first.column() <= other.last.column()
             && other.first.column() <= self.last.column()

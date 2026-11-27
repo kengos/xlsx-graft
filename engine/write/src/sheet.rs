@@ -26,6 +26,18 @@
 //!   written. Tests that read the written XML back (verify, read) belong to
 //!   the pull requests that call these writers.
 //!
+//! - **Editing a worksheet in a package** (`edit.rs`): a [`SheetEdit`] reads
+//!   a worksheet part once, checks each call (merge and unmerge cells, set
+//!   column widths and row heights, freeze panes, protect) against what it
+//!   read and the calls before, and writes the changes as one
+//!   [`PartRewriter`](crate::PartRewriter) given to
+//!   [`PackageEdit::replace`](crate::PackageEdit::replace): it streams the
+//!   part, writes the elements a call changed with the writers above, places
+//!   the kinds the part lacks with the same [`ChildPlacer`], and writes every
+//!   other byte as it was. Call
+//!   [`StructureEdit::apply`](crate::structure::StructureEdit::apply) before
+//!   [`SheetEdit::apply`].
+//!
 //! # Examples
 //!
 //! A [`PartWriter`](crate::PartWriter) for a new sheet writes each element at
@@ -116,6 +128,7 @@
 mod base64;
 mod child;
 mod columns;
+mod edit;
 mod error;
 mod merges;
 mod panes;
@@ -130,6 +143,7 @@ use xlsx_graft_cell::xml_attribute;
 
 pub use child::WorksheetChild;
 pub use columns::{ColumnWidth, Columns};
+pub use edit::SheetEdit;
 pub use error::SheetError;
 pub use merges::MergedCells;
 pub use panes::FrozenPanes;

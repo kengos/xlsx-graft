@@ -73,10 +73,27 @@ pub enum SheetError {
     /// More merged ranges than a sheet holds.
     #[error("{count} merged ranges are more than the {limit} a sheet holds")]
     TooManyMerges {
-        /// How many ranges the caller gave.
+        /// How many ranges the caller gave; for a
+        /// [`SheetEdit`](crate::sheet::SheetEdit), how many the sheet would
+        /// hold after the merge.
         count: usize,
         /// The most a sheet holds.
         limit: usize,
+    },
+    /// A range to unmerge that the sheet does not merge.
+    #[error("the range {range} is not merged")]
+    MergeMissing {
+        /// The range, as the caller gave it.
+        range: CellRange,
+    },
+    /// A range to merge that shares a cell with a table of the sheet:
+    /// Excel does not merge cells of a table.
+    #[error("the range {range} overlaps the table {table}")]
+    MergeTable {
+        /// The range the caller gave.
+        range: CellRange,
+        /// The `ref` of the table it overlaps.
+        table: CellRange,
     },
     /// A sheet protection password with no character.
     #[error("the sheet protection password is empty")]

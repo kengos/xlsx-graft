@@ -17,7 +17,7 @@ pub struct MergedCells {
 
 impl MergedCells {
     /// The most merged ranges a sheet holds.
-    const LIMIT: usize = 262_144;
+    pub(crate) const LIMIT: usize = 262_144;
 
     /// The ranges to merge, as given.
     ///

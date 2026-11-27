@@ -319,3 +319,21 @@ fn a_rewriter_prints_its_reader_and_whether_it_has_written() {
     assert!(printed.starts_with("XmlRewriter { reader: "), "{printed}");
     assert!(printed.contains("started: false"), "{printed}");
 }
+
+#[test]
+fn raw_bytes_written_between_events_come_after_the_byte_order_mark() {
+    let mut rewriter = XmlRewriter::new(
+        b"\xef\xbb\xbf<a><b/></a>".as_slice(),
+        Vec::new(),
+        &XmlLimits::default(),
+    );
+    let mut buf = Vec::new();
+    while let Some(event) = rewriter.next(&mut buf).unwrap() {
+        let is_b = matches!(&event, Event::Empty(start) if start.name().as_ref() == "b");
+        rewriter.write(event).unwrap();
+        if is_b {
+            rewriter.output_mut().write_all(b"<c/>").unwrap();
+        }
+    }
+    assert_eq!(rewriter.into_inner(), b"\xef\xbb\xbf<a><b/><c/></a>");
+}
