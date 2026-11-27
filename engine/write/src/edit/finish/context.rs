@@ -4,7 +4,9 @@
 
 use crate::deflate::DeflateWriter;
 use crate::error::WriteError;
+use crate::inflate::Inflater;
 use crate::limits::WriteLimits;
+use crate::part::PartRewriter;
 use crate::zip::ZipWriter;
 use std::collections::BTreeMap;
 use std::io::{self, BufRead, BufReader, Read, Seek, Write};
@@ -24,15 +26,19 @@ pub(super) struct Context<'a> {
 
 impl Context<'_> {
     /// Writes the entry at `index` of `archive` as the next entry of `zip`,
-    /// its new content made by `rewrite` from its inflated content. Returns
-    /// whether the entry was written: `false` after a diagnostic is pushed
-    /// (the content refused, or the entry found damaged).
-    pub(super) fn rewritten<R: Read + Seek, W: Write>(
+    /// its new content made by `rewrite` from its inflated content, and then,
+    /// for each rewriter of `then` in order, by that rewriter from the
+    /// output of the one before (the content `rewrite` made, for the first).
+    /// Returns whether the entry was written: `false` after a diagnostic is
+    /// pushed (the content refused by any of them, or the entry found
+    /// damaged).
+    pub(super) fn rewritten<'r, R: Read + Seek, W: Write>(
         &mut self,
         zip: &mut ZipWriter<W>,
         archive: &mut ZipArchive<R>,
         index: usize,
         rewrite: impl FnOnce(&mut dyn BufRead, &mut dyn Write) -> Result<(), WriteError>,
+        then: &mut [Box<dyn PartRewriter + 'r>],
     ) -> Result<bool, WriteError> {
         let name = archive
             .entries()
@@ -52,10 +58,25 @@ impl Context<'_> {
         let result = rewrite(&mut original, &mut deflate).and_then(|()| drain(&mut original));
         let stopped = original.get_ref().is_stopped();
         drop(original);
-        if !accepted(self.diagnostics, result, stopped, location)? {
+        if !accepted(self.diagnostics, result, stopped, location.clone())? {
             return Ok(false);
         }
-        zip.write_deflated(&name, deflate.finish()?)?;
+        let mut content = deflate.finish()?;
+        // Each later rewriter reads what the one before wrote, inflated from
+        // the content held (in memory, or in a spool past the spill size).
+        // What it leaves unread is dropped: nothing checks it, as the CRC-32
+        // of the original entry was checked above.
+        for next in then {
+            let mut input = BufReader::new(Inflater::new(&mut content.buffer));
+            let mut deflate = DeflateWriter::new(&mut *self.spools, self.limits.part_spill_bytes);
+            let result = next.rewrite(&mut input, &mut deflate);
+            drop(input);
+            if !accepted(self.diagnostics, result, false, location.clone())? {
+                return Ok(false);
+            }
+            content = deflate.finish()?;
+        }
+        zip.write_deflated(&name, content)?;
         Ok(true)
     }
 

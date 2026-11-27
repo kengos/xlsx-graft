@@ -4,12 +4,9 @@
 use super::extent::Extent;
 use crate::error::WriteError;
 use crate::inflate::Inflater;
-use std::io::Write;
+use std::io::{self, Write};
 use xlsx_graft_cell::CellRef;
 use xlsx_graft_spool::SpillBuffer;
-
-/// How many inflated bytes are written to `out` at once.
-const CHUNK: usize = 16_384;
 
 /// The `<row>` elements of a worksheet's `<sheetData>`, written by a
 /// [`RowsWriter`](crate::RowsWriter) and held deflated (in memory, or in a
@@ -40,15 +37,10 @@ impl SpooledRows {
     /// returned by `out` itself is returned as the same variant and kind, so the
     /// caller cannot tell the two apart.
     pub fn write_sheet_data(&mut self, out: &mut dyn Write) -> Result<(), WriteError> {
-        let mut inflater = Inflater::new(&mut self.buffer);
-        let mut output = vec![0; CHUNK];
-        loop {
-            let written = inflater.fill(&mut output)?;
-            if written == 0 {
-                return Ok(());
-            }
-            out.write_all(output.get(..written).unwrap_or_default())?;
-        }
+        // An error of the inflater carries its `WriteError`, which the
+        // conversion returns as it was.
+        io::copy(&mut Inflater::new(&mut self.buffer), out)?;
+        Ok(())
     }
 
     /// The top-left and bottom-right cell of every cell written: the first

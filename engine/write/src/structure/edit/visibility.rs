@@ -6,7 +6,7 @@
 
 use super::state::{Pointer, State, ViewEntry};
 use crate::structure::StructureError;
-use crate::structure::model::SheetState;
+use crate::structure::model::{Sheet, SheetState, Workbook};
 use std::collections::BTreeMap;
 
 impl State<'_> {
@@ -74,6 +74,44 @@ impl State<'_> {
             };
         }
         Ok(())
+    }
+
+    /// Makes a workbook with no view open on a visible sheet. Such a workbook
+    /// opens on the sheet at position 0 (a missing `activeTab` is 0), so
+    /// when a delete or a move puts a sheet that is not visible first,
+    /// `show_first_visible` adds the view [`State::set_active_sheet`] adds:
+    /// its `activeTab` and `firstSheet` name the first visible sheet.
+    ///
+    /// Nothing is added in these cases:
+    /// - The workbook has a view, which says what opens: `set_active_sheet`,
+    ///   the deletes and the moves have already set its `activeTab` and
+    ///   `firstSheet`.
+    /// - The sheet at position 0 is visible.
+    /// - The sheet at position 0 is the first sheet of the opened workbook
+    ///   `book`, in the state `book` has for that sheet: the workbook was
+    ///   opened that way, and nothing changed the state.
+    ///
+    /// [`apply`](super::StructureEdit::apply) calls it once, on the final
+    /// order of the sheets.
+    pub(super) fn show_first_visible(&mut self, book: &Workbook) {
+        if !self.views.is_empty() {
+            return;
+        }
+        let opens_as_before = (self.sheets.first()).is_none_or(|sheet| {
+            let opened = book.sheets().first().map(Sheet::state);
+            sheet.state == SheetState::Visible || (sheet.key == 0 && opened == Some(sheet.state))
+        });
+        if opens_as_before {
+            return;
+        }
+        let visible = (self.sheets.iter())
+            .find(|sheet| sheet.state == SheetState::Visible)
+            .map(|sheet| sheet.key);
+        // `for_each` over the `Option`, not an `if let`: no branch is left that
+        // no test reaches. `visible` is `None` when the workbook was opened
+        // with no visible sheet: no view is added then, as no sheet can open
+        // visible.
+        visible.into_iter().for_each(|key| self.add_view(key));
     }
 
     /// Adds the view of a workbook that has none, with the sheet `key` as its

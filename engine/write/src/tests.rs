@@ -13,10 +13,10 @@ mod round_trip;
 mod structure;
 
 use crate::{DeflateWriter, Deflated, ZipWriter};
-use std::io::{self, Cursor, Read, Write};
+use std::io::{self, BufRead, Cursor, Read, Write};
 use xlsx_graft_diagnostics::Diagnostics;
 use xlsx_graft_package::{ZipArchive, ZipLimits};
-use xlsx_graft_spool::MemorySpools;
+use xlsx_graft_spool::{MemorySpools, Spool, SpoolFactory};
 
 /// The writer every test writes a zip to: bytes in memory that fail once
 /// `fail_after` bytes were written.
@@ -55,6 +55,34 @@ impl Write for Sink {
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
+}
+
+/// Spools whose reads fail and whose writes succeed, so content spilled to
+/// one cannot be read back (the error says "the spool cannot be read").
+pub(crate) struct Unreadables;
+
+struct Unreadable;
+
+impl Spool for Unreadable {
+    fn append(&mut self, _: &[u8]) -> io::Result<()> {
+        Ok(())
+    }
+
+    fn read_exact_at(&mut self, _: u64, _: &mut [u8]) -> io::Result<()> {
+        Err(io::Error::other("the spool cannot be read"))
+    }
+}
+
+impl SpoolFactory for Unreadables {
+    fn create(&mut self) -> io::Result<Box<dyn Spool>> {
+        Ok(Box::new(Unreadable))
+    }
+}
+
+/// The first 4 MiB of `input`. A test rewriter reads its input through it,
+/// so an inflater that never ends makes the test fail instead of hang.
+pub(crate) fn bounded(input: &mut dyn BufRead) -> impl BufRead + '_ {
+    input.take(1 << 22)
 }
 
 /// A zip read by the tests.

@@ -4,18 +4,22 @@
 use crate::error::WriteError;
 use std::io::{BufRead, Write};
 
-/// Writes the new content of a part from its original content.
+/// Writes the new content of a part from the content it is given.
 ///
 /// [`PackageEdit::finish`](crate::PackageEdit::finish) calls it once, with
-/// the part's inflated bytes and the writer the new content is deflated
-/// into. It may read the original in part or not at all. An error that
-/// comes from `original` or `out` passes through `?` as it is
+/// inflated bytes and the writer the new content is deflated into. The
+/// bytes are the part's original content, or, when more than one rewriter
+/// was given for the part, the output of the rewriter before this one (for
+/// the first, the original). It may read the input in part or not at all.
+/// The position in a diagnostic it reports is a position in that input.
+/// An error that comes from `original` or `out` passes through `?` as it is
 /// ([`WriteError`] has `From<io::Error>` and `From<XmlStreamError>`); a
 /// rewriter that refuses the content returns [`WriteError::Invalid`] with
 /// the diagnostic to report.
 pub trait PartRewriter {
-    /// Reads the part's original content from `original` and writes the new
-    /// content to `out`.
+    /// Reads the content from `original` (the part's original content, or the
+    /// output of the rewriter before this one) and writes the new content to
+    /// `out`.
     ///
     /// # Errors
     ///

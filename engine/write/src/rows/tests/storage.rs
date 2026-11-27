@@ -3,6 +3,7 @@
 //! stream that is not valid deflate.
 
 use super::{num, render};
+use crate::tests::{Sink, Unreadables};
 use crate::{Row, RowCell, RowsWriter, SpooledRows, WriteError};
 use std::io;
 use xlsx_graft_cell::{CellValue, DateSystem};
@@ -113,7 +114,7 @@ fn stored(bytes: &[u8]) -> SpooledRows {
 #[test]
 fn stored_bytes_that_are_not_a_deflate_stream_are_an_error_not_output() {
     // A block of type 3, which RFC 1951 reserves.
-    let mut out = Vec::new();
+    let mut out = Sink::failing_after(1 << 22);
     let error = stored(&[0xff; 16]).write_sheet_data(&mut out).unwrap_err();
     assert!(
         matches!(&error, WriteError::Io(e) if e.kind() == io::ErrorKind::InvalidData),
@@ -129,7 +130,7 @@ fn stored_bytes_that_end_before_the_stream_does_are_an_error() {
     let mut buffer = whole.buffer;
     assert_eq!(buffer.read_at(0, &mut bytes).unwrap(), bytes.len());
     for keep in [0, 1, bytes.len() / 2, bytes.len() - 1] {
-        let mut out = Vec::new();
+        let mut out = Sink::failing_after(1 << 22);
         let error = stored(&bytes[..keep])
             .write_sheet_data(&mut out)
             .unwrap_err();
@@ -142,26 +143,13 @@ fn stored_bytes_that_end_before_the_stream_does_are_an_error() {
 
 #[test]
 fn a_spool_that_fails_to_read_fails_write_sheet_data() {
-    struct Unreadable;
-    impl Spool for Unreadable {
-        fn append(&mut self, _: &[u8]) -> io::Result<()> {
-            Ok(())
-        }
-        fn read_exact_at(&mut self, _: u64, _: &mut [u8]) -> io::Result<()> {
-            Err(io::Error::other("the spool cannot be read"))
-        }
-    }
-    struct Unreadables;
-    impl SpoolFactory for Unreadables {
-        fn create(&mut self) -> io::Result<Box<dyn Spool>> {
-            Ok(Box::new(Unreadable))
-        }
-    }
     // Past the 65,536 bytes the buffer keeps in memory once spilled, so
     // bytes are written to the spool.
     let strings: Vec<String> = (0..1_000).map(|i| letters(i + 1, 200)).collect();
     let mut rows = write_all(&mut Unreadables, 0, &strings);
-    let error = rows.write_sheet_data(&mut Vec::new()).unwrap_err();
+    let error = rows
+        .write_sheet_data(&mut Sink::failing_after(1 << 22))
+        .unwrap_err();
     assert!(matches!(error, WriteError::Spool(_)), "{error:?}");
 }
 

@@ -1,10 +1,10 @@
 //! [`Inflater`]: the raw deflate stream held in a [`SpillBuffer`], read
-//! back as inflated bytes.
+//! back as inflated bytes, by [`Inflater::fill`] or as a [`Read`].
 
 use crate::error::WriteError;
 use miniz_oxide::inflate::stream::{InflateState, inflate};
 use miniz_oxide::{DataFormat, MZFlush, MZStatus};
-use std::io;
+use std::io::{self, Read};
 use xlsx_graft_spool::SpillBuffer;
 
 /// How many deflated bytes are read from the buffer at once.
@@ -43,6 +43,9 @@ impl<'a> Inflater<'a> {
 
     /// Writes inflated bytes to the start of `out` and returns how many, at
     /// least one unless the stream has ended: 0 after the end of the stream.
+    /// `out` must not be empty: the decompressor has no room to write, which
+    /// it reports in the middle of a stream as an error
+    /// ([`io::ErrorKind::InvalidData`]), and 0 could not be told from the end.
     ///
     /// When the buffer's bytes end (a read returns 0), the decompressor is
     /// still called with empty input. It writes any output still pending,
@@ -77,3 +80,28 @@ impl<'a> Inflater<'a> {
         Ok(0)
     }
 }
+
+/// Reads the inflated bytes. A failure of [`fill`](Inflater::fill) is the
+/// [`io::Error`] it carries: the one of [`WriteError::Io`] as it is, and for
+/// [`WriteError::Spool`] an error that carries the `WriteError`. A caller that
+/// passes the `io::Error` on with `?` in a function that returns
+/// `Result<_, WriteError>` gets [`WriteError::Spool`] back, as
+/// `WriteError::from` returns the carried error. A caller that reads through
+/// an `XmlRewriter` does not: the XML error keeps the kind and the message of
+/// the `io::Error` only, so the failure comes out as [`WriteError::Io`].
+impl Read for Inflater<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        // The decompressor is not called with no room for output, which it
+        // reports as a stream that cannot go on.
+        if buf.is_empty() {
+            return Ok(0);
+        }
+        self.fill(buf).map_err(|error| match error {
+            WriteError::Io(error) => error,
+            other => io::Error::other(other),
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests;

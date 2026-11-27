@@ -51,7 +51,12 @@ impl<'r, R: Read + Seek> PackageEdit<'r, R> {
     /// Each part is read and written one at a time: a part rewritten or
     /// added is deflated into memory until it passes
     /// [`WriteLimits::part_spill_bytes`], then into a spool from `spools`.
-    /// A part copied is not held at all.
+    /// A part copied is not held at all. A part with more than one rewriter
+    /// also has the output of each rewriter but the last deflated that way
+    /// until the next rewriter has read it: at any time at most the output
+    /// being read and the output being written are held, each in memory up to
+    /// `part_spill_bytes` and in a spool after that, and the part is never held
+    /// inflated as a whole.
     ///
     /// # Errors
     ///
@@ -105,17 +110,22 @@ impl<'r, R: Read + Seek> PackageEdit<'r, R> {
                 let rewrite = |original: &mut dyn BufRead, out: &mut dyn Write| {
                     content_types::rewrite(original, out, &limits.xml, drop, add)
                 };
-                context.rewritten(&mut zip, &mut archive, index, rewrite)?
+                context.rewritten(&mut zip, &mut archive, index, rewrite, &mut [])?
             } else if let Some(change) = plan.rels.get(&index) {
                 let rewrite = |original: &mut dyn BufRead, out: &mut dyn Write| {
                     relationships::rewrite(original, out, &limits.xml, &change.drop, &change.add)
                 };
-                context.rewritten(&mut zip, &mut archive, index, rewrite)?
-            } else if let Some(mut rewriter) = replaced.remove(&index) {
-                let rewrite = |original: &mut dyn BufRead, out: &mut dyn Write| {
-                    rewriter.rewrite(original, out)
-                };
-                context.rewritten(&mut zip, &mut archive, index, rewrite)?
+                context.rewritten(&mut zip, &mut archive, index, rewrite, &mut [])?
+            } else if let Some((first, then)) = replaced
+                .remove(&index)
+                .as_mut()
+                .and_then(|chain| chain.split_first_mut())
+            {
+                // The chain is taken out of the map, so its rewriters are
+                // dropped once this part is written, not at the end of `finish`.
+                let rewrite =
+                    |original: &mut dyn BufRead, out: &mut dyn Write| first.rewrite(original, out);
+                context.rewritten(&mut zip, &mut archive, index, rewrite, then)?
             } else {
                 zip.copy_entry(&mut archive, index, context.diagnostics)?
             };
