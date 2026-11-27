@@ -8,14 +8,26 @@ use crate::CellError;
 /// The greatest magnitude an `f64` holds every integer up to: 2^53.
 const EXACT: u64 = 1 << 53;
 
-/// The text of `x`: `0` for either zero, plain decimal digits from 1e-7 up
-/// to 1e21, and otherwise a mantissa and an exponent, `1.5E-8`, `1E+21`
-/// (upper-case `E`, the sign of a positive exponent written).
+/// The text of `x`, written the same way a cell's value is written (the
+/// `<v>` of [`write_cell`](crate::write_cell)): `0` for either zero, plain
+/// decimal digits from 1e-7 up to 1e21, and otherwise a mantissa and an
+/// exponent, `1.5E-8`, `1E+21` (upper-case `E`, the sign of a positive
+/// exponent written).
+///
+/// ```
+/// use xlsx_graft_cell::number_text;
+///
+/// assert_eq!(number_text(12.5)?, "12.5");
+/// assert_eq!(number_text(-0.0)?, "0");
+/// assert_eq!(number_text(1e21)?, "1E+21");
+/// assert!(number_text(f64::NAN).is_err());
+/// # Ok::<(), xlsx_graft_cell::CellError>(())
+/// ```
 ///
 /// # Errors
 ///
 /// [`CellError::NotFinite`] for NaN and the infinities.
-pub(crate) fn number(x: f64) -> Result<String, CellError> {
+pub fn number(x: f64) -> Result<String, CellError> {
     if !x.is_finite() {
         return Err(CellError::NotFinite);
     }

@@ -97,7 +97,8 @@
 //!   layers: an ST_Xstring value is made first, then written as XML.
 //! - **Numbers**: the shortest decimal that reads back to the same `f64`,
 //!   plain from 1e-7 up to 1e21 and as `1.5E-8` or `1E+21` outside, and `0`
-//!   for `-0.0`. An integer is written whole up to 2^53.
+//!   for `-0.0`. An integer is written whole up to 2^53. [`number_text`]
+//!   writes a number the same way outside a cell.
 //! - **Dates and times**: the inverse of reading ([`Date::from_serial`] and
 //!   the others) in the date system given. A date or date-time before the
 //!   system's first day, and an elapsed time `from_serial` does not read,
@@ -124,7 +125,7 @@ mod xml;
 
 pub use clock::{Date, DateTime, Elapsed, Time};
 pub use date_system::DateSystem;
-pub use encode::{SharedStringsWriter, Written, write_cell};
+pub use encode::{SharedStringsWriter, Written, number_text, write_cell};
 pub use error::{CellError, ValueError};
 pub use escape::{Xstring, escape, unescape};
 pub use reference::CellRef;

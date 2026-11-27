@@ -9,6 +9,7 @@ mod number;
 mod shared;
 mod text;
 
+pub use number::number as number_text;
 pub use shared::SharedStringsWriter;
 
 use crate::{CellError, CellRef, CellValue, DateSystem};
