@@ -8,6 +8,7 @@
 //! reference on plain values.
 
 mod add;
+mod chain;
 mod content_types;
 mod failures;
 mod holes;
@@ -16,7 +17,7 @@ mod relative;
 mod remove;
 mod replace;
 
-use crate::tests::{Sink, stored, written};
+use crate::tests::{Sink, bounded, stored, written};
 use crate::{PackageEdit, PartRewriter, PartWriter, WriteError, WriteLimits};
 use std::cell::Cell;
 use std::io::{BufRead, Cursor, Write};
@@ -249,7 +250,7 @@ impl PartRewriter for Copy {
         out: &mut dyn Write,
     ) -> Result<(), WriteError> {
         self.0.set(self.0.get() + 1);
-        std::io::copy(original, out)?;
+        std::io::copy(&mut bounded(original), out)?;
         Ok(())
     }
 }

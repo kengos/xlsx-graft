@@ -4,6 +4,7 @@
 
 use super::parts::{WORKSHEET, kept};
 use super::rewrite::{rels, sheets, workbook};
+use super::visibility::{ALPHA, BETA, GAMMA, list};
 use super::{NS, Output, R, applied_with_report, package_raw};
 use crate::structure::edit::StructureEdit;
 use crate::structure::model::SheetState;
@@ -485,4 +486,26 @@ fn a_walk_with_no_rename_or_delete_looks_only_at_sheet_views() {
     assert_eq!(kept(&report), []);
     assert_eq!(part(&output, 2), worksheet(ON, &cells));
     assert_eq!(part(&output, 1), worksheet(OFF, ""));
+}
+
+#[test]
+fn a_workbook_with_no_view_opens_on_the_first_visible_sheet_after_a_move_or_a_delete() {
+    let body = list([ALPHA, BETA, GAMMA]);
+    let texts = plain(&[ON, OFF, OFF]);
+    // Beta moves to position 0: Alpha is still the sheet that opens, and its
+    // tab is selected already, so no worksheet is written.
+    let output = tabbed(&body, &texts, |edit| edit.move_sheet("Beta", 0).unwrap());
+    for text in &texts {
+        assert!(output.holds(text));
+    }
+    // Alpha is deleted: Gamma opens (the view added names it), so its tab
+    // is selected.
+    let output = tabbed(&body, &texts, |edit| edit.delete_sheet("Alpha").unwrap());
+    assert_eq!(part(&output, 3), sheet_n(3, ON));
+    assert!(output.holds(&texts[1]));
+    let book = output.part("/xl/workbook.xml").unwrap();
+    assert!(
+        book.contains(r#"<workbookView activeTab="1" firstSheet="1"/>"#),
+        "{book}"
+    );
 }

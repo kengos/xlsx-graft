@@ -298,9 +298,8 @@ fn the_view_added_by_hiding_the_first_sheet_is_written_on_the_next_visible_sheet
     let got = run(&sheets(3), 3, |edit| {
         edit.set_sheet_state("Alpha", SheetState::Hidden).unwrap();
     });
-    let view = r#"<bookViews><workbookView activeTab="1" firstSheet="1"/></bookViews>"#;
     let list = sheets(3).replacen(r#"r:id="rId1"/>"#, r#"r:id="rId1" state="hidden"/>"#, 1);
-    assert_eq!(got, workbook(&format!("{view}{list}")));
+    assert_eq!(got, workbook(&format!("{ACTIVE_SECOND}{list}")));
     // A sheet that is not the first: the state only.
     let got = run(&sheets(3), 3, |edit| {
         edit.set_sheet_state("Beta", SheetState::Hidden).unwrap();
@@ -342,4 +341,138 @@ fn a_sheet_element_whose_state_does_not_change_is_written_as_it_was() {
         got,
         workbook(&format!("<sheets>{empty}{hidden}{start}</sheets>"))
     );
+}
+
+/// The `sheet` elements of Alpha, Beta (hidden) and Gamma.
+pub(super) const ALPHA: &str = r#"<sheet name="Alpha" sheetId="1" r:id="rId1"/>"#;
+pub(super) const BETA: &str = r#"<sheet name="Beta" sheetId="2" state="hidden" r:id="rId2"/>"#;
+pub(super) const GAMMA: &str = r#"<sheet name="Gamma" sheetId="3" r:id="rId3"/>"#;
+
+/// The `bookViews` that makes the second sheet the active and first sheet.
+const ACTIVE_SECOND: &str =
+    r#"<bookViews><workbookView activeTab="1" firstSheet="1"/></bookViews>"#;
+
+/// A `sheets` element of the three `sheet` elements, in the order given.
+pub(super) fn list(sheets: [&str; 3]) -> String {
+    format!("<sheets>{}</sheets>", sheets.concat())
+}
+
+#[test]
+fn a_move_that_puts_a_hidden_sheet_first_adds_a_view_on_the_first_visible_sheet() {
+    // No `bookViews`, so the workbook opens on the sheet at position 0.
+    let got = run(&list([ALPHA, BETA, GAMMA]), 3, |edit| {
+        edit.move_sheet("Beta", 0).unwrap();
+    });
+    assert_eq!(
+        got,
+        workbook(&format!("{ACTIVE_SECOND}{}", list([BETA, ALPHA, GAMMA])))
+    );
+    // A delete that leaves the hidden sheet first does the same.
+    let got = run(&list([ALPHA, BETA, GAMMA]), 3, |edit| {
+        edit.delete_sheet("Alpha").unwrap();
+    });
+    assert_eq!(
+        got,
+        workbook(&format!("{ACTIVE_SECOND}<sheets>{BETA}{GAMMA}</sheets>"))
+    );
+    // A sheet added at position 1, hidden there (so `set_sheet_state` adds no
+    // view) and moved to position 0 adds the view too.
+    let got = run(&list([ALPHA, BETA, GAMMA]), 3, |edit| {
+        edit.add_sheet("New", Some(1), None).unwrap();
+        edit.set_sheet_state("New", SheetState::Hidden).unwrap();
+        edit.move_sheet("New", 0).unwrap();
+    });
+    let new = r#"<sheet name="New" sheetId="4" r:id="rId4" state="hidden"/>"#;
+    let sheets = list([new, ALPHA, BETA]).replace("</sheets>", &format!("{GAMMA}</sheets>"));
+    assert_eq!(got, workbook(&format!("{ACTIVE_SECOND}{sheets}")));
+}
+
+#[test]
+fn a_hidden_sheet_moved_to_position_0_adds_a_view_when_the_opened_first_sheet_was_hidden_too() {
+    // Beta, the first sheet when the workbook is opened, is hidden, and so is
+    // Gamma, which is first at the end. The state of the sheet at position 0
+    // equals the state the opened first sheet has, but the sheet at position 0
+    // is Gamma, not Beta, the opened first sheet.
+    let got = run(&list([BETA, ALPHA, GAMMA]), 3, |edit| {
+        edit.set_sheet_state("Gamma", SheetState::Hidden).unwrap();
+        edit.move_sheet("Gamma", 0).unwrap();
+    });
+    let view = r#"<bookViews><workbookView activeTab="2" firstSheet="2"/></bookViews>"#;
+    let gamma = r#"<sheet name="Gamma" sheetId="3" r:id="rId3" state="hidden"/>"#;
+    let expected = format!("{view}<sheets>{gamma}{BETA}{ALPHA}</sheets>");
+    assert_eq!(got, workbook(&expected));
+}
+
+#[test]
+fn the_view_for_a_hidden_first_sheet_is_written_in_an_empty_book_views() {
+    for empty in ["<bookViews/>", "<bookViews></bookViews>"] {
+        let body = format!("{empty}{}", list([ALPHA, BETA, GAMMA]));
+        let got = run(&body, 3, |edit| edit.move_sheet("Beta", 0).unwrap());
+        assert_eq!(
+            got,
+            workbook(&format!("{ACTIVE_SECOND}{}", list([BETA, ALPHA, GAMMA])))
+        );
+    }
+}
+
+#[test]
+fn no_view_is_added_when_the_sheet_at_position_0_is_visible_or_the_workbook_has_a_view() {
+    // Position 0 is visible after the move and after the delete.
+    let got = run(&list([ALPHA, BETA, GAMMA]), 3, |edit| {
+        edit.move_sheet("Gamma", 0).unwrap();
+    });
+    assert_eq!(got, workbook(&list([GAMMA, ALPHA, BETA])));
+    let got = run(
+        &format!("<sheets>{ALPHA}{GAMMA}{BETA}</sheets>"),
+        3,
+        |edit| {
+            edit.delete_sheet("Alpha").unwrap();
+        },
+    );
+    assert_eq!(got, workbook(&format!("<sheets>{GAMMA}{BETA}</sheets>")));
+    // The workbook has a `workbookView`, which says what opens: its pointers
+    // follow the sheets they name (Alpha is at position 1 now), and no second
+    // view is added.
+    let books = r#"<bookViews><workbookView activeTab="0"/></bookViews>"#;
+    let got = run(
+        &format!("{books}{}", list([ALPHA, BETA, GAMMA])),
+        3,
+        |edit| {
+            edit.move_sheet("Beta", 0).unwrap();
+        },
+    );
+    assert_eq!(
+        got,
+        workbook(&format!("{ACTIVE_SECOND}{}", list([BETA, ALPHA, GAMMA])))
+    );
+    assert_eq!(got.matches("<workbookView").count(), 1);
+}
+
+#[test]
+fn a_hidden_first_sheet_the_workbook_was_opened_with_adds_no_view_and_leaves_the_part_as_it_is() {
+    let text = workbook(&list([BETA, ALPHA, GAMMA]));
+    let package = || package_raw(&text, &rels(3), 3, &[], "");
+    let output = applied(package(), |edit| edit.rename_sheet("Gamma", "G").unwrap());
+    assert!(
+        !output
+            .part("/xl/workbook.xml")
+            .unwrap()
+            .contains("bookViews")
+    );
+    let output = applied(package(), |_| {});
+    assert!(output.holds(&text));
+}
+
+#[test]
+fn a_first_sheet_hidden_by_the_edit_and_moved_back_to_position_0_adds_the_view() {
+    // Alpha is visible when the workbook is opened. It is hidden away from
+    // position 0 (where `set_sheet_state` would add the view), then moved back.
+    let got = run(&list([ALPHA, GAMMA, BETA]), 3, |edit| {
+        edit.move_sheet("Alpha", 1).unwrap();
+        edit.set_sheet_state("Alpha", SheetState::Hidden).unwrap();
+        edit.move_sheet("Alpha", 0).unwrap();
+    });
+    let hidden = r#"<sheet name="Alpha" sheetId="1" r:id="rId1" state="hidden"/>"#;
+    let expected = format!("{ACTIVE_SECOND}<sheets>{hidden}{GAMMA}{BETA}</sheets>");
+    assert_eq!(got, workbook(&expected));
 }

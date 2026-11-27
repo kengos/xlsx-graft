@@ -61,8 +61,21 @@ impl<'r> StructureEdit<'r> {
     /// `sheetView` it changes (worksheet, macrosheet, dialogsheet, chart,
     /// table and pivot cache definition parts, and the sheet parts of
     /// `tabSelected`), through
-    /// `PackageEdit::replace`. When the caller replaces one of them too, only
-    /// the replace made last stays, as `PackageEdit::replace` says.
+    /// `PackageEdit::replace`. When the caller replaces one of them too, the
+    /// rewriters are chained in the order of the `replace` calls, as
+    /// `PackageEdit::replace` says: each reads the output of the one before.
+    ///
+    /// Call `apply` before the caller's own `replace` of a part, so the
+    /// caller's rewriter runs after the one `apply` gives. `apply` decides
+    /// from the original part whether to rewrite it, so with its rewriter
+    /// first, the decision and the rewriter's input are the same bytes. The
+    /// sheet names in a formula the caller's rewriter writes are the names of
+    /// the workbook as written (after the renames), and the rewriter of
+    /// `apply` does not change them. In the reverse order the rewriter of
+    /// `apply` would read that formula as one written before the renames and
+    /// change it again: sheets `A` and `B` swap names, a formula the caller
+    /// wrote that names the new `A` is rewritten by `apply` to name `B`. The
+    /// caller that makes both `replace` calls keeps `apply` first.
     ///
     /// # Errors
     ///
@@ -125,6 +138,7 @@ impl<'r> StructureEdit<'r> {
         }
         let changes = std::mem::take(&mut state.changes);
         let ids = std::mem::take(&mut state.sheet_ids);
+        state.show_first_visible(&snapshot.workbook);
         let tabs = tab_changes(&state, &snapshot.workbook);
         let found = parts::rewrite(edit, &snapshot, &state, (changes, ids), tabs, &removed)?;
         state.ref_written |= found.ref_written;

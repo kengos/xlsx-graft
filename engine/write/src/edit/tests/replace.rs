@@ -3,7 +3,7 @@
 //! refuses the content, and content that spills to a spool.
 
 use super::{
-    Copy, Refuse, Text, content, contents, deflated_zip, edit, entries, finish, found, open, part,
+    Refuse, Text, content, contents, deflated_zip, edit, entries, finish, found, open, part,
     written_zip,
 };
 use crate::{PackageEdit, PartRewriter, WriteError, WriteLimits};
@@ -83,19 +83,6 @@ fn a_rewriter_reads_the_original_and_writes_its_change() {
 }
 
 #[test]
-fn a_second_replace_of_a_part_takes_the_place_of_the_first() {
-    let calls = Rc::new(Cell::new(0));
-    let mut edit = edit();
-    edit.replace(&part("/xl/workbook.xml"), Box::new(Copy(calls.clone())))
-        .unwrap();
-    edit.replace(&part("/XL/workbook.xml"), Box::new(Text("<second/>")))
-        .unwrap();
-    let bytes = written_zip(edit);
-    assert_eq!(content(&bytes, "xl/workbook.xml"), "<second/>");
-    assert_eq!(calls.get(), 0);
-}
-
-#[test]
 fn a_rewriter_that_refuses_the_content_gives_its_diagnostic_at_the_part_and_no_zip() {
     let mut edit = edit();
     edit.replace(&part("/xl/workbook.xml"), Box::new(Refuse))
@@ -134,7 +121,7 @@ fn a_rewriter_that_reads_a_damaged_original_ends_the_write_with_the_diagnostic_o
 }
 
 /// A spool factory that counts the spools it makes.
-struct Counting(Rc<Cell<u32>>);
+pub(super) struct Counting(pub(super) Rc<Cell<u32>>);
 
 impl SpoolFactory for Counting {
     fn create(&mut self) -> std::io::Result<Box<dyn Spool>> {
@@ -144,7 +131,7 @@ impl SpoolFactory for Counting {
 }
 
 /// A rewriter that writes `len` bytes that deflate poorly.
-struct Noise(usize);
+pub(super) struct Noise(pub(super) usize);
 
 impl PartRewriter for Noise {
     fn rewrite(

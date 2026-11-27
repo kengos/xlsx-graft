@@ -3,28 +3,20 @@
 use super::PackageEdit;
 use super::plan::Plan;
 use super::{content_types, relationships};
-use crate::deflate::DeflateWriter;
 use crate::error::WriteError;
 use crate::limits::WriteLimits;
 use crate::zip::ZipWriter;
+use context::Context;
 use std::collections::BTreeMap;
-use std::io::{self, BufRead, BufReader, Read, Seek, Write};
+use std::io::{BufRead, Read, Seek, Write};
 use xlsx_graft_diagnostics::{Diagnostic, Diagnostics, Location};
-use xlsx_graft_package::{Package, ZipArchive};
+use xlsx_graft_package::Package;
 use xlsx_graft_spool::SpoolFactory;
+
+mod context;
 
 /// What writes the content of a new entry.
 type NewContent<'a> = Box<dyn FnOnce(&mut dyn Write) -> Result<(), WriteError> + 'a>;
-
-/// What a write needs besides the zip: where to spill, the limits, and
-/// where the diagnostics go.
-struct Context<'a> {
-    spools: &'a mut dyn SpoolFactory,
-    limits: &'a WriteLimits,
-    diagnostics: &'a mut Diagnostics,
-    /// The name of the part of each zip entry, by the entry's index.
-    parts: BTreeMap<usize, String>,
-}
 
 impl<'r, R: Read + Seek> PackageEdit<'r, R> {
     /// Writes the edited package as a zip to `out`.
@@ -59,7 +51,12 @@ impl<'r, R: Read + Seek> PackageEdit<'r, R> {
     /// Each part is read and written one at a time: a part rewritten or
     /// added is deflated into memory until it passes
     /// [`WriteLimits::part_spill_bytes`], then into a spool from `spools`.
-    /// A part copied is not held at all.
+    /// A part copied is not held at all. A part with more than one rewriter
+    /// also has the output of each rewriter but the last deflated that way
+    /// until the next rewriter has read it: at any time at most the output
+    /// being read and the output being written are held, each in memory up to
+    /// `part_spill_bytes` and in a spool after that, and the part is never held
+    /// inflated as a whole.
     ///
     /// # Errors
     ///
@@ -113,17 +110,22 @@ impl<'r, R: Read + Seek> PackageEdit<'r, R> {
                 let rewrite = |original: &mut dyn BufRead, out: &mut dyn Write| {
                     content_types::rewrite(original, out, &limits.xml, drop, add)
                 };
-                context.rewritten(&mut zip, &mut archive, index, rewrite)?
+                context.rewritten(&mut zip, &mut archive, index, rewrite, &mut [])?
             } else if let Some(change) = plan.rels.get(&index) {
                 let rewrite = |original: &mut dyn BufRead, out: &mut dyn Write| {
                     relationships::rewrite(original, out, &limits.xml, &change.drop, &change.add)
                 };
-                context.rewritten(&mut zip, &mut archive, index, rewrite)?
-            } else if let Some(mut rewriter) = replaced.remove(&index) {
-                let rewrite = |original: &mut dyn BufRead, out: &mut dyn Write| {
-                    rewriter.rewrite(original, out)
-                };
-                context.rewritten(&mut zip, &mut archive, index, rewrite)?
+                context.rewritten(&mut zip, &mut archive, index, rewrite, &mut [])?
+            } else if let Some((first, then)) = replaced
+                .remove(&index)
+                .as_mut()
+                .and_then(|chain| chain.split_first_mut())
+            {
+                // The chain is taken out of the map, so its rewriters are
+                // dropped once this part is written, not at the end of `finish`.
+                let rewrite =
+                    |original: &mut dyn BufRead, out: &mut dyn Write| first.rewrite(original, out);
+                context.rewritten(&mut zip, &mut archive, index, rewrite, then)?
             } else {
                 zip.copy_entry(&mut archive, index, context.diagnostics)?
             };
@@ -169,94 +171,4 @@ fn refuse_unreadable<R: Read + Seek>(
         }
     }
     refused
-}
-
-impl Context<'_> {
-    /// Writes the entry at `index` of `archive` as the next entry of `zip`,
-    /// its new content made by `rewrite` from its inflated content. Returns
-    /// whether the entry was written: `false` after a diagnostic is pushed
-    /// (the content refused, or the entry found damaged).
-    fn rewritten<R: Read + Seek, W: Write>(
-        &mut self,
-        zip: &mut ZipWriter<W>,
-        archive: &mut ZipArchive<R>,
-        index: usize,
-        rewrite: impl FnOnce(&mut dyn BufRead, &mut dyn Write) -> Result<(), WriteError>,
-    ) -> Result<bool, WriteError> {
-        let name = archive
-            .entries()
-            .get(index)
-            .map_or(Vec::new(), |e| e.name().to_vec());
-        // A diagnostic about a part is at the part. The content types stream
-        // is not a part, so a diagnostic about the stream is at its zip entry,
-        // as the package pushes its own diagnostics about the stream.
-        let stream = Location::default().with_entry_bytes(&name);
-        let location =
-            (self.parts.get(&index)).map_or(stream, |part| Location::default().with_part(part));
-        let Some(entry) = archive.open_entry(index, self.diagnostics)? else { return Ok(false) };
-        let mut original = BufReader::new(entry);
-        let mut deflate = DeflateWriter::new(&mut *self.spools, self.limits.part_spill_bytes);
-        // Whatever `rewrite` leaves unread is read to the end, so the
-        // entry's size and CRC-32 are checked in every case.
-        let result = rewrite(&mut original, &mut deflate).and_then(|()| drain(&mut original));
-        let stopped = original.get_ref().is_stopped();
-        drop(original);
-        if !accepted(self.diagnostics, result, stopped, location)? {
-            return Ok(false);
-        }
-        zip.write_deflated(&name, deflate.finish()?)?;
-        Ok(true)
-    }
-
-    /// Writes a new entry for the part `part` (its name with a `/` in front)
-    /// as the next entry of `zip`, its content made by `write`. Returns
-    /// whether it was written, as [`rewritten`](Self::rewritten) does.
-    fn added<W: Write>(
-        &mut self,
-        zip: &mut ZipWriter<W>,
-        part: &str,
-        write: impl FnOnce(&mut dyn Write) -> Result<(), WriteError>,
-    ) -> Result<bool, WriteError> {
-        let name = part.get(1..).unwrap_or_default().as_bytes();
-        let mut deflate = DeflateWriter::new(&mut *self.spools, self.limits.part_spill_bytes);
-        let result = write(&mut deflate);
-        if !accepted(
-            self.diagnostics,
-            result,
-            false,
-            Location::default().with_part(part),
-        )? {
-            return Ok(false);
-        }
-        zip.write_deflated(name, deflate.finish()?)?;
-        Ok(true)
-    }
-}
-
-/// Reads `original` to its end and drops what it reads.
-fn drain(original: &mut dyn Read) -> Result<(), WriteError> {
-    io::copy(original, &mut io::sink())?;
-    Ok(())
-}
-
-/// Whether the content of an entry is accepted: `result` is `Ok`.
-/// `Ok(false)` when it is refused, with a diagnostic pushed already or now
-/// at `location`: `result` is [`WriteError::Invalid`], or an error that comes
-/// from the entry being read, which `stopped` says, with its own
-/// diagnostic. Any other error is the host's, and is returned.
-fn accepted(
-    diagnostics: &mut Diagnostics,
-    result: Result<(), WriteError>,
-    stopped: bool,
-    location: Location,
-) -> Result<bool, WriteError> {
-    match result {
-        Ok(()) => Ok(true),
-        Err(WriteError::Invalid(diagnostic)) => {
-            diagnostics.push(diagnostic, location);
-            Ok(false)
-        }
-        Err(_) if stopped => Ok(false),
-        Err(error) => Err(error),
-    }
 }

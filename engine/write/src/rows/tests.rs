@@ -26,9 +26,10 @@ fn writer(spools: &mut MemorySpools) -> RowsWriter<'_> {
 
 /// What `rows` holds, as the text `write_sheet_data` writes.
 pub(super) fn render(rows: &mut SpooledRows) -> String {
-    let mut out = Vec::new();
+    // A sink that fails past 4 MiB, so a loop that never ends fails the test.
+    let mut out = crate::tests::Sink::failing_after(1 << 22);
     rows.write_sheet_data(&mut out).unwrap();
-    String::from_utf8(out).unwrap()
+    String::from_utf8(out.bytes).unwrap()
 }
 
 /// Pushes each of `rows` (a row number and its cells) and finishes.

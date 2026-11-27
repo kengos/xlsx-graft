@@ -122,6 +122,7 @@ mod atomic;
 mod deflate;
 mod edit;
 mod error;
+mod inflate;
 mod limits;
 mod part;
 mod rows;

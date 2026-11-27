@@ -10,7 +10,9 @@
 //! `Id` and `Target` when `add` is called (`edit/link.rs`). `finish` rewrites the
 //! content types stream (`edit/content_types.rs`) and each Relationships
 //! part the edit changes (`edit/relationships.rs`), both with the same walk
-//! over the children of the root (`edit/children.rs`).
+//! over the children of the root (`edit/children.rs`). The rewriters given for
+//! one part are called one after another, each reading the output of the one
+//! before (`edit/finish/context.rs`).
 
 mod children;
 mod content_types;
@@ -45,11 +47,12 @@ struct Added<'r> {
 ///
 /// - The entries of the original package, in their order, each copied as it
 ///   is, unless the edit changes it: a part replaced is written from its
-///   rewriter, a part removed and its Relationships part are left out, and
-///   so are the relationships that target a part removed. The content types
-///   stream and a Relationships part that the edit changes are read and
-///   written again with only the change (the bytes outside it as they
-///   were).
+///   rewriters (the first reads the original part, and each later one the
+///   output of the one before), a part removed and its Relationships part
+///   are left out, and so are the relationships that target a part removed.
+///   The content types stream and a Relationships part that the edit changes
+///   are read and written again with only the change (the bytes outside it
+///   as they were).
 /// - Then the parts added, in the order they were added, each with an
 ///   `Override` in the content types stream, then the Relationships parts
 ///   made for a source that had none, in the order of the first link to it.
@@ -59,8 +62,8 @@ struct Added<'r> {
 pub struct PackageEdit<'r, R> {
     package: Package<R>,
     /// The rewriters, by the index of the zip entry of the part they
-    /// rewrite.
-    replaced: BTreeMap<usize, Box<dyn PartRewriter + 'r>>,
+    /// rewrite, in the order of the `replace` calls.
+    replaced: BTreeMap<usize, Vec<Box<dyn PartRewriter + 'r>>>,
     added: Vec<Added<'r>>,
     /// The relationships to add, in the order of the calls.
     links: Vec<Pending>,
@@ -82,9 +85,21 @@ impl<'r, R: Read + Seek> PackageEdit<'r, R> {
         }
     }
 
-    /// Writes the part `name` from `rewriter`, which gets the part's
-    /// original content. A second `replace` of the same part takes the
-    /// place of the first: only the last rewriter is called.
+    /// Writes the part `name` with `rewriter`. A part replaced more than
+    /// once is written by every rewriter given for it, chained in the order
+    /// of the `replace` calls: the first reads the part's original content,
+    /// and each later one reads the output of the one before. A rewriter that
+    /// refuses the content (or fails) ends the write, and the later ones are
+    /// not called.
+    ///
+    /// The order matters when two sources rewrite the same part. For a part
+    /// that [`StructureEdit::apply`](crate::structure::StructureEdit::apply)
+    /// rewrites (the parts its documentation lists), call `apply` first and
+    /// then the other rewriters, such as a `SheetEdit`.
+    ///
+    /// The position a later rewriter reports in a diagnostic (an offset, for
+    /// example) is a position in what it was given, the output of the
+    /// rewriter before it, and not in the original part.
     ///
     /// # Errors
     ///
@@ -98,7 +113,7 @@ impl<'r, R: Read + Seek> PackageEdit<'r, R> {
     ) -> Result<(), WriteError> {
         reserved(name)?;
         let entry = self.live_part(name)?.entry();
-        self.replaced.insert(entry, rewriter);
+        self.replaced.entry(entry).or_default().push(rewriter);
         Ok(())
     }
 
@@ -205,7 +220,7 @@ impl<'r, R: Read + Seek> PackageEdit<'r, R> {
     /// Leaves out the part `name`, its Relationships part, their
     /// `Override`s in the content types stream, and each relationship that
     /// targets the part. A part it targets is kept, whatever else it was
-    /// for. A rewriter given to [`replace`](Self::replace) for the part is
+    /// for. Every rewriter given to [`replace`](Self::replace) for the part is
     /// dropped, and so is a link to a part added, from the part removed (the
     /// part added stays, with no relationship from it).
     ///

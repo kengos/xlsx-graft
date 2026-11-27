@@ -4,10 +4,12 @@
 //! is malformed, one with markup, a table or a pivot source deleted), the
 //! parts it does not read or rewrite, a part it cannot read, and `#REF!`.
 
-use super::{NS, R, TABLE, applied_with_report, defined, open_zip, package, package_raw, zip};
+use super::{
+    NS, Output, R, TABLE, applied_with_report, defined, open_zip, package, package_raw, zip,
+};
 use crate::structure::{KeptReason, StructureEdit, StructureReport, sheet_prefix};
-use crate::{PackageEdit, WriteLimits};
-use std::io::Cursor;
+use crate::{PackageEdit, PartRewriter, WriteError, WriteLimits};
+use std::io::{self, BufRead, Cursor, Write};
 use xlsx_graft_diagnostics::Diagnostics;
 use xlsx_graft_package::Package;
 
@@ -854,4 +856,92 @@ fn the_app_part_is_not_read() {
         edit.rename_sheet("Alpha", "Delta").unwrap();
     });
     assert_eq!(kept(&report), []);
+}
+
+/// A rewriter of the caller that writes what it reads and then `tail`, or,
+/// when `fixed` is set, writes `fixed` and reads nothing.
+struct Caller {
+    tail: &'static str,
+    fixed: Option<String>,
+}
+
+impl PartRewriter for Caller {
+    fn rewrite(
+        &mut self,
+        original: &mut dyn BufRead,
+        out: &mut dyn Write,
+    ) -> Result<(), WriteError> {
+        if let Some(fixed) = &self.fixed {
+            out.write_all(fixed.as_bytes())?;
+            return Ok(());
+        }
+        io::copy(&mut crate::tests::bounded(original), out)?;
+        out.write_all(self.tail.as_bytes())?;
+        Ok(())
+    }
+}
+
+/// Swaps the names of `Alpha` and `Beta` (`Alpha` to `Tmp`, `Beta` to
+/// `Alpha`, `Tmp` to `Beta`) and calls `apply`, and has the caller `replace`
+/// the part `/xl/worksheets/sheet2.xml` with `caller` after `apply` or, when
+/// `caller_first`, before it. The package is written.
+fn swapped_with_caller(sheet: &str, caller: Caller, caller_first: bool) -> Output {
+    let extra = [("xl/worksheets/sheet2.xml", WORKSHEET, sheet)];
+    let mut package = book("", &extra);
+    let mut diagnostics = Diagnostics::new();
+    let limits = WriteLimits::default();
+    let mut edit = StructureEdit::open(&mut package, &limits, &mut diagnostics)
+        .unwrap()
+        .unwrap();
+    edit.rename_sheet("Alpha", "Tmp").unwrap();
+    edit.rename_sheet("Beta", "Alpha").unwrap();
+    edit.rename_sheet("Tmp", "Beta").unwrap();
+    let mut package_edit = PackageEdit::new(package);
+    let name = xlsx_graft_package::PartName::parse("/xl/worksheets/sheet2.xml").unwrap();
+    let mut caller = Some(Box::new(caller));
+    if caller_first {
+        package_edit.replace(&name, caller.take().unwrap()).unwrap();
+    }
+    edit.apply(&mut package_edit).unwrap();
+    if let Some(caller) = caller {
+        package_edit.replace(&name, caller).unwrap();
+    }
+    let bytes = package_edit
+        .finish(
+            Vec::new(),
+            &mut xlsx_graft_spool::MemorySpools,
+            &limits,
+            &mut diagnostics,
+        )
+        .unwrap()
+        .unwrap();
+    assert!(diagnostics.records().is_empty());
+    Output { bytes }
+}
+
+#[test]
+fn a_rewriter_the_caller_gives_after_apply_keeps_the_formula_it_wrote_when_two_sheets_swap_names() {
+    // The worksheet of the sheet that was `Beta` names `Alpha`, the sheet
+    // that is `Beta` after the swap.
+    let sheet = beta("Alpha!");
+    let at = |output: &Output| output.part("/xl/worksheets/sheet2.xml").unwrap();
+    // The caller's rewriter reads what `apply` wrote and adds to it.
+    let caller = Caller {
+        tail: "<!--caller-->",
+        fixed: None,
+    };
+    let output = swapped_with_caller(&sheet, caller, false);
+    assert_eq!(at(&output), format!("{}<!--caller-->", beta("Beta!")));
+    // The caller writes a formula that names `Alpha`, the sheet that is
+    // `Alpha` in the written workbook: it stays as written.
+    let fixed = || Caller {
+        tail: "",
+        fixed: Some(beta("Alpha!")),
+    };
+    let output = swapped_with_caller(&sheet, fixed(), false);
+    assert_eq!(at(&output), beta("Alpha!"));
+    // In the reverse order `apply` reads that formula as a name before the
+    // swap and writes `Beta`, which is the wrong sheet.
+    let output = swapped_with_caller(&sheet, fixed(), true);
+    assert_eq!(at(&output), beta("Beta!"));
 }
