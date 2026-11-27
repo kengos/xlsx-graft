@@ -42,16 +42,26 @@
 //! writes. It prints the references the edit kept as they were, and says
 //! which workbooks it skipped and why.
 //!
+//! `xlsx-graft-fixtures-gen layout <fixtures-dir> <dir>` is the sixth
+//! command (`make fixtures:layout`): it writes each workbook of
+//! `<fixtures-dir>` again with the engine's `SheetEdit` and `StructureEdit`:
+//! on its first sheet cells merged, column widths and row heights, frozen
+//! panes and a protection with a password, and in the workbook the last
+//! sheet active, the second sheet hidden and the third very hidden, to see
+//! whether Excel opens what they write. It says which edits the engine
+//! refused for a workbook and so were not made.
+//!
 //! The binary prints the path of each workbook once it is written, and
 //! exits 0. It exits 2 when the arguments are not a directory followed by
 //! books of that form with `<n>` from 1 to [`MAX_ROWS`], when `repack`,
-//! `styles` or `structure` is not followed by two directories, or when `cells` is not followed by one
-//! directory, and 1 when a workbook cannot be written or its path cannot be
+//! `styles`, `structure` or `layout` is not followed by two directories, or
+//! when `cells` is not followed by one directory, and 1 when a workbook cannot be written or its path cannot be
 //! printed ([`FixturesGenError::exit_status`]).
 
 mod book;
 mod cells;
 mod error;
+mod layout;
 mod repack;
 mod shared;
 mod spec;
@@ -82,10 +92,10 @@ pub const MAX_ROWS: u32 = 1_048_575;
 /// workbook already under that name as it was. Once renamed, the
 /// workbook's path is written to `out` as a line.
 ///
-/// When the first argument is `repack`, `styles` or `structure`, the command
-/// is that one's instead: two directories follow it, and a directory named
-/// `repack`, `styles` or `structure` is written `./repack`, `./styles` or
-/// `./structure`. When it is `cells`, one
+/// When the first argument is `repack`, `styles`, `structure` or `layout`, the
+/// command is that one's instead: two directories follow it, and a directory
+/// named `repack`, `styles`, `structure` or `layout` is written `./repack`,
+/// `./styles`, `./structure` or `./layout`. When it is `cells`, one
 /// directory follows it, and a directory named `cells` is written `./cells`.
 ///
 /// # Errors
@@ -106,6 +116,9 @@ pub fn run(args: &[OsString], out: &mut dyn Write) -> Result<(), FixturesGenErro
         }
         if command == "structure" {
             return structure::run(rest, out);
+        }
+        if command == "layout" {
+            return layout::run(rest, out);
         }
     }
     let (dir, books) = parse(args)?;

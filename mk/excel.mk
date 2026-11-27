@@ -181,3 +181,32 @@ fixtures\:styles: ## Write each workbook of fixtures/ again with a cell format o
 fixtures\:structure: ## Write each workbook of fixtures/ with a sheet renamed, added and moved, and with the first sheet deleted, into fixtures/generated/structure/ (gitignored), for make excel:check
 	$(CARGO_IN_DOCKER) 'cd /repo && cargo run --manifest-path engine/Cargo.toml -p xlsx-graft-fixtures-gen \
 		--release --locked $(CARGO_JOBS) -- structure fixtures fixtures/generated/structure'
+
+# fixtures:layout — writes each workbook of fixtures/ again with the layout of
+# its first sheet and the visibility of its sheets edited by the engine
+# (engine/write's SheetEdit and StructureEdit) into
+# fixtures/generated/layout/, which git ignores, for `make excel:check` to
+# open on a Mac and show that Excel accepts what the edits write. On the first
+# sheet, when it is a worksheet: cells AA1000:AB1001 merged (AD2000:AE2001 for
+# a sheet that has a range or a table over a cell of the first), columns B to
+# D 20 wide and F 30 wide (a `col` of the sheet that covers them is cut), row
+# 1 30 points high and row 500 24 points high (a row the sheet lacks is
+# written), the first row and the first column frozen, and the sheet
+# protected with the password `xlsx-graft` (SHA-512, the salt bytes 0 to 15,
+# spin count 100000, the default permissions). In the workbook: with two
+# sheets or more the last sheet is the active one, with three or more the
+# second is hidden, with four or more the third is very hidden. The name and
+# the extension are the workbook's own, so macro.xlsm and python-in-excel.xlsm
+# give .xlsm files. Standard output has the path of each workbook written and
+# an indented line for each edit the engine refused and so was not made (or a
+# merge made at the second range); a workbook the engine refuses or cannot
+# read is skipped, with `skipped`, its path and why on a line, and the others
+# are written. Runs in the toolchain image like fixtures:structure, and is not
+# a gate and not a member of verify: it prints the release build's output, and
+# proves nothing. A workbook already there under the same name is replaced.
+
+.PHONY: fixtures\:layout
+
+fixtures\:layout: ## Write each workbook of fixtures/ with its first sheet's cells merged, columns and rows sized, panes frozen and sheet protected, and its sheets made active, hidden and very hidden, into fixtures/generated/layout/ (gitignored), for make excel:check
+	$(CARGO_IN_DOCKER) 'cd /repo && cargo run --manifest-path engine/Cargo.toml -p xlsx-graft-fixtures-gen \
+		--release --locked $(CARGO_JOBS) -- layout fixtures fixtures/generated/layout'
