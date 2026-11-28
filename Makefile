@@ -221,6 +221,18 @@
 #                               F='fixtures/generated/structure/*' tells
 #                               whether Excel opens them without a repair
 #                               (engine/fixtures-gen structure)
+#     make fixtures:layout      write each workbook of fixtures/ with engine/
+#                               write's SheetEdit on its first sheet (cells
+#                               merged, column widths and row heights, panes
+#                               frozen, a password protection) and
+#                               StructureEdit on its sheets (the last active,
+#                               the second hidden, the third very hidden),
+#                               into fixtures/generated/layout/ (gitignored);
+#                               prints the edits the engine refused; then, on
+#                               a Mac, make excel:check
+#                               F='fixtures/generated/layout/*' tells whether
+#                               Excel opens them without a repair
+#                               (engine/fixtures-gen layout)
 #
 #   Benchmarks (in Docker; not a gate, not in verify: the result changes with
 #   the machine and the day; the one exception is bench:memory, a gate in

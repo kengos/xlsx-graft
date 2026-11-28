@@ -164,6 +164,14 @@ impl<R: BufRead, W: Write> XmlRewriter<R, W> {
         self.reader.get_ref()
     }
 
+    /// The output, to write raw bytes between events (an element built
+    /// elsewhere). Call it after the first [`write`](Self::write), so the
+    /// byte order mark comes first. What is written through it is not
+    /// checked: the caller keeps the XML well formed.
+    pub fn output_mut(&mut self) -> &mut W {
+        self.writer.get_mut()
+    }
+
     /// The output, given back once everything is written.
     #[must_use]
     pub fn into_inner(self) -> W {

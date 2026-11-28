@@ -49,6 +49,10 @@
 //! where the kinds a caller writes go among them ([`sheet::ChildPlacer`]),
 //! and the values of `cols`, `row`, `sheetViews`, `mergeCells` and
 //! `sheetProtection`, each refused when made if Excel cannot hold it.
+//! [`sheet::SheetEdit`] edits a worksheet that is already in a package:
+//! it merges and unmerges cells, sets column widths and row heights, freezes
+//! panes and protects the sheet, and [`PackageEdit`] writes the part with
+//! only those elements changed.
 //!
 //! # Writing rows
 //!
