@@ -47,8 +47,9 @@
 //! [`sheet`] holds what a new worksheet and an edit of one write the same
 //! way: the order of the root's children ([`sheet::WorksheetChild`]) and
 //! where the kinds a caller writes go among them ([`sheet::ChildPlacer`]),
-//! and the values of `cols`, `row`, `sheetViews`, `mergeCells` and
-//! `sheetProtection`, each refused when made if Excel cannot hold it.
+//! and the values of `cols`, `row`, `sheetFormatPr`, `sheetViews`,
+//! `mergeCells` and `sheetProtection`, each refused when made if Excel
+//! cannot hold it.
 //! [`sheet::SheetEdit`] edits a worksheet that is already in a package:
 //! it merges and unmerges cells, sets column widths and row heights, freezes
 //! panes and protects the sheet, and [`PackageEdit`] writes the part with
@@ -80,6 +81,14 @@
 //! - **What is not written**: the worksheet part itself, from `<worksheet>`
 //!   to `</sheetData>` and after, is written by the caller:
 //!   `write_sheet_data` writes the rows only.
+//!
+//! # Starting from a blank workbook
+//!
+//! [`blank`] holds a built-in workbook of one empty worksheet and the
+//! procedure that makes a new workbook from it with a
+//! [`structure::StructureEdit`]: the caller's sheets are added and the
+//! built-in sheet is deleted, with the built-in sheet renamed first when the
+//! caller's first sheet has its name, letter case aside.
 //!
 //! # The zip it writes
 //!
@@ -123,6 +132,7 @@
 // No temporary file on WebAssembly: the host brings its own way to write a file.
 #[cfg(not(target_family = "wasm"))]
 mod atomic;
+pub mod blank;
 mod deflate;
 mod edit;
 mod error;

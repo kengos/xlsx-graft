@@ -151,6 +151,11 @@ pub enum WriteError {
         #[source]
         source: CellError,
     },
+    /// The built-in blank workbook ([`blank::package`](crate::blank::package))
+    /// could not be opened as a package: a mistake of the engine, not of the
+    /// caller.
+    #[error("the built-in blank workbook could not be opened")]
+    BlankUnreadable,
     /// A rewriter or writer refused the content of a part. The diagnostic
     /// says why, and `PackageEdit::finish` pushes it at the part and returns
     /// `Ok(None)`.

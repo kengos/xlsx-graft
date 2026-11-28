@@ -76,6 +76,15 @@ Rust workspace lives in `engine/` (crates named `xlsx-graft-<dir>`).
   active, the second hidden, the third very hidden) (engine/fixtures-gen, in
   Docker) into `fixtures/generated/layout/`, for
   `make excel:check F='fixtures/generated/layout/*'` to open on a Mac.
+- `make fixtures:blank` is not a gate and not a member of `make verify`
+  either: it writes the built-in blank workbook of engine/write's `blank` as
+  it is (`blank.xlsx`) and workbooks made from it by the create procedure
+  (`blank-created.xlsx`: a first sheet `Sheet1` with values, a second sheet
+  `Data`; `blank-font.xlsx`: the same with the font Yu Gothic 11, whose rows
+  Excel is to show 15 points high; `blank-row-height.xlsx`: Yu Gothic 11 and
+  the row height 20) (engine/fixtures-gen, in Docker) into
+  `fixtures/generated/blank/`, for
+  `make excel:check F='fixtures/generated/blank/*'` to open on a Mac.
 - `make bench:memory` is the one bench target that is a gate and a member of
   `make verify`: it runs the CLI's `read` and `verify` on
   `shared-100000.xlsx` and `shared-1000000.xlsx` (bench/ruby/compare.rb,

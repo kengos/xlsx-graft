@@ -3,7 +3,8 @@
 
 use super::{range, written};
 use crate::sheet::{
-    ColumnWidth, Columns, FrozenPanes, MergedCells, PasswordHash, RowHeight, SheetProtection,
+    ColumnWidth, Columns, FrozenPanes, MergedCells, PasswordHash, RowHeight, SheetFormat,
+    SheetProtection,
 };
 
 fn merged(ranges: &[&str]) -> MergedCells {
@@ -268,4 +269,26 @@ fn a_password_hash_comes_first_with_the_legacy_attribute_never_written() {
         )
     );
     assert!(!out.contains(" password="));
+}
+
+#[test]
+fn a_sheet_format_is_a_sheet_format_pr_with_the_default_row_height_written_as_a_cell_number() {
+    let format = SheetFormat::new(12.75).unwrap();
+    let out = written(|out| format.write(out, ""));
+    assert_eq!(out, r#"<sheetFormatPr defaultRowHeight="12.75"/>"#);
+    let out = written(|out| SheetFormat::new(0.0).unwrap().write(out, "x:"));
+    assert_eq!(out, r#"<x:sheetFormatPr defaultRowHeight="0"/>"#);
+    let out = written(|out| SheetFormat::blank().write(out, ""));
+    assert_eq!(out, r#"<sheetFormatPr defaultRowHeight="15"/>"#);
+    let format = SheetFormat::custom(20.5).unwrap();
+    let out = written(|out| format.write(out, ""));
+    assert_eq!(
+        out,
+        r#"<sheetFormatPr defaultRowHeight="20.5" customHeight="1"/>"#
+    );
+    let out = written(|out| format.write(out, "x:"));
+    assert_eq!(
+        out,
+        r#"<x:sheetFormatPr defaultRowHeight="20.5" customHeight="1"/>"#
+    );
 }

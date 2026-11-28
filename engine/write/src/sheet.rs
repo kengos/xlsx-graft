@@ -1,7 +1,7 @@
 //! The parts of a worksheet that a new sheet and an edit of an existing one
 //! write the same way: the order of the root's children, where the kinds a
 //! caller writes go among them, and the values written in `cols`, `row`,
-//! `sheetViews`, `mergeCells` and `sheetProtection`.
+//! `sheetFormatPr`, `sheetViews`, `mergeCells` and `sheetProtection`.
 //!
 //! - **The order** (`child.rs`, `placer.rs`): [`WorksheetChild`] lists the 39
 //!   children of CT_Worksheet in the order of ECMA-376-1:2016 §18.3.1.99.
@@ -10,13 +10,13 @@
 //!   document order, before which one each is written. A caller that edits
 //!   a worksheet read from a workbook and a caller that writes a new
 //!   worksheet use the same `ChildPlacer`.
-//! - **The values** (`range.rs`, `columns.rs`, `rows.rs`, `panes.rs`,
-//!   `merges.rs`, `protection.rs`, `password.rs`): a [`CellRange`],
-//!   [`ColumnWidth`], [`Columns`], [`RowHeight`], [`FrozenPanes`],
-//!   [`MergedCells`], [`SheetProtection`] and [`PasswordHash`] are made by
-//!   `new` (or `sha512`), which refuses what Excel cannot hold with a
-//!   [`SheetError`], so any value `new` returned can be written without
-//!   another check.
+//! - **The values** (`range.rs`, `columns.rs`, `rows.rs`, `format.rs`,
+//!   `panes.rs`, `merges.rs`, `protection.rs`, `password.rs`): a
+//!   [`CellRange`], [`ColumnWidth`], [`Columns`], [`RowHeight`],
+//!   [`SheetFormat`], [`FrozenPanes`], [`MergedCells`], [`SheetProtection`]
+//!   and [`PasswordHash`] are made by `new` (or `sha512`), which refuses what
+//!   Excel cannot hold with a [`SheetError`], so any value `new` returned can
+//!   be written without another check.
 //! - **The elements**: each type that is an element writes it with `write`
 //!   (or `write_sheet_views`) as raw bytes to a `&mut dyn Write`, with the
 //!   root's prefix and `:` (or `""`) before each element name; numbers are
@@ -130,6 +130,7 @@ mod child;
 mod columns;
 mod edit;
 mod error;
+mod format;
 mod merges;
 mod panes;
 mod password;
@@ -145,6 +146,7 @@ pub use child::WorksheetChild;
 pub use columns::{ColumnWidth, Columns};
 pub use edit::SheetEdit;
 pub use error::SheetError;
+pub use format::SheetFormat;
 pub use merges::MergedCells;
 pub use panes::FrozenPanes;
 pub use password::PasswordHash;

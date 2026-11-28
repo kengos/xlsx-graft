@@ -51,13 +51,25 @@
 //! whether Excel opens what they write. It says which edits the engine
 //! refused for a workbook and so were not made.
 //!
+//! `xlsx-graft-fixtures-gen blank <dir>` is the seventh command
+//! (`make fixtures:blank`): it writes `blank.xlsx` (the built-in blank
+//! workbook of `xlsx-graft-write` as it is), `blank-created.xlsx` (a workbook
+//! made from it by the create procedure: a first sheet `Sheet1` with values
+//! and a second sheet `Data`), `blank-font.xlsx` (the same with the font Yu
+//! Gothic 11, and `customHeight="1"` on the default row height 15, which
+//! Excel is to show as 15 points) and `blank-row-height.xlsx` (the same with
+//! Yu Gothic 11 and the row height 20), to see whether Excel opens what the
+//! writer makes.
+//!
 //! The binary prints the path of each workbook once it is written, and
 //! exits 0. It exits 2 when the arguments are not a directory followed by
 //! books of that form with `<n>` from 1 to [`MAX_ROWS`], when `repack`,
 //! `styles`, `structure` or `layout` is not followed by two directories, or
-//! when `cells` is not followed by one directory, and 1 when a workbook cannot be written or its path cannot be
-//! printed ([`FixturesGenError::exit_status`]).
+//! when `cells` or `blank` is not followed by one directory, and 1 when a
+//! workbook cannot be written or its path cannot be printed
+//! ([`FixturesGenError::exit_status`]).
 
+mod blank;
 mod book;
 mod cells;
 mod error;
@@ -95,8 +107,9 @@ pub const MAX_ROWS: u32 = 1_048_575;
 /// When the first argument is `repack`, `styles`, `structure` or `layout`, the
 /// command is that one's instead: two directories follow it, and a directory
 /// named `repack`, `styles`, `structure` or `layout` is written `./repack`,
-/// `./styles`, `./structure` or `./layout`. When it is `cells`, one
-/// directory follows it, and a directory named `cells` is written `./cells`.
+/// `./styles`, `./structure` or `./layout`. When it is `cells` or `blank`, one
+/// directory follows it, and a directory named `cells` or `blank` is written
+/// `./cells` or `./blank`.
 ///
 /// # Errors
 ///
@@ -110,6 +123,9 @@ pub fn run(args: &[OsString], out: &mut dyn Write) -> Result<(), FixturesGenErro
         }
         if command == "cells" {
             return cells::run(rest, out);
+        }
+        if command == "blank" {
+            return blank::run(rest, out);
         }
         if command == "styles" {
             return styles::run(rest, out);

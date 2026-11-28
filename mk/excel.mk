@@ -210,3 +210,25 @@ fixtures\:structure: ## Write each workbook of fixtures/ with a sheet renamed, a
 fixtures\:layout: ## Write each workbook of fixtures/ with its first sheet's cells merged, columns and rows sized, panes frozen and sheet protected, and its sheets made active, hidden and very hidden, into fixtures/generated/layout/ (gitignored), for make excel:check
 	$(CARGO_IN_DOCKER) 'cd /repo && cargo run --manifest-path engine/Cargo.toml -p xlsx-graft-fixtures-gen \
 		--release --locked $(CARGO_JOBS) -- layout fixtures fixtures/generated/layout'
+
+# fixtures:blank — writes four workbooks made from the engine's built-in
+# blank workbook (engine/write's `blank` module) into fixtures/generated/blank/,
+# which git ignores, for `make excel:check` to open on a Mac and show that
+# Excel accepts them: blank.xlsx, the built-in workbook as it is (one empty
+# sheet `Sheet1`, Calibri 11, defaultRowHeight 15); blank-created.xlsx, the
+# create procedure of that module on it (a first sheet `Sheet1`, the name of
+# the built-in sheet, with a header row and rows of a string, a number and a
+# boolean, then a second sheet `Data`); blank-font.xlsx, the same with the
+# font Yu Gothic 11 alone (defaultRowHeight 15 with customHeight, which Excel
+# is to show as rows 15 points high, not the height it computes from the
+# font); and blank-row-height.xlsx, the same with Yu Gothic 11 and the row
+# height 20 (defaultRowHeight 20 with customHeight). Runs in the toolchain
+# image like fixtures:layout, and is not a gate and not a member of verify: it
+# prints the release build's output and the path of each workbook written, and
+# proves nothing. A workbook already there under the same name is replaced.
+
+.PHONY: fixtures\:blank
+
+fixtures\:blank: ## Write the built-in blank workbook and three workbooks made from it (fonts and row heights) into fixtures/generated/blank/ (gitignored), for make excel:check
+	$(CARGO_IN_DOCKER) 'cd /repo && cargo run --manifest-path engine/Cargo.toml -p xlsx-graft-fixtures-gen \
+		--release --locked $(CARGO_JOBS) -- blank fixtures/generated/blank'

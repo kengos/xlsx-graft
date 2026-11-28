@@ -2,7 +2,9 @@
 //! the first rule it breaks.
 
 use super::range;
-use crate::sheet::{ColumnWidth, Columns, FrozenPanes, MergedCells, RowHeight, SheetError};
+use crate::sheet::{
+    ColumnWidth, Columns, FrozenPanes, MergedCells, RowHeight, SheetError, SheetFormat,
+};
 
 fn width(first: u16, last: u16) -> ColumnWidth {
     ColumnWidth::new(first, last, 10.0).unwrap()
@@ -73,6 +75,38 @@ fn a_row_height_takes_rows_1_to_1048576_and_a_height_to_409() {
         RowHeight::new(1, f64::NAN),
         Err(SheetError::RowHeight { height }) if height.is_nan()
     ));
+}
+
+#[test]
+fn a_sheet_format_takes_a_default_row_height_from_0_to_409_with_or_without_custom_height() {
+    for height in [0.0, 409.0, 15.0, 12.75, -0.0] {
+        let format = SheetFormat::new(height).unwrap();
+        assert_eq!(format.default_row_height(), height);
+        assert!(!format.custom_height());
+        let format = SheetFormat::custom(height).unwrap();
+        assert_eq!(format.default_row_height(), height);
+        assert!(format.custom_height());
+    }
+    for height in [
+        409.000_000_1,
+        410.0,
+        -0.000_1,
+        -0.1,
+        409.1,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+    ] {
+        let error = Err(SheetError::RowHeight { height });
+        assert_eq!(SheetFormat::new(height), error, "{height}");
+        assert_eq!(SheetFormat::custom(height), error, "{height}");
+    }
+    for got in [SheetFormat::new(f64::NAN), SheetFormat::custom(f64::NAN)] {
+        assert!(matches!(
+            got,
+            Err(SheetError::RowHeight { height }) if height.is_nan()
+        ));
+    }
+    assert_eq!(SheetFormat::blank(), SheetFormat::new(15.0).unwrap());
 }
 
 #[test]

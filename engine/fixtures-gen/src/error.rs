@@ -11,11 +11,11 @@ use thiserror::Error;
 /// stopped stay written.
 #[derive(Debug, Error)]
 pub enum FixturesGenError {
-    /// The command line gives no directory, `repack`, `styles` or `structure`
-    /// is not followed by two directories, or `cells` is not followed by exactly
-    /// one directory.
+    /// The command line gives no directory, `repack`, `styles`, `structure`
+    /// or `layout` is not followed by two directories, or `cells` or `blank`
+    /// is not followed by exactly one directory.
     #[error(
-        "usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir> | cells <dir> | styles <fixtures-dir> <dir> | structure <fixtures-dir> <dir>"
+        "usage: xlsx-graft-fixtures-gen <dir> [rows-<n>|shared-<n>...] | repack <fixtures-dir> <dir> | cells <dir> | blank <dir> | styles <fixtures-dir> <dir> | structure <fixtures-dir> <dir>"
     )]
     Usage,
     /// A book on the command line is not `rows-<n>` or `shared-<n>` with
@@ -61,6 +61,16 @@ pub enum FixturesGenError {
         /// The error, as text.
         detail: String,
     },
+    /// `blank` could not write the workbook at `path`: its defaults were
+    /// refused, the built-in workbook could not be edited, or the zip or the
+    /// file could not be written. `detail` says which.
+    #[error("{}: {detail}", path.display())]
+    Blank {
+        /// The workbook that was being written.
+        path: PathBuf,
+        /// The error, as text.
+        detail: String,
+    },
     /// Writing the line that names a written workbook to `out` (standard
     /// output in the binary) failed.
     #[error("writing to the output failed: {0}")]
@@ -79,6 +89,7 @@ impl FixturesGenError {
             | Self::Xlsx { .. }
             | Self::Repack { .. }
             | Self::Cells { .. }
+            | Self::Blank { .. }
             | Self::Output(_) => 1,
         }
     }
