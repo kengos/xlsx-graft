@@ -233,6 +233,19 @@
 #                               F='fixtures/generated/layout/*' tells whether
 #                               Excel opens them without a repair
 #                               (engine/fixtures-gen layout)
+#     make fixtures:blank       write blank.xlsx (engine/write's built-in blank
+#                               workbook as it is), blank-created.xlsx (a
+#                               workbook made from it by the create procedure:
+#                               a first sheet Sheet1 with values, a second
+#                               sheet Data), blank-font.xlsx (the same with the
+#                               font Yu Gothic 11, which Excel is to show with
+#                               rows 15 points high) and blank-row-height.xlsx
+#                               (Yu Gothic 11 and the row height 20) into
+#                               fixtures/generated/blank/ (gitignored); then,
+#                               on a Mac, make excel:check
+#                               F='fixtures/generated/blank/*' tells whether
+#                               Excel opens them without a repair
+#                               (engine/fixtures-gen blank)
 #
 #   Benchmarks (in Docker; not a gate, not in verify: the result changes with
 #   the machine and the day; the one exception is bench:memory, a gate in

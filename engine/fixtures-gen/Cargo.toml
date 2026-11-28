@@ -1,6 +1,6 @@
 [package]
 name = "xlsx-graft-fixtures-gen"
-description = "Writes the large workbooks (rows and shared strings) `make fixtures:generate` puts in fixtures/generated/, the workbooks of fixtures/ written again by the engine (`make fixtures:repack`) and again with cell formats given to their first cells (`make fixtures:styles`) and with their sheets renamed, added, moved and deleted (`make fixtures:structure`), and with the layout of their first sheets and the visibility of their sheets edited (`make fixtures:layout`), and workbooks of cell values written by the engine (`make fixtures:cells`)"
+description = "Writes the large workbooks (rows and shared strings) `make fixtures:generate` puts in fixtures/generated/, the workbooks of fixtures/ written again by the engine (`make fixtures:repack`) and again with cell formats given to their first cells (`make fixtures:styles`) and with their sheets renamed, added, moved and deleted (`make fixtures:structure`), and with the layout of their first sheets and the visibility of their sheets edited (`make fixtures:layout`), and workbooks of cell values written by the engine (`make fixtures:cells`), and workbooks made from the engine's built-in blank workbook (`make fixtures:blank`)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
